@@ -121,3 +121,6 @@ docker compose --profile dns up -d
 - [داشبورد DNS نیتیو](images/native-dns-desktop.png)
 - [حالت تیره](images/native-dns-dark.png)
 - [نمای موبایل](images/native-dns-mobile.png)
+
+
+تونل TCP/UDP بومی نودها نیز اضافه شده است؛ راه‌اندازی، مرز آن با SmartDNS و شواهد در [راهنمای تونل](NATIVE-TUNNELS.fa.md) آمده است.

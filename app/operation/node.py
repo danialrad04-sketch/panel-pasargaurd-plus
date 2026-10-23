@@ -376,8 +376,12 @@ class NodeOperation(BaseOperation):
             batch_wireguard_users = (
                 backend_type == service.BackendType.WIREGUARD and len(users) >= WIREGUARD_BATCHED_START_THRESHOLD
             )
+            from app.tunnel.runtime import node_payload
+
+            # Compose before Stop: invalid overlays cannot tear down a running core.
+            native_config, native_excluded = await node_payload(db_node.id, core)
             start_kwargs = {
-                "config": core.to_str(),
+                "config": native_config,
                 "backend_type": backend_type,
                 # Starting WireGuard with thousands of peers makes the lifecycle RPC
                 # exceed its short timeout. Bring up the interface first, then apply
@@ -386,7 +390,7 @@ class NodeOperation(BaseOperation):
                 "keep_alive": db_node.keep_alive,
             }
             if core.type == CoreType.xray:
-                start_kwargs["exclude_inbounds"] = core.exclude_inbound_tags
+                start_kwargs["exclude_inbounds"] = native_excluded
 
             if force_start and stop_first:
                 try:
@@ -446,7 +450,13 @@ class NodeOperation(BaseOperation):
 
     @staticmethod
     async def connect_node(
-        db_node: Node, core, users: CoreUsers, *, force_start: bool = False, stop_first: bool = True
+        db_node: Node,
+        core,
+        users: CoreUsers,
+        *,
+        force_start: bool = False,
+        stop_first: bool = True,
+        require_start_ack: bool = False,
     ) -> dict | None:
         """
         Connect to a node and return status result (does NOT update database).
@@ -509,6 +519,10 @@ class NodeOperation(BaseOperation):
                 "old_status": old_status,
             }
         except NodeAPIError as e:
+            if require_start_ack and e.code in (409, -1):
+                # A running previous configuration cannot acknowledge this deployment.
+                # Keep the revision pending when Start is busy or its result is unknown.
+                return None
             if e.code == -4:
                 return None
             if e.code == 409:
@@ -609,11 +623,22 @@ class NodeOperation(BaseOperation):
         return node
 
     async def modify_node(self, db: AsyncSession, node_id: int, modified_node: NodeModify, admin: AdminDetails) -> Node:
+        from app.tunnel.guards import lock_state
+
+        if {"address", "core_config_id", "port", "api_port"} & modified_node.model_fields_set:
+            await lock_state(db)
         db_node = await self.get_validated_node(db=db, node_id=node_id)
         if modified_node.core_config_id is not None:
             await self.get_validated_core_config(db, modified_node.core_config_id)
 
         updates = modified_node.model_dump(exclude_none=True)
+        if any(
+            field in updates and updates[field] != getattr(db_node, field)
+            for field in ("address", "core_config_id", "port", "api_port")
+        ):
+            from app.tunnel.guards import assert_node_unreferenced
+
+            await assert_node_unreferenced(db, [node_id])
         current = {field: getattr(db_node, field) for field in NODE_RESTART_FIELDS}
         # A node without a core runs the default core; sending it is not a core change.
         current["core_config_id"] = current["core_config_id"] or 1
@@ -991,7 +1016,13 @@ class NodeOperation(BaseOperation):
             await publish_node_sync("connect", node_id)
 
     async def _connect_single_node_local(
-        self, db: AsyncSession, node_id: int, *, force_start: bool = False, defer_health_status: bool = False
+        self,
+        db: AsyncSession,
+        node_id: int,
+        *,
+        force_start: bool = False,
+        defer_health_status: bool = False,
+        require_start_ack: bool = False,
     ) -> bool:
         db_node = await get_node_by_id(db, node_id, load_usage_logs=False)
         if db_node is None or db_node.status in (NodeStatus.disabled, NodeStatus.limited):
@@ -1028,7 +1059,8 @@ class NodeOperation(BaseOperation):
             return False
 
         # Connect the node
-        result = await NodeOperation.connect_node(db_node, core, users, force_start=force_start)
+        connect_options = {"require_start_ack": True} if require_start_ack else {}
+        result = await NodeOperation.connect_node(db_node, core, users, force_start=force_start, **connect_options)
 
         if not result:
             return False

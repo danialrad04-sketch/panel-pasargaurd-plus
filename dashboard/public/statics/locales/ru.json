@@ -3946,5 +3946,8 @@
   },
   "dns": {
     "title": "DNS & domain policies"
+  },
+  "tunnels": {
+    "title": "Туннели узлов"
   }
 }

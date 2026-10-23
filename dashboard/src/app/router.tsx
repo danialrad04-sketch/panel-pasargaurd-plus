@@ -29,6 +29,7 @@ const Hosts = lazyWithChunkRecovery(() => import('../pages/_dashboard.hosts'))
 const Nodes = lazyWithChunkRecovery(() => import('../pages/_dashboard.nodes'))
 const NodesPage = lazyWithChunkRecovery(() => import('../pages/_dashboard.nodes._index'))
 const NodeLogs = lazyWithChunkRecovery(() => import('../pages/_dashboard.nodes.logs'))
+const TunnelsPage = lazyWithChunkRecovery(() => import('../pages/_dashboard.tunnels'))
 const DNSPage = lazyWithChunkRecovery(() => import('../pages/_dashboard.dns'))
 const NodeWireGuard = lazyWithChunkRecovery(() => import('../pages/_dashboard.nodes.wireguard'))
 const Settings = lazyWithChunkRecovery(() => import('../pages/_dashboard.settings'))
@@ -126,6 +127,14 @@ export const router = createHashRouter([
         element: (
           <Suspense fallback={<LoadingSpinner />}>
             <Statistics />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/tunnels',
+        element: (
+          <Suspense fallback={<LoadingSpinner />}>
+            <TunnelsPage />
           </Suspense>
         ),
       },

@@ -245,3 +245,5 @@ pasarguard --help
 ## افزونه‌های PasarGuard Plus
 
 خدمات DNS نیتیو با کاربران، سهمیه و مجوزهای پاسارگارد و طراحی جدید صفحه ساب: [راهنمای ادغام و محدوده امکانات](docs/DONINO-INTEGRATION.fa.md).
+
+[Native node TCP/UDP tunnels / تونل بومی نودها](docs/NATIVE-TUNNELS.fa.md)

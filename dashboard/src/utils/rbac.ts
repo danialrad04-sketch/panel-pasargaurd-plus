@@ -86,6 +86,7 @@ export const canAccessRoute = (admin: AdminDetails | null | undefined, pathname:
   if (pathname === '/nodes/cores') return canReadResourcePage(admin, 'cores')
   if (pathname === '/nodes/cores/new') return hasPermission(admin, 'cores', 'create')
   if (pathname.startsWith('/nodes/cores/')) return hasPermission(admin, 'cores', 'update')
+  if (pathname.startsWith('/tunnels')) return isOwner(admin)
   if (pathname.startsWith('/dns')) return hasPermission(admin, 'dns', 'read')
   if (pathname.startsWith('/nodes/wireguard')) return canReadResourcePage(admin, 'cores')
   if (pathname.startsWith('/nodes/logs')) return hasPermission(admin, 'nodes', 'logs')

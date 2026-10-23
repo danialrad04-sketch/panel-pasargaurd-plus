@@ -2566,6 +2566,138 @@ export interface Token {
   token_type?: string;
 }
 
+export type TunnelAuditViewDetails = { [key: string]: unknown };
+
+export interface TunnelAuditView {
+  id: number;
+  created_at: string;
+  actor: string;
+  action: string;
+  target_id: string;
+  details: TunnelAuditViewDetails;
+}
+
+export interface TunnelCreate {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  name: string;
+  /**
+     * @minItems 1
+     * @maxItems 128
+     */
+  inbound_tags: string[];
+  /** @maxItems 2000 */
+  domains?: string[];
+  /**
+     * @minimum 1024
+     * @maximum 65535
+     */
+  port?: number;
+  enabled?: boolean;
+  /** @exclusiveMinimum 0 */
+  source_node_id: number;
+  /** @exclusiveMinimum 0 */
+  exit_node_id: number;
+}
+
+export type TunnelDeployResultState = typeof TunnelDeployResultState[keyof typeof TunnelDeployResultState];
+
+
+export const TunnelDeployResultState = {
+  applying: 'applying',
+  applied: 'applied',
+  partial_failure: 'partial_failure',
+  no_changes: 'no_changes',
+} as const;
+
+export interface TunnelNodeResult {
+  node_id: number;
+  ok: boolean;
+}
+
+export interface TunnelDeployResult {
+  ok: boolean;
+  state: TunnelDeployResultState;
+  nodes?: TunnelNodeResult[];
+  traffic_readiness?: 'not_probed';
+}
+
+export interface TunnelModify {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  name: string;
+  /**
+     * @minItems 1
+     * @maxItems 128
+     */
+  inbound_tags: string[];
+  /** @maxItems 2000 */
+  domains?: string[];
+  /**
+     * @minimum 1024
+     * @maximum 65535
+     */
+  port?: number;
+  enabled?: boolean;
+  /** @minimum 1 */
+  expected_revision: number;
+}
+
+export interface TunnelNodeOption {
+  id: number;
+  name: string;
+  address: string;
+  status: string;
+  core_type: string;
+  inbound_tags: string[];
+}
+
+export interface TunnelRevision {
+  /** @minimum 1 */
+  expected_revision: number;
+}
+
+export interface TunnelView {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  name: string;
+  /**
+     * @minItems 1
+     * @maxItems 128
+     */
+  inbound_tags: string[];
+  /** @maxItems 2000 */
+  domains?: string[];
+  /**
+     * @minimum 1024
+     * @maximum 65535
+     */
+  port?: number;
+  enabled?: boolean;
+  id: number;
+  source_node_id: number;
+  exit_node_id: number;
+  revision: number;
+  applied_revision: number;
+  transport?: 'shadowsocks-2022';
+  networks?: string[];
+}
+
+export interface TunnelState {
+  items: TunnelView[];
+  nodes: TunnelNodeOption[];
+  applying: boolean;
+  lease_until?: string | null;
+  last_result: TunnelDeployResult | null;
+  traffic_readiness?: 'not_probed';
+}
+
 export interface Unauthorized {
   detail?: string;
 }
@@ -2999,6 +3131,18 @@ limit?: number;
 };
 
 export type AuditParams = {
+/**
+ * @minimum 0
+ */
+offset?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+};
+
+export type NativeTunnelAuditParams = {
 /**
  * @minimum 0
  */
@@ -10119,6 +10263,573 @@ export const useDnsQueryPost = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getDnsQueryPostMutationOptions(options), queryClient);
     }
+
+export const getNativeTunnelStateUrl = () => {
+
+
+
+
+  return `/api/tunnels`
+}
+
+/**
+ * @summary Native Tunnel State
+ */
+export const nativeTunnelState = async ( options?: RequestInit): Promise<TunnelState> => {
+
+  return orvalFetcher<TunnelState>(getNativeTunnelStateUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getNativeTunnelStateQueryKey = () => {
+    return [
+    `/api/tunnels`
+    ] as const;
+    }
+
+
+export const getNativeTunnelStateQueryOptions = <TData = Awaited<ReturnType<typeof nativeTunnelState>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeTunnelState>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getNativeTunnelStateQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof nativeTunnelState>>> = ({ signal }) => nativeTunnelState({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof nativeTunnelState>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type NativeTunnelStateQueryResult = NonNullable<Awaited<ReturnType<typeof nativeTunnelState>>>
+export type NativeTunnelStateQueryError = ErrorType<unknown>
+
+
+export function useNativeTunnelState<TData = Awaited<ReturnType<typeof nativeTunnelState>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeTunnelState>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeTunnelState>>,
+          TError,
+          Awaited<ReturnType<typeof nativeTunnelState>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeTunnelState<TData = Awaited<ReturnType<typeof nativeTunnelState>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeTunnelState>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeTunnelState>>,
+          TError,
+          Awaited<ReturnType<typeof nativeTunnelState>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeTunnelState<TData = Awaited<ReturnType<typeof nativeTunnelState>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeTunnelState>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Native Tunnel State
+ */
+
+export function useNativeTunnelState<TData = Awaited<ReturnType<typeof nativeTunnelState>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeTunnelState>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getNativeTunnelStateQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateNativeTunnelUrl = () => {
+
+
+
+
+  return `/api/tunnels`
+}
+
+/**
+ * @summary Create Native Tunnel
+ */
+export const createNativeTunnel = async (tunnelCreate: TunnelCreate, options?: RequestInit): Promise<TunnelView> => {
+
+  return orvalFetcher<TunnelView>(getCreateNativeTunnelUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tunnelCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateNativeTunnelMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNativeTunnel>>, TError,{data: BodyType<TunnelCreate>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof createNativeTunnel>>, TError,{data: BodyType<TunnelCreate>}, TContext> => {
+
+const mutationKey = ['createNativeTunnel'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createNativeTunnel>>, {data: BodyType<TunnelCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createNativeTunnel(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateNativeTunnelMutationResult = NonNullable<Awaited<ReturnType<typeof createNativeTunnel>>>
+    export type CreateNativeTunnelMutationBody = BodyType<TunnelCreate>
+    export type CreateNativeTunnelMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Create Native Tunnel
+ */
+export const useCreateNativeTunnel = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNativeTunnel>>, TError,{data: BodyType<TunnelCreate>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createNativeTunnel>>,
+        TError,
+        {data: BodyType<TunnelCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateNativeTunnelMutationOptions(options), queryClient);
+    }
+
+export const getUpdateNativeTunnelUrl = (tunnelId: number,) => {
+
+
+
+
+  return `/api/tunnels/${tunnelId}`
+}
+
+/**
+ * @summary Update Native Tunnel
+ */
+export const updateNativeTunnel = async (tunnelId: number,
+    tunnelModify: TunnelModify, options?: RequestInit): Promise<TunnelView> => {
+
+  return orvalFetcher<TunnelView>(getUpdateNativeTunnelUrl(tunnelId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tunnelModify)
+  }
+);}
+
+
+
+
+
+export const getUpdateNativeTunnelMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateNativeTunnel>>, TError,{tunnelId: number;data: BodyType<TunnelModify>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateNativeTunnel>>, TError,{tunnelId: number;data: BodyType<TunnelModify>}, TContext> => {
+
+const mutationKey = ['updateNativeTunnel'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateNativeTunnel>>, {tunnelId: number;data: BodyType<TunnelModify>}> = (props) => {
+          const {tunnelId,data} = props ?? {};
+
+          return  updateNativeTunnel(tunnelId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateNativeTunnelMutationResult = NonNullable<Awaited<ReturnType<typeof updateNativeTunnel>>>
+    export type UpdateNativeTunnelMutationBody = BodyType<TunnelModify>
+    export type UpdateNativeTunnelMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Update Native Tunnel
+ */
+export const useUpdateNativeTunnel = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateNativeTunnel>>, TError,{tunnelId: number;data: BodyType<TunnelModify>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateNativeTunnel>>,
+        TError,
+        {tunnelId: number;data: BodyType<TunnelModify>},
+        TContext
+      > => {
+      return useMutation(getUpdateNativeTunnelMutationOptions(options), queryClient);
+    }
+
+export const getDeleteNativeTunnelUrl = (tunnelId: number,) => {
+
+
+
+
+  return `/api/tunnels/${tunnelId}`
+}
+
+/**
+ * @summary Delete Native Tunnel
+ */
+export const deleteNativeTunnel = async (tunnelId: number,
+    tunnelRevision: TunnelRevision, options?: RequestInit): Promise<void> => {
+
+  return orvalFetcher<void>(getDeleteNativeTunnelUrl(tunnelId),
+  {
+    ...options,
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tunnelRevision)
+  }
+);}
+
+
+
+
+
+export const getDeleteNativeTunnelMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteNativeTunnel>>, TError,{tunnelId: number;data: BodyType<TunnelRevision>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteNativeTunnel>>, TError,{tunnelId: number;data: BodyType<TunnelRevision>}, TContext> => {
+
+const mutationKey = ['deleteNativeTunnel'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteNativeTunnel>>, {tunnelId: number;data: BodyType<TunnelRevision>}> = (props) => {
+          const {tunnelId,data} = props ?? {};
+
+          return  deleteNativeTunnel(tunnelId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteNativeTunnelMutationResult = NonNullable<Awaited<ReturnType<typeof deleteNativeTunnel>>>
+    export type DeleteNativeTunnelMutationBody = BodyType<TunnelRevision>
+    export type DeleteNativeTunnelMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Delete Native Tunnel
+ */
+export const useDeleteNativeTunnel = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteNativeTunnel>>, TError,{tunnelId: number;data: BodyType<TunnelRevision>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteNativeTunnel>>,
+        TError,
+        {tunnelId: number;data: BodyType<TunnelRevision>},
+        TContext
+      > => {
+      return useMutation(getDeleteNativeTunnelMutationOptions(options), queryClient);
+    }
+
+export const getRotateNativeTunnelUrl = (tunnelId: number,) => {
+
+
+
+
+  return `/api/tunnels/${tunnelId}/rotate`
+}
+
+/**
+ * @summary Rotate Native Tunnel
+ */
+export const rotateNativeTunnel = async (tunnelId: number,
+    tunnelRevision: TunnelRevision, options?: RequestInit): Promise<TunnelView> => {
+
+  return orvalFetcher<TunnelView>(getRotateNativeTunnelUrl(tunnelId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tunnelRevision)
+  }
+);}
+
+
+
+
+
+export const getRotateNativeTunnelMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rotateNativeTunnel>>, TError,{tunnelId: number;data: BodyType<TunnelRevision>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof rotateNativeTunnel>>, TError,{tunnelId: number;data: BodyType<TunnelRevision>}, TContext> => {
+
+const mutationKey = ['rotateNativeTunnel'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rotateNativeTunnel>>, {tunnelId: number;data: BodyType<TunnelRevision>}> = (props) => {
+          const {tunnelId,data} = props ?? {};
+
+          return  rotateNativeTunnel(tunnelId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RotateNativeTunnelMutationResult = NonNullable<Awaited<ReturnType<typeof rotateNativeTunnel>>>
+    export type RotateNativeTunnelMutationBody = BodyType<TunnelRevision>
+    export type RotateNativeTunnelMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Rotate Native Tunnel
+ */
+export const useRotateNativeTunnel = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rotateNativeTunnel>>, TError,{tunnelId: number;data: BodyType<TunnelRevision>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof rotateNativeTunnel>>,
+        TError,
+        {tunnelId: number;data: BodyType<TunnelRevision>},
+        TContext
+      > => {
+      return useMutation(getRotateNativeTunnelMutationOptions(options), queryClient);
+    }
+
+export const getApplyNativeTunnelsUrl = () => {
+
+
+
+
+  return `/api/tunnels/apply`
+}
+
+/**
+ * @summary Apply Native Tunnels
+ */
+export const applyNativeTunnels = async ( options?: RequestInit): Promise<TunnelDeployResult> => {
+
+  return orvalFetcher<TunnelDeployResult>(getApplyNativeTunnelsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getApplyNativeTunnelsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyNativeTunnels>>, TError,void, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof applyNativeTunnels>>, TError,void, TContext> => {
+
+const mutationKey = ['applyNativeTunnels'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof applyNativeTunnels>>, void> = () => {
+
+
+          return  applyNativeTunnels(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApplyNativeTunnelsMutationResult = NonNullable<Awaited<ReturnType<typeof applyNativeTunnels>>>
+
+    export type ApplyNativeTunnelsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Apply Native Tunnels
+ */
+export const useApplyNativeTunnels = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyNativeTunnels>>, TError,void, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof applyNativeTunnels>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getApplyNativeTunnelsMutationOptions(options), queryClient);
+    }
+
+export const getNativeTunnelAuditUrl = (params?: NativeTunnelAuditParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/tunnels/audit?${stringifiedParams}` : `/api/tunnels/audit`
+}
+
+/**
+ * @summary Native Tunnel Audit
+ */
+export const nativeTunnelAudit = async (params?: NativeTunnelAuditParams, options?: RequestInit): Promise<TunnelAuditView[]> => {
+
+  return orvalFetcher<TunnelAuditView[]>(getNativeTunnelAuditUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getNativeTunnelAuditQueryKey = (params?: NativeTunnelAuditParams,) => {
+    return [
+    `/api/tunnels/audit`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getNativeTunnelAuditQueryOptions = <TData = Awaited<ReturnType<typeof nativeTunnelAudit>>, TError = ErrorType<HTTPValidationError>>(params?: NativeTunnelAuditParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeTunnelAudit>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getNativeTunnelAuditQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof nativeTunnelAudit>>> = ({ signal }) => nativeTunnelAudit(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof nativeTunnelAudit>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type NativeTunnelAuditQueryResult = NonNullable<Awaited<ReturnType<typeof nativeTunnelAudit>>>
+export type NativeTunnelAuditQueryError = ErrorType<HTTPValidationError>
+
+
+export function useNativeTunnelAudit<TData = Awaited<ReturnType<typeof nativeTunnelAudit>>, TError = ErrorType<HTTPValidationError>>(
+ params: undefined |  NativeTunnelAuditParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeTunnelAudit>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeTunnelAudit>>,
+          TError,
+          Awaited<ReturnType<typeof nativeTunnelAudit>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeTunnelAudit<TData = Awaited<ReturnType<typeof nativeTunnelAudit>>, TError = ErrorType<HTTPValidationError>>(
+ params?: NativeTunnelAuditParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeTunnelAudit>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeTunnelAudit>>,
+          TError,
+          Awaited<ReturnType<typeof nativeTunnelAudit>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeTunnelAudit<TData = Awaited<ReturnType<typeof nativeTunnelAudit>>, TError = ErrorType<HTTPValidationError>>(
+ params?: NativeTunnelAuditParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeTunnelAudit>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Native Tunnel Audit
+ */
+
+export function useNativeTunnelAudit<TData = Awaited<ReturnType<typeof nativeTunnelAudit>>, TError = ErrorType<HTTPValidationError>>(
+ params?: NativeTunnelAuditParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeTunnelAudit>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getNativeTunnelAuditQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetSettingsUrl = () => {
 

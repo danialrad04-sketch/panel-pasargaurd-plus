@@ -261,7 +261,9 @@ class User(Base, CreatedAtUTCMixin):
         uselist=False, back_populates="user", cascade="all, delete-orphan", init=False
     )
     hwids: Mapped[list[UserHWID]] = relationship(back_populates="user", cascade="all, delete-orphan", init=False)
-    dns_account: Mapped[DNSAccount | None] = relationship(back_populates="user", cascade="all, delete-orphan", init=False)
+    dns_account: Mapped[DNSAccount | None] = relationship(
+        back_populates="user", cascade="all, delete-orphan", init=False
+    )
     groups: Mapped[list[Group]] = relationship(secondary=users_groups_association, back_populates="users", init=False)
     proxy_settings: Mapped[dict[str, Any]] = mapped_column(
         JSON(True), server_default=text("'{}'"), default_factory=dict
@@ -1123,3 +1125,26 @@ class ServiceAudit(Base, CreatedAtUTCMixin):
     action: Mapped[str] = mapped_column(String(64))
     target_id: Mapped[str] = mapped_column(String(64))
     details: Mapped[dict] = mapped_column(PostgresJSONB, default_factory=dict)
+
+
+class NativeTunnel(Base, CreatedAtUTCMixin):
+    __tablename__ = "native_tunnels"
+    name: Mapped[str] = mapped_column(String(80), unique=True)
+    source_node_id: Mapped[int] = fk_id_column("nodes.id", ondelete="RESTRICT", index=True)
+    exit_node_id: Mapped[int] = fk_id_column("nodes.id", ondelete="RESTRICT", index=True)
+    # Same protected database boundary as native core private keys; never returned by the API.
+    shared_key: Mapped[str] = mapped_column(String(44), repr=False)
+    inbound_tags: Mapped[list] = mapped_column(PostgresJSONB, default_factory=list)
+    domains: Mapped[list] = mapped_column(PostgresJSONB, default_factory=list)
+    port: Mapped[int] = mapped_column(default=40900)
+    enabled: Mapped[bool] = mapped_column(default=False)
+    revision: Mapped[int] = mapped_column(default=1)
+    applied_revision: Mapped[int] = mapped_column(default=0)
+
+
+class TunnelDeployment(Base):
+    __tablename__ = "tunnel_deployment"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    lease: Mapped[str | None] = mapped_column(String(36), default=None)
+    lease_until: Mapped[dt | None] = mapped_column(DateTime(timezone=True), default=None)
+    last_result: Mapped[dict] = mapped_column(PostgresJSONB, default_factory=dict)

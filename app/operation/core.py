@@ -167,6 +167,9 @@ class CoreOperation(BaseOperation):
     async def modify_core(
         self, db: AsyncSession, core_id: int, modified_core: CoreCreate, admin: AdminDetails
     ) -> CoreModification:
+        from app.operation.tunnel import validate_core_change
+
+        await validate_core_change(db, core_id, modified_core)
         db_core = await self.get_validated_core_config(db, core_id)
         was_wg = bool(wg_core_interfaces(db_core))
         # What nodes run now, read before update_core replaces it.
@@ -200,12 +203,18 @@ class CoreOperation(BaseOperation):
         return CoreModification(core, only_live_parts_changed(before, node_facing(validated_core)))
 
     async def delete_core(self, db: AsyncSession, core_id: int, admin: AdminDetails) -> None:
+        from app.tunnel.guards import lock_state
+
+        await lock_state(db)
         if core_id == 1:
             return await self.raise_error(message="Cannot delete default core config", code=403)
 
         db_core = await self.get_validated_core_config(db, core_id)
         was_wg = bool(wg_core_interfaces(db_core))
 
+        from app.tunnel.guards import assert_core_unreferenced
+
+        await assert_core_unreferenced(db, [core_id])
         await remove_core_config(db, db_core)
         await core_manager.remove_core(db_core.id)
 
@@ -221,6 +230,9 @@ class CoreOperation(BaseOperation):
         self, db: AsyncSession, bulk_cores: BulkCoreSelection, admin: AdminDetails
     ) -> RemoveCoresResponse:
         """Remove multiple cores by ID"""
+        from app.tunnel.guards import lock_state
+
+        await lock_state(db)
         ids_list = list(bulk_cores.ids)
         db_cores_list, _ = await get_core_configs(db, CoreListQuery(ids=ids_list, limit=len(ids_list)))
 
@@ -234,6 +246,9 @@ class CoreOperation(BaseOperation):
                 await self.raise_error(message="Cannot delete default core config", code=403)
 
         core_ids = [c.id for c in db_cores_list]
+        from app.tunnel.guards import assert_core_unreferenced
+
+        await assert_core_unreferenced(db, core_ids)
         core_names = [c.name for c in db_cores_list]
         any_wg = any(wg_core_interfaces(c) for c in db_cores_list)
 

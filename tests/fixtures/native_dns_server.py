@@ -19,11 +19,12 @@ from fastapi import FastAPI
 from sqlalchemy import select
 
 from app.db.base import Base, SessionLocal, engine
-from app.db.models import DNSPolicy, User
+from app.db.models import CoreConfig, DNSPolicy, Node, NodeStatus, TunnelDeployment, User
 from app.models.admin import AdminDetails, AdminRoleData
 from app.operation import dns as operation
 from app.routers.authentication import get_current
 from app.routers.dns import router
+from app.routers.tunnel import router as tunnel_router
 
 
 async def signing_key():
@@ -34,6 +35,7 @@ operation.get_secret_key = signing_key
 owner = AdminDetails(username="preview-owner", role=AdminRoleData(is_owner=True))
 app = FastAPI()
 app.include_router(router)
+app.include_router(tunnel_router)
 app.dependency_overrides[get_current] = lambda: owner
 
 
@@ -58,6 +60,37 @@ async def seed():
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
     async with SessionLocal() as db:
+        db.add(TunnelDeployment(id=1))
+        core = CoreConfig(
+            name="Native browser fixture",
+            config={
+                "inbounds": [
+                    {
+                        "tag": "users",
+                        "listen": "127.0.0.1",
+                        "port": 11080,
+                        "protocol": "vless",
+                        "settings": {"decryption": "none", "clients": []},
+                    }
+                ],
+                "outbounds": [{"tag": "direct", "protocol": "freedom"}],
+            },
+        )
+        db.add(core)
+        await db.flush()
+        for name in ("Iran", "Germany", "Finland"):
+            db.add(
+                Node(
+                    name=name,
+                    address="127.0.0.1",
+                    port=62050,
+                    api_port=62051,
+                    server_ca="intentionally-invalid-browser-fixture",
+                    api_key="fixture",
+                    core_config_id=core.id,
+                    status=NodeStatus.connected,
+                )
+            )
         db.add(User(username="native-user"))
         db.add(DNSPolicy(name="Privacy", rules=[{"domain": "blocked.example", "action": "block", "addresses": []}]))
         await db.commit()

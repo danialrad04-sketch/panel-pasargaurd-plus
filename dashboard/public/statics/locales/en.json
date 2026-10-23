@@ -3992,5 +3992,8 @@
   },
   "dns": {
     "title": "DNS & domain policies"
+  },
+  "tunnels": {
+    "title": "Node tunnels"
   }
 }

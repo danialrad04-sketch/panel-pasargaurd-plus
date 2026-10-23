@@ -3999,5 +3999,8 @@
   },
   "dns": {
     "title": "DNS & domain policies"
+  },
+  "tunnels": {
+    "title": "节点隧道"
   }
 }

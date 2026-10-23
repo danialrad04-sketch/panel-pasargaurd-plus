@@ -13,6 +13,16 @@ from app.operation import node as node_operation_module
 from app.operation.node import NodeOperation
 
 
+@pytest.fixture(autouse=True)
+def isolated_tunnel_payload(monkeypatch):
+    # Lifecycle tests mock the remote core and database. The real overlay/database
+    # boundary is covered separately by test_native_tunnels and real Xray traffic.
+    async def payload(node_id, core):
+        return core.to_str(), set(core.exclude_inbound_tags)
+
+    monkeypatch.setattr("app.tunnel.runtime.node_payload", payload)
+
+
 def test_default_timeout_allows_slow_node_startup():
     assert NodeModify(default_timeout=300).default_timeout == 300
 
@@ -74,7 +84,7 @@ async def test_force_start_skips_attach_and_starts_core(monkeypatch: pytest.Monk
     )
     attach = AsyncMock(return_value=object())
     monkeypatch.setattr(NodeOperation, "_attach_if_running", attach)
-    db_node = SimpleNamespace(name="england", keep_alive=60)
+    db_node = SimpleNamespace(id=1, name="england", keep_alive=60)
     core = SimpleNamespace(type=None, to_str=lambda: "{}", exclude_inbound_tags=[])
 
     result = await NodeOperation._start_or_attach_node(
@@ -272,7 +282,7 @@ async def test_force_start_without_stop_first_keeps_core_running(monkeypatch: py
     )
     attach = AsyncMock(return_value=object())
     monkeypatch.setattr(NodeOperation, "_attach_if_running", attach)
-    db_node = SimpleNamespace(name="england", keep_alive=60)
+    db_node = SimpleNamespace(id=1, name="england", keep_alive=60)
     core = SimpleNamespace(type=None, to_str=lambda: "{}", exclude_inbound_tags=[])
 
     result = await NodeOperation._start_or_attach_node(

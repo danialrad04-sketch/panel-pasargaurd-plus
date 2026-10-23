@@ -220,6 +220,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             },
           ]
         : []),
+      ...(isOwner(admin) ? [{ title: 'tunnels.title', url: '/tunnels', icon: Network }] : []),
       ...(hasPermission(admin, 'dns', 'read') ? [{ title: 'dns.title', url: '/dns', icon: Network }] : []),
       ...(canReadHosts
         ? [

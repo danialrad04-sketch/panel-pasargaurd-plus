@@ -18,6 +18,17 @@ from app.operation.node import (
     NodeOperation,
 )
 
+
+@pytest.fixture(autouse=True)
+def isolated_tunnel_payload(monkeypatch):
+    # Lifecycle tests mock the remote core and database. The real overlay/database
+    # boundary is covered separately by test_native_tunnels and real Xray traffic.
+    async def payload(node_id, core):
+        return core.to_str(), set(core.exclude_inbound_tags)
+
+    monkeypatch.setattr("app.tunnel.runtime.node_payload", payload)
+
+
 NODE_ID = 7
 STARTED = SimpleNamespace(node_version="0.5.4", core_version="1.0.0")
 
