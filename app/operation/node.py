@@ -376,10 +376,11 @@ class NodeOperation(BaseOperation):
             batch_wireguard_users = (
                 backend_type == service.BackendType.WIREGUARD and len(users) >= WIREGUARD_BATCHED_START_THRESHOLD
             )
-            from app.tunnel.runtime import node_payload
+            from app.tunnel.runtime import apply_node_engines, node_payload
 
             # Compose before Stop: invalid overlays cannot tear down a running core.
             native_config, native_excluded = await node_payload(db_node.id, core)
+            await apply_node_engines(db_node.id)
             start_kwargs = {
                 "config": native_config,
                 "backend_type": backend_type,
@@ -625,7 +626,7 @@ class NodeOperation(BaseOperation):
     async def modify_node(self, db: AsyncSession, node_id: int, modified_node: NodeModify, admin: AdminDetails) -> Node:
         from app.tunnel.guards import lock_state
 
-        if {"address", "core_config_id", "port", "api_port"} & modified_node.model_fields_set:
+        if {"address", "core_config_id", "port", "api_port", "tunnel_api_port"} & modified_node.model_fields_set:
             await lock_state(db)
         db_node = await self.get_validated_node(db=db, node_id=node_id)
         if modified_node.core_config_id is not None:
@@ -634,7 +635,7 @@ class NodeOperation(BaseOperation):
         updates = modified_node.model_dump(exclude_none=True)
         if any(
             field in updates and updates[field] != getattr(db_node, field)
-            for field in ("address", "core_config_id", "port", "api_port")
+            for field in ("address", "core_config_id", "port", "api_port", "tunnel_api_port")
         ):
             from app.tunnel.guards import assert_node_unreferenced
 
@@ -882,6 +883,9 @@ class NodeOperation(BaseOperation):
 
     async def update_node(self, db: AsyncSession, node_id: int) -> dict:
         await self.get_validated_node(db, node_id, load_usage_logs=False)
+        from app.tunnel.guards import assert_paqet_node_update_safe
+
+        await assert_paqet_node_update_safe(db, node_id)
         return await self._update_node_api_impl(node_id)
 
     async def update_core(self, db: AsyncSession, node_id: int, node_core_update: NodeCoreUpdate) -> dict:

@@ -2,10 +2,11 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_serializer, model_validator
 
 from app.dns.policy import DNSRule
 from app.models.validators import AwareDatetime, OptionalAwareDatetime
+from app.paqet.models import PaqetOptions
 
 
 class TunnelInput(BaseModel):
@@ -15,6 +16,9 @@ class TunnelInput(BaseModel):
     domains: list[str] = Field(default_factory=list, max_length=2000)
     port: int = Field(default=40900, ge=1024, le=65535)
     enabled: bool = False
+    transport: Literal["shadowsocks-2022", "paqet"] = "shadowsocks-2022"
+    paqet_options: PaqetOptions | None = None
+    paqet_key: SecretStr | None = Field(None, json_schema_extra={"writeOnly": True})
 
     @field_validator("name")
     @classmethod
@@ -58,12 +62,26 @@ class TunnelRevision(BaseModel):
 
 
 class TunnelView(TunnelInput):
+    engine_id: str
     id: int
     source_node_id: int
     exit_node_id: int
     revision: int
     applied_revision: int
-    transport: Literal["shadowsocks-2022"] = "shadowsocks-2022"
+    paqet_options: dict | None = Field(None, repr=False)
+    paqet_key: SecretStr | None = Field(None, exclude=True, repr=False)
+
+    @model_serializer(mode="wrap")
+    def private_options(self, handler):
+        value = handler(self)
+        if value.get("paqet_options"):
+            import copy
+
+            value["paqet_options"] = copy.deepcopy(value["paqet_options"])
+            for row in value["paqet_options"].get("socks5", []):
+                row["authenticated"] = bool(row.pop("password", ""))
+        return value
+
     networks: list[str] = ["tcp", "udp"]
     model_config = ConfigDict(from_attributes=True)
 

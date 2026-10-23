@@ -76,3 +76,104 @@ async def native_tunnel_audit(db: DB, admin: Owner, offset: int = Query(0, ge=0)
             .limit(limit)
         )
     ).all()
+
+
+@router.get("/paqet/schema")
+async def native_paqet_schema(admin: Owner):
+    from app.paqet.models import BLOCKS, VERSION, PaqetOptions
+
+    return {
+        "engine": VERSION,
+        "contract": 1,
+        "blocks": BLOCKS,
+        "defaults": PaqetOptions().model_dump(mode="json"),
+        "schema": PaqetOptions.model_json_schema(),
+        "source_commit": "4b81ce0ab56b7cc9aec7501c87c4804676cdb1b4",
+    }
+
+
+@router.get("/nodes/{node_id}/paqet")
+async def native_node_paqet_capability(node_id: int, db: DB, admin: Owner):
+    from app.db.models import Node
+    from app.paqet.client import PaqetNodeError, request
+
+    node = await db.get(Node, node_id)
+    if not node:
+        raise HTTPException(404, "Node not found")
+    try:
+        return await request(node, "GET", "capabilities")
+    except PaqetNodeError, ValueError:
+        raise HTTPException(
+            503, "Native Paqet capability unavailable; install the fork node and verify TLS/port"
+        ) from None
+
+
+@router.get("/nodes/{node_id}/paqet/network")
+async def native_node_paqet_network(node_id: int, peer: str, db: DB, admin: Owner):
+    import ipaddress
+
+    from app.db.models import Node
+    from app.paqet.client import PaqetNodeError, request
+
+    try:
+        peer = str(ipaddress.ip_address(peer))
+    except ValueError:
+        raise HTTPException(422, "Numeric peer IP required") from None
+    node = await db.get(Node, node_id)
+    if not node:
+        raise HTTPException(404, "Node not found")
+    try:
+        return await request(node, "GET", f"network?peer={peer}")
+    except PaqetNodeError, ValueError:
+        raise HTTPException(503, "Node network discovery unavailable") from None
+
+
+@router.get("/{tunnel_id}/paqet/status")
+async def native_paqet_status(tunnel_id: int, db: DB, admin: Owner):
+    import asyncio
+
+    from app.db.models import NativeTunnel, Node
+    from app.paqet.client import request
+
+    row = await db.get(NativeTunnel, tunnel_id)
+    if not row or row.transport != "paqet":
+        raise HTTPException(404, "Paqet tunnel not found")
+
+    async def side(node_id):
+        node = await db.get(Node, node_id)
+        return node
+
+    # Session access is sequential; only independent network calls run together.
+    source = await side(row.source_node_id)
+    exit_node = await side(row.exit_node_id)
+
+    async def probe(node):
+        try:
+            return {"available": True, "state": await request(node, "GET", f"links/{row.engine_id}")}
+        except RuntimeError, ValueError:
+            return {"available": False, "state": None}
+
+    a, b = await asyncio.gather(probe(source), probe(exit_node))
+    return {"source": a, "exit": b, "traffic_readiness": "not_probed"}
+
+
+@router.post("/{tunnel_id}/paqet/action")
+async def native_paqet_action(tunnel_id: int, action: str, side: str, body: TunnelRevision, db: DB, admin: Owner):
+    from app.db.models import Node
+    from app.paqet.client import PaqetNodeError, request
+
+    if action not in ("logs", "version", "ping", "dump", "restart") or side not in ("source", "exit"):
+        raise HTTPException(422, "Invalid Paqet action/side")
+    row = await operation.get_locked(db, tunnel_id, body.expected_revision)
+    if row.transport != "paqet":
+        raise HTTPException(404, "Paqet tunnel not found")
+    node = await db.get(Node, row.source_node_id if side == "source" else row.exit_node_id)
+    path = f"links/{row.engine_id}/{action}?revision={row.revision}"
+    await db.commit()
+    try:
+        result = await request(node, "POST", path)
+    except PaqetNodeError, ValueError:
+        raise HTTPException(503, "Node did not acknowledge the Paqet action") from None
+    operation.audit(db, admin.username, f"paqet.{action}", row.id, side=side, revision=row.revision)
+    await db.commit()
+    return result

@@ -2179,7 +2179,8 @@
     "updating": "Обновление...",
     "updateAvailable": "Доступно обновление",
     "prerelease": "Предварительная версия",
-    "loadingReleases": "Загрузка релизов..."
+    "loadingReleases": "Загрузка релизов...",
+    "tunnelApiPort": "Порт API туннеля / Paqet"
   },
   "theme": {
     "title": "Тема",

@@ -30,7 +30,15 @@ async def rows(db):
 
 
 async def validate_topology(db, tunnels, *, core_overrides=None):
+    for row in tunnels:
+        if row.transport == "paqet":
+            from app.paqet.models import PaqetOptions
+
+            PaqetOptions.model_validate(row.paqet_options)
     active = [row for row in tunnels if row.enabled]
+    raw_bindings = [(row.exit_node_id, row.port) for row in active]
+    if len(raw_bindings) != len(set(raw_bindings)):
+        raise HTTPException(409, "Active exit carrier ports must be unique on each node")
     sources = [row.source_node_id for row in active]
     exits = {row.exit_node_id for row in active}
     if len(sources) != len(set(sources)):
@@ -50,17 +58,64 @@ async def validate_topology(db, tunnels, *, core_overrides=None):
         ).all()
     }
     cores.update(core_overrides or {})
+    from app.paqet.compiler import node_request
+
+    for row in tunnels:
+        if row.transport == "paqet":
+            try:
+                node_request(row, row.source_node_id, nodes)
+                node_request(row, row.exit_node_id, nodes)
+            except ValueError as error:
+                raise HTTPException(422, str(error)) from None
+
     for node_id in ids:
         node = nodes[node_id]
         core = cores.get(node.core_config_id or 1)
         if not core or core.type not in (None, CoreType.xray):
             raise HTTPException(422, "Native SS2022 tunnels require Xray on both nodes")
-        if any(row.exit_node_id == node_id and row.port in (node.port, node.api_port) for row in tunnels):
+        if any(
+            row.exit_node_id == node_id and row.port in (node.port, node.api_port, node.tunnel_api_port)
+            for row in tunnels
+        ):
             raise HTTPException(422, "Tunnel port conflicts with the node management API")
         # Validate disabled drafts too, before they can be enabled later.
         relevant = [row for row in tunnels if node_id in (row.source_node_id, row.exit_node_id)]
         try:
             compose(core.config, node_id, relevant, nodes, core.exclude_inbound_tags or ())
+            from app.tunnel.compiler import occupied_port
+
+            for row in relevant:
+                if row.transport != "paqet" or not row.enabled:
+                    continue
+                options = row.paqet_options
+                if node_id == row.source_node_id:
+                    ports = [options["client_port"]] + [
+                        int(v["listen"].rsplit(":", 1)[1])
+                        for v in options.get("forwards", []) + options.get("socks5", [])
+                    ]
+                    from app.paqet.models import endpoint
+
+                    raw_ports = {
+                        endpoint(address["addr"], allow_zero=True)[1]
+                        for address in (
+                            options["client_network"].get("ipv4"),
+                            options["client_network"].get("ipv6"),
+                        )
+                        if address
+                    } - {0}
+                    if raw_ports.intersection(ports):
+                        raise ValueError("Paqet fixed source port conflicts with a local proxy listener")
+                    ports.extend(raw_ports)
+                else:
+                    if row.port == options["exit_port"]:
+                        raise ValueError("Paqet raw carrier and internal exit listener need distinct ports")
+                    ports = [row.port, options["exit_port"]]
+                if any(
+                    occupied_port(core.config, p) or p in (node.port, node.api_port, node.tunnel_api_port)
+                    for p in ports
+                ):
+                    raise ValueError("Paqet listener conflicts with a core or node API port")
+
             for row in relevant:
                 if node_id == row.source_node_id:
                     managed = core_manager.validate_core(
@@ -121,7 +176,15 @@ async def create(db, body, actor):
         raise HTTPException(409, "This release supports at most 16 native tunnel links")
     if await db.scalar(select(NativeTunnel.id).where(NativeTunnel.name == body.name)):
         raise HTTPException(409, "Tunnel name already exists")
-    row = NativeTunnel(**body.model_dump(), shared_key=key())
+    from app.paqet.compiler import key as paqet_key, store_options
+
+    data = body.model_dump(exclude={"paqet_key", "paqet_options"})
+    row = NativeTunnel(
+        **data,
+        shared_key=key(),
+        paqet_key=paqet_key(body.paqet_key) if body.transport == "paqet" else None,
+        paqet_options=store_options(body.paqet_options) if body.transport == "paqet" else {},
+    )
     # A temporary id is unnecessary for topology; flushing does not deploy anything.
     db.add(row)
     await db.flush()
@@ -145,7 +208,15 @@ async def modify(db, tunnel_id, body, actor):
     row = await get_locked(db, tunnel_id, body.expected_revision)
     if await db.scalar(select(NativeTunnel.id).where(NativeTunnel.name == body.name, NativeTunnel.id != row.id)):
         raise HTTPException(409, "Tunnel name already exists")
-    for field, value in body.model_dump(exclude={"expected_revision"}).items():
+    if body.transport != row.transport:
+        raise HTTPException(409, "Transport is immutable; disable/apply/remove before replacing it")
+    if row.transport == "paqet":
+        from app.paqet.compiler import key as paqet_key, store_options
+
+        row.paqet_options = store_options(body.paqet_options, row.paqet_options)
+        if body.paqet_key:
+            row.paqet_key = paqet_key(body.paqet_key)
+    for field, value in body.model_dump(exclude={"expected_revision", "paqet_options", "paqet_key"}).items():
         setattr(row, field, value)
     row.revision += 1
     await db.flush()
@@ -158,6 +229,10 @@ async def modify(db, tunnel_id, body, actor):
 async def rotate(db, tunnel_id, revision, actor):
     row = await get_locked(db, tunnel_id, revision)
     row.shared_key = key()
+    if row.transport == "paqet":
+        from app.paqet.compiler import key as paqet_key
+
+        row.paqet_key = paqet_key()
     row.revision += 1
     audit(db, actor, "rotate", row.id, revision=row.revision)
     await db.commit()

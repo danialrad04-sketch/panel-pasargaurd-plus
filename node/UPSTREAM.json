@@ -1,0 +1,13 @@
+{
+  "node": {
+    "url": "https://github.com/PasarGuard/node",
+    "commit": "47857d43fe777f30f9ecc5f2ffe4ca0b037507cb"
+  },
+  "paqet": {
+    "url": "https://github.com/hanselime/paqet",
+    "tag": "v1.0.0-alpha.21",
+    "commit": "4b81ce0ab56b7cc9aec7501c87c4804676cdb1b4",
+    "license": "MIT"
+  },
+  "integration": "Native PasarGuard Plus node runtime; upstream sources retained with licenses"
+}

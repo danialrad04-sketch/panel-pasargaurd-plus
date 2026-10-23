@@ -320,6 +320,12 @@ export interface APIKeysResponse {
   total: number;
 }
 
+export interface Address {
+  addr: string;
+  /** @pattern ^(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$ */
+  router_mac: string;
+}
+
 /**
  * Minimal admin model containing only the username.
  */
@@ -1808,6 +1814,20 @@ export interface Forbidden {
   detail?: string;
 }
 
+export type ForwardProtocol = typeof ForwardProtocol[keyof typeof ForwardProtocol];
+
+
+export const ForwardProtocol = {
+  tcp: 'tcp',
+  udp: 'udp',
+} as const;
+
+export interface Forward {
+  listen: string;
+  target: string;
+  protocol: ForwardProtocol;
+}
+
 export type OnHoldTimeoutAction = typeof OnHoldTimeoutAction[keyof typeof OnHoldTimeoutAction];
 
 
@@ -1939,6 +1959,89 @@ export interface InboundSummary {
   network?: string | null;
 }
 
+export type KcpMode = typeof KcpMode[keyof typeof KcpMode];
+
+
+export const KcpMode = {
+  normal: 'normal',
+  fast: 'fast',
+  fast2: 'fast2',
+  fast3: 'fast3',
+  manual: 'manual',
+} as const;
+
+export interface Kcp {
+  mode?: KcpMode;
+  block?: string;
+  /**
+     * @minimum 50
+     * @maximum 1500
+     */
+  mtu?: number;
+  /**
+     * @minimum 1
+     * @maximum 32768
+     */
+  rcvwnd?: number;
+  /**
+     * @minimum 1
+     * @maximum 32768
+     */
+  sndwnd?: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  nodelay?: number;
+  /**
+     * @minimum 10
+     * @maximum 5000
+     */
+  interval?: number;
+  /**
+     * @minimum 0
+     * @maximum 2
+     */
+  resend?: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  nocongestion?: number;
+  wdelay?: boolean;
+  acknodelay?: boolean;
+  /**
+     * @minimum 0
+     * @maximum 128
+     */
+  dshard?: number;
+  /**
+     * @minimum 0
+     * @maximum 128
+     */
+  pshard?: number;
+  /**
+     * @minimum 1024
+     * @maximum 67108864
+     */
+  smuxbuf?: number;
+  /**
+     * @minimum 1024
+     * @maximum 67108864
+     */
+  streambuf?: number;
+  /**
+     * @minimum 1
+     * @maximum 3600
+     */
+  smuxkalive?: number;
+  /**
+     * @minimum 2
+     * @maximum 7200
+     */
+  smuxktimeout?: number;
+}
+
 export interface MasqueSettings {
   /** @minLength 1 */
   password?: string;
@@ -1947,6 +2050,35 @@ export interface MasqueSettings {
 export interface ModifyUserByTemplate {
   user_template_id: number;
   note?: string | null;
+}
+
+export interface Pcap {
+  /**
+     * @minimum 1024
+     * @maximum 104857600
+     */
+  sockbuf?: number;
+}
+
+export interface Tcp {
+  /**
+     * @minItems 1
+     * @maxItems 64
+     */
+  local_flag?: string[];
+  /**
+     * @minItems 1
+     * @maxItems 64
+     */
+  remote_flag?: string[];
+}
+
+export interface Network {
+  interface?: string | null;
+  ipv4?: Address | null;
+  ipv6?: Address | null;
+  pcap?: Pcap;
+  tcp?: Tcp;
 }
 
 export interface NextPlanModel {
@@ -1974,6 +2106,11 @@ export interface NodeCreate {
   address: string;
   port?: number;
   api_port?: number;
+  /**
+     * @minimum 1
+     * @maximum 65535
+     */
+  tunnel_api_port?: number;
   /** @minimum 0 */
   usage_coefficient?: number;
   connection_type: NodeConnectionType;
@@ -2014,6 +2151,7 @@ export interface NodeModify {
   address?: string | null;
   port?: number | null;
   api_port?: number;
+  tunnel_api_port?: number | null;
   usage_coefficient?: number | null;
   connection_type?: NodeConnectionType | null;
   server_ca?: string | null;
@@ -2069,6 +2207,11 @@ export interface NodeResponse {
   address: string;
   port?: number;
   api_port?: number;
+  /**
+     * @minimum 1
+     * @maximum 65535
+     */
+  tunnel_api_port?: number;
   /** @minimum 0 */
   usage_coefficient?: number;
   connection_type: NodeConnectionType;
@@ -2236,6 +2379,56 @@ export interface OwnerResetRequest {
 export interface OwnerUpgradeRequest {
   key: string;
   username: string;
+}
+
+export type PaqetOptionsLogLevel = typeof PaqetOptionsLogLevel[keyof typeof PaqetOptionsLogLevel];
+
+
+export const PaqetOptionsLogLevel = {
+  none: 'none',
+  debug: 'debug',
+  info: 'info',
+  warn: 'warn',
+  error: 'error',
+  fatal: 'fatal',
+} as const;
+
+export interface Socks {
+  listen: string;
+  /** @maxLength 255 */
+  username?: string;
+  password?: string | null;
+}
+
+export interface PaqetOptions {
+  /**
+     * @minimum 1
+     * @maximum 256
+     */
+  conn?: number;
+  kcp?: Kcp;
+  log_level?: PaqetOptionsLogLevel;
+  client_network?: Network;
+  server_network?: Network;
+  client_address?: string | null;
+  server_address?: string | null;
+  /**
+     * @minimum 1024
+     * @maximum 65535
+     */
+  client_port?: number;
+  /**
+     * @minimum 1024
+     * @maximum 65535
+     */
+  exit_port?: number;
+  manage_firewall?: boolean;
+  allow_insecure?: boolean;
+  allow_unmetered?: boolean;
+  /** @maxItems 40 */
+  forwards?: Forward[];
+  /** @maxItems 8 */
+  socks5?: Socks[];
 }
 
 export type PasskeyAuthenticationRequestCredential = { [key: string]: unknown };
@@ -2577,6 +2770,14 @@ export interface TunnelAuditView {
   details: TunnelAuditViewDetails;
 }
 
+export type TunnelCreateTransport = typeof TunnelCreateTransport[keyof typeof TunnelCreateTransport];
+
+
+export const TunnelCreateTransport = {
+  'shadowsocks-2022': 'shadowsocks-2022',
+  paqet: 'paqet',
+} as const;
+
 export interface TunnelCreate {
   /**
      * @minLength 1
@@ -2596,6 +2797,9 @@ export interface TunnelCreate {
      */
   port?: number;
   enabled?: boolean;
+  transport?: TunnelCreateTransport;
+  paqet_options?: PaqetOptions | null;
+  paqet_key?: string | null;
   /** @exclusiveMinimum 0 */
   source_node_id: number;
   /** @exclusiveMinimum 0 */
@@ -2624,6 +2828,14 @@ export interface TunnelDeployResult {
   traffic_readiness?: 'not_probed';
 }
 
+export type TunnelModifyTransport = typeof TunnelModifyTransport[keyof typeof TunnelModifyTransport];
+
+
+export const TunnelModifyTransport = {
+  'shadowsocks-2022': 'shadowsocks-2022',
+  paqet: 'paqet',
+} as const;
+
 export interface TunnelModify {
   /**
      * @minLength 1
@@ -2643,6 +2855,9 @@ export interface TunnelModify {
      */
   port?: number;
   enabled?: boolean;
+  transport?: TunnelModifyTransport;
+  paqet_options?: PaqetOptions | null;
+  paqet_key?: string | null;
   /** @minimum 1 */
   expected_revision: number;
 }
@@ -2660,6 +2875,16 @@ export interface TunnelRevision {
   /** @minimum 1 */
   expected_revision: number;
 }
+
+export type TunnelViewTransport = typeof TunnelViewTransport[keyof typeof TunnelViewTransport];
+
+
+export const TunnelViewTransport = {
+  'shadowsocks-2022': 'shadowsocks-2022',
+  paqet: 'paqet',
+} as const;
+
+export type TunnelViewPaqetOptions = { [key: string]: unknown } | null;
 
 export interface TunnelView {
   /**
@@ -2680,12 +2905,14 @@ export interface TunnelView {
      */
   port?: number;
   enabled?: boolean;
+  transport?: TunnelViewTransport;
+  paqet_options?: TunnelViewPaqetOptions;
+  engine_id: string;
   id: number;
   source_node_id: number;
   exit_node_id: number;
   revision: number;
   applied_revision: number;
-  transport?: 'shadowsocks-2022';
   networks?: string[];
 }
 
@@ -3152,6 +3379,15 @@ offset?: number;
  * @maximum 100
  */
 limit?: number;
+};
+
+export type NativeNodePaqetNetworkParams = {
+peer: string;
+};
+
+export type NativePaqetActionParams = {
+action: string;
+side: string;
 };
 
 export type GetAllGroupsParams = {
@@ -10830,6 +11066,506 @@ export function useNativeTunnelAudit<TData = Awaited<ReturnType<typeof nativeTun
 
 
 
+
+export const getNativePaqetSchemaUrl = () => {
+
+
+
+
+  return `/api/tunnels/paqet/schema`
+}
+
+/**
+ * @summary Native Paqet Schema
+ */
+export const nativePaqetSchema = async ( options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getNativePaqetSchemaUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getNativePaqetSchemaQueryKey = () => {
+    return [
+    `/api/tunnels/paqet/schema`
+    ] as const;
+    }
+
+
+export const getNativePaqetSchemaQueryOptions = <TData = Awaited<ReturnType<typeof nativePaqetSchema>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativePaqetSchema>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getNativePaqetSchemaQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof nativePaqetSchema>>> = ({ signal }) => nativePaqetSchema({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof nativePaqetSchema>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type NativePaqetSchemaQueryResult = NonNullable<Awaited<ReturnType<typeof nativePaqetSchema>>>
+export type NativePaqetSchemaQueryError = ErrorType<unknown>
+
+
+export function useNativePaqetSchema<TData = Awaited<ReturnType<typeof nativePaqetSchema>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativePaqetSchema>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativePaqetSchema>>,
+          TError,
+          Awaited<ReturnType<typeof nativePaqetSchema>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativePaqetSchema<TData = Awaited<ReturnType<typeof nativePaqetSchema>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativePaqetSchema>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativePaqetSchema>>,
+          TError,
+          Awaited<ReturnType<typeof nativePaqetSchema>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativePaqetSchema<TData = Awaited<ReturnType<typeof nativePaqetSchema>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativePaqetSchema>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Native Paqet Schema
+ */
+
+export function useNativePaqetSchema<TData = Awaited<ReturnType<typeof nativePaqetSchema>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativePaqetSchema>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getNativePaqetSchemaQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getNativeNodePaqetCapabilityUrl = (nodeId: number,) => {
+
+
+
+
+  return `/api/tunnels/nodes/${nodeId}/paqet`
+}
+
+/**
+ * @summary Native Node Paqet Capability
+ */
+export const nativeNodePaqetCapability = async (nodeId: number, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getNativeNodePaqetCapabilityUrl(nodeId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getNativeNodePaqetCapabilityQueryKey = (nodeId: number,) => {
+    return [
+    `/api/tunnels/nodes/${nodeId}/paqet`
+    ] as const;
+    }
+
+
+export const getNativeNodePaqetCapabilityQueryOptions = <TData = Awaited<ReturnType<typeof nativeNodePaqetCapability>>, TError = ErrorType<HTTPValidationError>>(nodeId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeNodePaqetCapability>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getNativeNodePaqetCapabilityQueryKey(nodeId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof nativeNodePaqetCapability>>> = ({ signal }) => nativeNodePaqetCapability(nodeId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: nodeId !== null && nodeId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof nativeNodePaqetCapability>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type NativeNodePaqetCapabilityQueryResult = NonNullable<Awaited<ReturnType<typeof nativeNodePaqetCapability>>>
+export type NativeNodePaqetCapabilityQueryError = ErrorType<HTTPValidationError>
+
+
+export function useNativeNodePaqetCapability<TData = Awaited<ReturnType<typeof nativeNodePaqetCapability>>, TError = ErrorType<HTTPValidationError>>(
+ nodeId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeNodePaqetCapability>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeNodePaqetCapability>>,
+          TError,
+          Awaited<ReturnType<typeof nativeNodePaqetCapability>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeNodePaqetCapability<TData = Awaited<ReturnType<typeof nativeNodePaqetCapability>>, TError = ErrorType<HTTPValidationError>>(
+ nodeId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeNodePaqetCapability>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeNodePaqetCapability>>,
+          TError,
+          Awaited<ReturnType<typeof nativeNodePaqetCapability>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeNodePaqetCapability<TData = Awaited<ReturnType<typeof nativeNodePaqetCapability>>, TError = ErrorType<HTTPValidationError>>(
+ nodeId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeNodePaqetCapability>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Native Node Paqet Capability
+ */
+
+export function useNativeNodePaqetCapability<TData = Awaited<ReturnType<typeof nativeNodePaqetCapability>>, TError = ErrorType<HTTPValidationError>>(
+ nodeId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeNodePaqetCapability>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getNativeNodePaqetCapabilityQueryOptions(nodeId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getNativeNodePaqetNetworkUrl = (nodeId: number,
+    params: NativeNodePaqetNetworkParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/tunnels/nodes/${nodeId}/paqet/network?${stringifiedParams}` : `/api/tunnels/nodes/${nodeId}/paqet/network`
+}
+
+/**
+ * @summary Native Node Paqet Network
+ */
+export const nativeNodePaqetNetwork = async (nodeId: number,
+    params: NativeNodePaqetNetworkParams, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getNativeNodePaqetNetworkUrl(nodeId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getNativeNodePaqetNetworkQueryKey = (nodeId: number,
+    params?: NativeNodePaqetNetworkParams,) => {
+    return [
+    `/api/tunnels/nodes/${nodeId}/paqet/network`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getNativeNodePaqetNetworkQueryOptions = <TData = Awaited<ReturnType<typeof nativeNodePaqetNetwork>>, TError = ErrorType<HTTPValidationError>>(nodeId: number,
+    params: NativeNodePaqetNetworkParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeNodePaqetNetwork>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getNativeNodePaqetNetworkQueryKey(nodeId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof nativeNodePaqetNetwork>>> = ({ signal }) => nativeNodePaqetNetwork(nodeId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: nodeId !== null && nodeId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof nativeNodePaqetNetwork>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type NativeNodePaqetNetworkQueryResult = NonNullable<Awaited<ReturnType<typeof nativeNodePaqetNetwork>>>
+export type NativeNodePaqetNetworkQueryError = ErrorType<HTTPValidationError>
+
+
+export function useNativeNodePaqetNetwork<TData = Awaited<ReturnType<typeof nativeNodePaqetNetwork>>, TError = ErrorType<HTTPValidationError>>(
+ nodeId: number,
+    params: NativeNodePaqetNetworkParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeNodePaqetNetwork>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeNodePaqetNetwork>>,
+          TError,
+          Awaited<ReturnType<typeof nativeNodePaqetNetwork>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeNodePaqetNetwork<TData = Awaited<ReturnType<typeof nativeNodePaqetNetwork>>, TError = ErrorType<HTTPValidationError>>(
+ nodeId: number,
+    params: NativeNodePaqetNetworkParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeNodePaqetNetwork>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeNodePaqetNetwork>>,
+          TError,
+          Awaited<ReturnType<typeof nativeNodePaqetNetwork>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeNodePaqetNetwork<TData = Awaited<ReturnType<typeof nativeNodePaqetNetwork>>, TError = ErrorType<HTTPValidationError>>(
+ nodeId: number,
+    params: NativeNodePaqetNetworkParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeNodePaqetNetwork>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Native Node Paqet Network
+ */
+
+export function useNativeNodePaqetNetwork<TData = Awaited<ReturnType<typeof nativeNodePaqetNetwork>>, TError = ErrorType<HTTPValidationError>>(
+ nodeId: number,
+    params: NativeNodePaqetNetworkParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeNodePaqetNetwork>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getNativeNodePaqetNetworkQueryOptions(nodeId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getNativePaqetStatusUrl = (tunnelId: number,) => {
+
+
+
+
+  return `/api/tunnels/${tunnelId}/paqet/status`
+}
+
+/**
+ * @summary Native Paqet Status
+ */
+export const nativePaqetStatus = async (tunnelId: number, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getNativePaqetStatusUrl(tunnelId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getNativePaqetStatusQueryKey = (tunnelId: number,) => {
+    return [
+    `/api/tunnels/${tunnelId}/paqet/status`
+    ] as const;
+    }
+
+
+export const getNativePaqetStatusQueryOptions = <TData = Awaited<ReturnType<typeof nativePaqetStatus>>, TError = ErrorType<HTTPValidationError>>(tunnelId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativePaqetStatus>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getNativePaqetStatusQueryKey(tunnelId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof nativePaqetStatus>>> = ({ signal }) => nativePaqetStatus(tunnelId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: tunnelId !== null && tunnelId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof nativePaqetStatus>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type NativePaqetStatusQueryResult = NonNullable<Awaited<ReturnType<typeof nativePaqetStatus>>>
+export type NativePaqetStatusQueryError = ErrorType<HTTPValidationError>
+
+
+export function useNativePaqetStatus<TData = Awaited<ReturnType<typeof nativePaqetStatus>>, TError = ErrorType<HTTPValidationError>>(
+ tunnelId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativePaqetStatus>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativePaqetStatus>>,
+          TError,
+          Awaited<ReturnType<typeof nativePaqetStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativePaqetStatus<TData = Awaited<ReturnType<typeof nativePaqetStatus>>, TError = ErrorType<HTTPValidationError>>(
+ tunnelId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativePaqetStatus>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativePaqetStatus>>,
+          TError,
+          Awaited<ReturnType<typeof nativePaqetStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativePaqetStatus<TData = Awaited<ReturnType<typeof nativePaqetStatus>>, TError = ErrorType<HTTPValidationError>>(
+ tunnelId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativePaqetStatus>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Native Paqet Status
+ */
+
+export function useNativePaqetStatus<TData = Awaited<ReturnType<typeof nativePaqetStatus>>, TError = ErrorType<HTTPValidationError>>(
+ tunnelId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativePaqetStatus>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getNativePaqetStatusQueryOptions(tunnelId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getNativePaqetActionUrl = (tunnelId: number,
+    params: NativePaqetActionParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/tunnels/${tunnelId}/paqet/action?${stringifiedParams}` : `/api/tunnels/${tunnelId}/paqet/action`
+}
+
+/**
+ * @summary Native Paqet Action
+ */
+export const nativePaqetAction = async (tunnelId: number,
+    tunnelRevision: TunnelRevision,
+    params: NativePaqetActionParams, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getNativePaqetActionUrl(tunnelId,params),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tunnelRevision)
+  }
+);}
+
+
+
+
+
+export const getNativePaqetActionMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nativePaqetAction>>, TError,{tunnelId: number;data: BodyType<TunnelRevision>;params: NativePaqetActionParams}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof nativePaqetAction>>, TError,{tunnelId: number;data: BodyType<TunnelRevision>;params: NativePaqetActionParams}, TContext> => {
+
+const mutationKey = ['nativePaqetAction'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof nativePaqetAction>>, {tunnelId: number;data: BodyType<TunnelRevision>;params: NativePaqetActionParams}> = (props) => {
+          const {tunnelId,data,params} = props ?? {};
+
+          return  nativePaqetAction(tunnelId,data,params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type NativePaqetActionMutationResult = NonNullable<Awaited<ReturnType<typeof nativePaqetAction>>>
+    export type NativePaqetActionMutationBody = BodyType<TunnelRevision>
+    export type NativePaqetActionMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Native Paqet Action
+ */
+export const useNativePaqetAction = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nativePaqetAction>>, TError,{tunnelId: number;data: BodyType<TunnelRevision>;params: NativePaqetActionParams}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof nativePaqetAction>>,
+        TError,
+        {tunnelId: number;data: BodyType<TunnelRevision>;params: NativePaqetActionParams},
+        TContext
+      > => {
+      return useMutation(getNativePaqetActionMutationOptions(options), queryClient);
+    }
 
 export const getGetSettingsUrl = () => {
 

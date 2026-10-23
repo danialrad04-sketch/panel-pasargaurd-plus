@@ -117,6 +117,7 @@ export default function NodeModal({ isDialogOpen, onOpenChange, form, editingNod
         address: node.address,
         port: node.port,
         api_port: node.api_port ?? null,
+        tunnel_api_port: node.tunnel_api_port ?? null,
         usage_coefficient: node.usage_coefficient,
         connection_type: node.connection_type,
         server_ca: node.server_ca,
@@ -173,6 +174,7 @@ export default function NodeModal({ isDialogOpen, onOpenChange, form, editingNod
           address: nodeData.address,
           port: nodeData.port,
           api_port: nodeData.api_port ?? null,
+          tunnel_api_port: nodeData.tunnel_api_port ?? null,
           usage_coefficient: nodeData.usage_coefficient,
           connection_type: nodeData.connection_type,
           server_ca: nodeData.server_ca,
@@ -203,6 +205,7 @@ export default function NodeModal({ isDialogOpen, onOpenChange, form, editingNod
               address: nodeData.address,
               port: nodeData.port,
               api_port: nodeData.api_port ?? null,
+              tunnel_api_port: nodeData.tunnel_api_port ?? null,
               usage_coefficient: nodeData.usage_coefficient,
               connection_type: nodeData.connection_type,
               server_ca: nodeData.server_ca,
@@ -234,6 +237,7 @@ export default function NodeModal({ isDialogOpen, onOpenChange, form, editingNod
         address: '',
         port: 62050,
         api_port: 62051,
+        tunnel_api_port: 62052,
         usage_coefficient: 1,
         connection_type: NodeConnectionType.grpc,
         server_ca: '',
@@ -312,6 +316,7 @@ export default function NodeModal({ isDialogOpen, onOpenChange, form, editingNod
         data_limit: gbToBytes(values.data_limit),
         reset_time: values.reset_time !== null && values.reset_time !== undefined ? values.reset_time : -1,
         api_port: values.api_port ?? undefined,
+        tunnel_api_port: values.tunnel_api_port ?? undefined,
         proxy_url: values.proxy_url?.trim() || null,
       }
 
@@ -626,6 +631,27 @@ export default function NodeModal({ isDialogOpen, onOpenChange, form, editingNod
                             />
                           </div>
 
+                          <FormField
+                            control={form.control}
+                            name="tunnel_api_port"
+                            render={({ field }) => (
+                              <FormItem className="w-full">
+                                <FormLabel>{t('nodeModal.tunnelApiPort')}</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    max={65535}
+                                    placeholder="62052"
+                                    {...field}
+                                    value={field.value ?? ''}
+                                    onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                           <FormField
                             control={form.control}
                             name="connection_type"

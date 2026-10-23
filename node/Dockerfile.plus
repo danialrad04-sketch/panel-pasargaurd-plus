@@ -1,0 +1,35 @@
+# syntax=docker/dockerfile:1
+FROM golang:1.27.3-bookworm AS builder
+RUN --mount=type=secret,id=proxy_ca --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    if [ -f /run/secrets/proxy_ca ]; then export SSL_CERT_FILE=/run/secrets/proxy_ca; fi; \
+    apt-get update && apt-get install -y --no-install-recommends libpcap-dev ca-certificates curl unzip make && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY . .
+RUN --mount=type=secret,id=proxy_ca --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    if [ -f /run/secrets/proxy_ca ]; then export SSL_CERT_FILE=/run/secrets/proxy_ca; fi; \
+    CGO_ENABLED=0 go build -trimpath -o /out/pg-node ./cmd/node
+WORKDIR /src/paqet
+RUN --mount=type=secret,id=proxy_ca --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    if [ -f /run/secrets/proxy_ca ]; then export SSL_CERT_FILE=/run/secrets/proxy_ca; fi; \
+    CGO_ENABLED=1 go build -trimpath -o /out/paqet ./cmd
+WORKDIR /src
+RUN --mount=type=secret,id=proxy_ca --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    if [ -f /run/secrets/proxy_ca ]; then export SSL_CERT_FILE=/run/secrets/proxy_ca CURL_CA_BUNDLE=/run/secrets/proxy_ca; fi; \
+    case "$(go env GOARCH)" in \
+      amd64) archive=Xray-linux-64.zip; checksum=0eec3ed4163c273d8c8bf821f7d219e257921cf584aa3fb970715e458e631978 ;; \
+      arm64) archive=Xray-linux-arm64-v8a.zip; checksum=d1304946c486d98e6b886e9b931eaaaebb23835b30e217638037b7f2721d4e9c ;; \
+      *) exit 1 ;; esac; \
+    curl -fsSL --retry 3 "https://github.com/XTLS/Xray-core/releases/download/v26.10.21/$archive" -o /tmp/xray.zip && \
+    echo "$checksum  /tmp/xray.zip" | sha256sum -c - && \
+    unzip -q /tmp/xray.zip -d /out/xray && \
+    make GEOFILES_SUDO= GEOFILES_XRAY=/out/xray/xray GEOFILES_DIR=/out/assets install_geofiles
+FROM debian:bookworm-slim
+RUN --mount=type=secret,id=proxy_ca \
+    apt-get update && apt-get install -y --no-install-recommends libpcap0.8 ca-certificates iproute2 iptables iputils-ping wireguard-tools nftables && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /out/pg-node /usr/local/bin/pg-node
+COPY --from=builder /out/paqet /usr/local/bin/paqet
+COPY --from=builder /out/xray/xray /usr/local/bin/xray
+COPY --from=builder /out/assets /usr/local/share/xray
+ENV PG_NODE_PAQET_ENABLED=true
+VOLUME ["/var/lib/pg-node"]
+ENTRYPOINT ["/usr/local/bin/pg-node"]

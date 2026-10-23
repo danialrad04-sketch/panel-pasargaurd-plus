@@ -47,3 +47,15 @@ async def assert_node_unreferenced(db, node_ids):
         .limit(1)
     ):
         raise HTTPException(409, "Node belongs to a native tunnel; disable, apply and remove that tunnel first")
+
+
+async def assert_paqet_node_update_safe(db, node_id):
+    if await db.scalar(
+        select(NativeTunnel.id)
+        .where(
+            NativeTunnel.transport == "paqet",
+            or_(NativeTunnel.source_node_id == node_id, NativeTunnel.exit_node_id == node_id),
+        )
+        .limit(1)
+    ):
+        raise HTTPException(409, "Paqet nodes require the source-built fork image; update using node/compose.plus.yml")

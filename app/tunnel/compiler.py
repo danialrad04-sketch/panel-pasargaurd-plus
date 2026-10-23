@@ -32,6 +32,9 @@ def compose(config: dict, node_id: int, tunnels, nodes: dict, excluded=()):
         if not tunnel.enabled:
             continue
         tag = f"{PREFIX}{tunnel.id}"
+        paqet = getattr(tunnel, "transport", "shadowsocks-2022") == "paqet"
+        options = getattr(tunnel, "paqet_options", {}) or {}
+        exit_port = options.get("exit_port", 11082) if paqet else tunnel.port
         if node_id == tunnel.source_node_id:
             available = {
                 row["tag"]
@@ -50,8 +53,8 @@ def compose(config: dict, node_id: int, tunnels, nodes: dict, excluded=()):
                     "settings": {
                         "servers": [
                             {
-                                "address": exit_node.address,
-                                "port": tunnel.port,
+                                "address": "127.0.0.1" if paqet else exit_node.address,
+                                "port": options.get("client_port", 11081) if paqet else tunnel.port,
                                 "method": METHOD,
                                 "password": tunnel.shared_key,
                             }
@@ -64,13 +67,13 @@ def compose(config: dict, node_id: int, tunnels, nodes: dict, excluded=()):
                 rule["domain"] = [f"domain:{domain}" for domain in tunnel.domains]
             rules.append(rule)
         elif node_id == tunnel.exit_node_id:
-            if occupied_port(result, tunnel.port):
+            if occupied_port(result, exit_port):
                 raise ValueError(f"Tunnel {tunnel.id}: exit port is already used")
             result.setdefault("inbounds", []).append(
                 {
                     "tag": tag,
-                    "listen": "0.0.0.0",
-                    "port": tunnel.port,
+                    "listen": "127.0.0.1" if paqet else "0.0.0.0",
+                    "port": exit_port,
                     "protocol": "shadowsocks",
                     "settings": {"method": METHOD, "password": tunnel.shared_key, "network": "tcp,udp"},
                 }

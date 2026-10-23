@@ -2,6 +2,7 @@ import os
 from datetime import UTC, datetime as dt
 from enum import Enum
 from typing import Any
+from uuid import uuid4
 
 from sqlalchemy import (
     JSON,
@@ -730,6 +731,7 @@ class Node(Base, CreatedAtUTCMixin):
     internal_timeout: Mapped[int] = mapped_column(default=15, server_default=text("15"))
     proxy_url: Mapped[str | None] = mapped_column(String(256), default="", unique=False, nullable=True)
     sort_order: Mapped[int] = mapped_column(default=0, server_default=text("0"))
+    tunnel_api_port: Mapped[int] = mapped_column(default=62052, server_default=text("62052"))
     _reseted_uplink_query: Mapped[int | None] = query_expression(repr=False)
     _reseted_downlink_query: Mapped[int | None] = query_expression(repr=False)
 
@@ -1132,8 +1134,12 @@ class NativeTunnel(Base, CreatedAtUTCMixin):
     name: Mapped[str] = mapped_column(String(80), unique=True)
     source_node_id: Mapped[int] = fk_id_column("nodes.id", ondelete="RESTRICT", index=True)
     exit_node_id: Mapped[int] = fk_id_column("nodes.id", ondelete="RESTRICT", index=True)
-    # Same protected database boundary as native core private keys; never returned by the API.
     shared_key: Mapped[str] = mapped_column(String(44), repr=False)
+    transport: Mapped[str] = mapped_column(String(32), default="shadowsocks-2022", server_default="shadowsocks-2022")
+    paqet_options: Mapped[dict] = mapped_column(PostgresJSONB, default_factory=dict, repr=False)
+    engine_id: Mapped[str] = mapped_column(String(32), default_factory=lambda: uuid4().hex, unique=True)
+    paqet_key: Mapped[str | None] = mapped_column(String(512), default=None, repr=False)
+    # Same protected database boundary as native core private keys; never returned by the API.
     inbound_tags: Mapped[list] = mapped_column(PostgresJSONB, default_factory=list)
     domains: Mapped[list] = mapped_column(PostgresJSONB, default_factory=list)
     port: Mapped[int] = mapped_column(default=40900)

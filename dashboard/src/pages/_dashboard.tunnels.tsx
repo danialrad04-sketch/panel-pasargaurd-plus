@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import PaqetEditor, { editablePaqet } from './paqet-editor'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Activity, ArrowLeftRight, ArrowRight, Check, Globe2, KeyRound, Layers3, Plus, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
@@ -26,6 +27,9 @@ export default function NativeTunnels() {
   const audit = useQuery({ queryKey: ['native-tunnels', 'audit', auditOffset], queryFn: () => fetcher<TunnelAuditView[]>(`/api/tunnels/audit?offset=${auditOffset}&limit=10`), enabled: owner })
   const catalog = useQuery({ queryKey: ['native-tunnel-catalog'], queryFn: () => fetcher<Catalog>('/api/dns/catalog'), enabled: owner })
   const [editing, setEditing] = useState<TunnelView | 'new' | null>(null)
+  const [transport, setTransport] = useState<'shadowsocks-2022' | 'paqet'>('shadowsocks-2022')
+  const [paqetText, setPaqetText] = useState('{}')
+  const [output, setOutput] = useState<{ title: string; text: string } | null>(null)
   const [source, setSource] = useState('')
   const [exit, setExit] = useState('')
   const [tags, setTags] = useState<string[]>([])
@@ -52,7 +56,16 @@ export default function NativeTunnels() {
       setConfirm(null)
     } catch (e) {
       const detail = (e as { data?: { detail?: unknown } }).data?.detail
-      setError(typeof detail === 'string' ? detail : t('درخواست انجام نشد. وضعیت نودها و ورودی‌ها را بررسی کنید.', 'Request failed. Check node state and your inputs.'))
+      setError(
+        typeof detail === 'string'
+          ? detail
+          : Array.isArray(detail)
+            ? detail
+                .slice(0, 5)
+                .map((error: { loc?: (string | number)[]; msg?: string }) => `${error.loc?.join('.')}: ${error.msg}`)
+                .join(' · ')
+            : t('درخواست انجام نشد. وضعیت نودها و ورودی‌ها را بررسی کنید.', 'Request failed. Check node state and your inputs.'),
+      )
     } finally {
       setBusy(false)
     }
@@ -60,6 +73,9 @@ export default function NativeTunnels() {
   const open = (item: TunnelView | 'new') => {
     setError('')
     setEditing(item)
+    setNotice('')
+    setTransport(item === 'new' ? 'shadowsocks-2022' : item.transport || 'shadowsocks-2022')
+    setPaqetText(editablePaqet(item === 'new' ? {} : item.paqet_options))
     setSource(item === 'new' ? '' : String(item.source_node_id))
     setExit(item === 'new' ? '' : String(item.exit_node_id))
     setTags(item === 'new' ? [] : item.inbound_tags)
@@ -160,7 +176,7 @@ export default function NativeTunnels() {
                 <div>
                   <h2 className="font-semibold">{item.name}</h2>
                   <div className="text-muted-foreground mt-1 text-xs" dir="ltr">
-                    SS2022 · TCP + UDP · :{item.port}
+                    {item.transport === 'paqet' ? 'Paqet · KCP' : 'SS2022'} · TCP + UDP · :{item.port}
                   </div>
                 </div>
                 <div className="flex gap-2 text-xs">
@@ -240,6 +256,65 @@ export default function NativeTunnels() {
                   {t('حذف', 'Delete')}
                 </Button>
               </div>
+              {item.transport === 'paqet' && (
+                <details className="mt-4 rounded-lg border p-3">
+                  <summary className="cursor-pointer text-xs">{t('وضعیت، ابزارها و لاگ Paqet', 'Paqet state, tools and logs')}</summary>
+                  <Button
+                    className="mt-3"
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() =>
+                      mutate(async () => setOutput({ title: t('وضعیت اجرای Paqet', 'Paqet runtime state'), text: JSON.stringify(await fetcher(`/api/tunnels/${item.id}/paqet/status`), null, 2) }))
+                    }
+                  >
+                    {t('دریافت وضعیت دو نود', 'Read both node states')}
+                  </Button>
+                  <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                    {(['source', 'exit'] as const).map(side => (
+                      <div key={side}>
+                        <h3 className="mb-2 text-xs font-medium">{side === 'source' ? t('مبدا', 'Source') : t('خروجی', 'Exit')}</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {['version', 'logs', side === 'source' ? 'ping' : 'dump', 'restart'].map(action => (
+                            <Button
+                              key={action}
+                              size="sm"
+                              variant="ghost"
+                              disabled={!!applying}
+                              onClick={() => {
+                                const run = async () =>
+                                  setOutput({
+                                    title: `Paqet ${side} · ${action}`,
+                                    text: JSON.stringify(
+                                      await fetcher(`/api/tunnels/${item.id}/paqet/action?action=${action}&side=${side}`, {
+                                        method: 'POST',
+                                        body: JSON.stringify({ expected_revision: item.revision }),
+                                      }),
+                                      null,
+                                      2,
+                                    ),
+                                  })
+                                if (action === 'restart' || action === 'dump')
+                                  setConfirm({
+                                    title: action === 'restart' ? t('راه‌اندازی مجدد Paqet', 'Restart Paqet') : t('ضبط محدود بسته‌ها', 'Bounded packet capture'),
+                                    detail:
+                                      action === 'restart'
+                                        ? t('ارتباط‌های فعال این حامل موقتاً قطع می‌شوند.', 'Active carrier connections will be interrupted.')
+                                        : t('سه ثانیه از داده‌های تشخیصی شبکه نود ضبط می‌شود.', 'Capture up to three seconds of node network diagnostics.'),
+                                    run,
+                                  })
+                                else mutate(run)
+                              }}
+                            >
+                              {action}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
             </article>
           ))}
         </section>
@@ -326,6 +401,24 @@ export default function NativeTunnels() {
         </div>
       </section>
       <Dialog
+        open={output !== null}
+        onOpenChange={v => {
+          if (!v) setOutput(null)
+        }}
+      >
+        <DialogContent className="max-h-[85dvh] overflow-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{output?.title}</DialogTitle>
+            <DialogDescription>
+              {t('وضعیت فرایند، تأیید سلامت بازی نیست. Ping فقط ارسال بسته را گزارش می‌کند.', 'Process state does not confirm game reachability. Ping only reports packet sending.')}
+            </DialogDescription>
+          </DialogHeader>
+          <pre dir="ltr" className="bg-muted max-h-96 overflow-auto rounded-lg p-3 text-xs break-all whitespace-pre-wrap">
+            {output?.text}
+          </pre>
+        </DialogContent>
+      </Dialog>
+      <Dialog
         open={editing !== null}
         onOpenChange={value => {
           if (!busy && !value) {
@@ -356,6 +449,9 @@ export default function NativeTunnels() {
                   domains: domains.split(/[\s,]+/).filter(Boolean),
                   port: Number(form.get('port')),
                   enabled: form.get('enabled') === 'on',
+                  transport,
+                  paqet_options: transport === 'paqet' ? JSON.parse(paqetText) : null,
+                  ...(form.get('paqet_key') ? { paqet_key: String(form.get('paqet_key')) } : {}),
                 }
                 await fetcher(editing === 'new' ? '/api/tunnels' : `/api/tunnels/${editing?.id}`, {
                   method: editing === 'new' ? 'POST' : 'PUT',
@@ -366,6 +462,13 @@ export default function NativeTunnels() {
               })
             }}
           >
+            <label className="block space-y-2 text-sm">
+              <span>{t('حامل بین نودها', 'Inter-node carrier')}</span>
+              <select name="transport" className={selectClass} disabled={editing !== 'new'} value={transport} onChange={e => setTransport(e.target.value as 'shadowsocks-2022' | 'paqet')}>
+                <option value="shadowsocks-2022">Shadowsocks 2022</option>
+                <option value="paqet">Paqet · KCP over raw TCP</option>
+              </select>
+            </label>
             <label className="block space-y-2 text-sm">
               <span>{t('نام مسیر', 'Path name')}</span>
               <Input name="name" required maxLength={80} defaultValue={editing && editing !== 'new' ? editing.name : ''} />
@@ -422,7 +525,7 @@ export default function NativeTunnels() {
             </fieldset>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block space-y-2 text-sm">
-                <span>{t('پورت TCP/UDP خروجی', 'Exit TCP/UDP port')}</span>
+                <span>{transport === 'paqet' ? t('پورت raw TCP خروجی', 'Exit raw TCP port') : t('پورت TCP/UDP خروجی', 'Exit TCP/UDP port')}</span>
                 <Input name="port" type="number" min={1024} max={65535} required defaultValue={editing && editing !== 'new' ? editing.port : 40900} />
                 <span className="text-muted-foreground block text-xs leading-6">
                   {t('فایروال خروجی باید هر دو پروتکل را از مبدا بپذیرد.', 'Exit firewall must accept both protocols from the source.')}
@@ -466,6 +569,42 @@ export default function NativeTunnels() {
                   ))}
               </div>
             </details>
+            {transport === 'paqet' && (
+              <>
+                <PaqetEditor value={paqetText} onChange={setPaqetText} fa={fa} />
+                <label className="block space-y-2 text-sm">
+                  <span>{t('کلید جدید Paqet؛ خالی = تولید یا حفظ کلید', 'New Paqet key; blank = generate or retain')}</span>
+                  <Input name="paqet_key" type="password" autoComplete="new-password" />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    [source, t('بررسی نود مبدا', 'Check source node')],
+                    [exit, t('بررسی نود خروجی', 'Check exit node')],
+                  ].map(([id, label]) => (
+                    <Button
+                      key={label}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!id || busy}
+                      onClick={() =>
+                        mutate(async () => {
+                          const result = await fetcher<{ engine: string; installed: boolean }>(`/api/tunnels/nodes/${id}/paqet`)
+                          setNotice(`${label}: ${result.engine} · ${result.installed ? t('نصب شده', 'Installed') : t('نصب نشده', 'Not installed')}`)
+                        })
+                      }
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+                {notice && (
+                  <p role="status" className="text-sm">
+                    {notice}
+                  </p>
+                )}
+              </>
+            )}
             <DialogFooter>
               <Button type="submit" disabled={busy || !tags.length || !source || !exit || source === exit}>
                 {t('ذخیره مسیر', 'Save path')}

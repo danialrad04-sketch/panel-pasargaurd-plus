@@ -2247,7 +2247,8 @@
     "updating": "更新中...",
     "updateAvailable": "有更新可用",
     "prerelease": "预发布版本",
-    "loadingReleases": "正在加载版本..."
+    "loadingReleases": "正在加载版本...",
+    "tunnelApiPort": "原生隧道 / Paqet API 端口"
   },
   "theme": {
     "title": "主题",

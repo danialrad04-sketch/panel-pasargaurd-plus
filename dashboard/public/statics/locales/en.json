@@ -2294,7 +2294,8 @@
     "updating": "Updating...",
     "updateAvailable": "Update Available",
     "prerelease": "Pre-release",
-    "loadingReleases": "Loading releases..."
+    "loadingReleases": "Loading releases...",
+    "tunnelApiPort": "Native tunnel / Paqet API port"
   },
   "theme": {
     "title": "Theme",

@@ -27,6 +27,7 @@ def isolated_tunnel_payload(monkeypatch):
         return core.to_str(), set(core.exclude_inbound_tags)
 
     monkeypatch.setattr("app.tunnel.runtime.node_payload", payload)
+    monkeypatch.setattr("app.tunnel.runtime.apply_node_engines", AsyncMock())
 
 
 NODE_ID = 7

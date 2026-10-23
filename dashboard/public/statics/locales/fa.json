@@ -2082,7 +2082,8 @@
     "updating": "در حال به‌روزرسانی...",
     "updateAvailable": "به‌روزرسانی موجود است",
     "prerelease": "نسخه پیش‌انتشار",
-    "loadingReleases": "در حال بارگذاری نسخه‌ها..."
+    "loadingReleases": "در حال بارگذاری نسخه‌ها...",
+    "tunnelApiPort": "پورت API بومی تونل / Paqet"
   },
   "nodes": {
     "title": "گره‌ها",
