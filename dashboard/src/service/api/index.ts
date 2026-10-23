@@ -1199,6 +1199,7 @@ export interface FinalMask {
  }
 
 export interface BaseHost {
+  native_tunnel_id?: number | null;
   id?: number | null;
   remark: string;
   address?: string[];
@@ -1606,6 +1607,7 @@ export interface MuxSettingsInput {
 }
 
 export interface CreateHost {
+  native_tunnel_id?: number | null;
   id?: number | null;
   remark: string;
   address?: string[];
@@ -2826,6 +2828,16 @@ export interface TunnelDeployResult {
   state: TunnelDeployResultState;
   nodes?: TunnelNodeResult[];
   traffic_readiness?: 'not_probed';
+}
+
+export interface TunnelHostPublish {
+  /** @minimum 1 */
+  expected_revision: number;
+  /** @exclusiveMinimum 0 */
+  template_host_id: number;
+  address?: string | null;
+  port?: number | null;
+  remark?: string | null;
 }
 
 export type TunnelModifyTransport = typeof TunnelModifyTransport[keyof typeof TunnelModifyTransport];
@@ -11565,6 +11577,78 @@ export const useNativePaqetAction = <TError = ErrorType<HTTPValidationError>,
         TContext
       > => {
       return useMutation(getNativePaqetActionMutationOptions(options), queryClient);
+    }
+
+export const getPublishNativeTunnelHostUrl = (tunnelId: number,) => {
+
+
+
+
+  return `/api/tunnels/${tunnelId}/hosts`
+}
+
+/**
+ * @summary Publish Native Tunnel Host
+ */
+export const publishNativeTunnelHost = async (tunnelId: number,
+    tunnelHostPublish: TunnelHostPublish, options?: RequestInit): Promise<BaseHost> => {
+
+  return orvalFetcher<BaseHost>(getPublishNativeTunnelHostUrl(tunnelId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tunnelHostPublish)
+  }
+);}
+
+
+
+
+
+export const getPublishNativeTunnelHostMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof publishNativeTunnelHost>>, TError,{tunnelId: number;data: BodyType<TunnelHostPublish>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof publishNativeTunnelHost>>, TError,{tunnelId: number;data: BodyType<TunnelHostPublish>}, TContext> => {
+
+const mutationKey = ['publishNativeTunnelHost'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof publishNativeTunnelHost>>, {tunnelId: number;data: BodyType<TunnelHostPublish>}> = (props) => {
+          const {tunnelId,data} = props ?? {};
+
+          return  publishNativeTunnelHost(tunnelId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PublishNativeTunnelHostMutationResult = NonNullable<Awaited<ReturnType<typeof publishNativeTunnelHost>>>
+    export type PublishNativeTunnelHostMutationBody = BodyType<TunnelHostPublish>
+    export type PublishNativeTunnelHostMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Publish Native Tunnel Host
+ */
+export const usePublishNativeTunnelHost = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof publishNativeTunnelHost>>, TError,{tunnelId: number;data: BodyType<TunnelHostPublish>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof publishNativeTunnelHost>>,
+        TError,
+        {tunnelId: number;data: BodyType<TunnelHostPublish>},
+        TContext
+      > => {
+      return useMutation(getPublishNativeTunnelHostMutationOptions(options), queryClient);
     }
 
 export const getGetSettingsUrl = () => {

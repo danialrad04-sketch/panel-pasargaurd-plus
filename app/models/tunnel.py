@@ -124,3 +124,23 @@ class TunnelState(BaseModel):
     lease_until: OptionalAwareDatetime = None
     last_result: TunnelDeployResult | None
     traffic_readiness: Literal["not_probed"] = "not_probed"
+
+
+class TunnelHostPublish(TunnelRevision):
+    model_config = ConfigDict(extra="forbid")
+    template_host_id: int = Field(gt=0)
+    address: str | None = Field(default=None, max_length=256)
+    port: int | None = Field(default=None, ge=1, le=65535)
+    remark: str | None = Field(default=None, max_length=256)
+
+    @field_validator("address")
+    @classmethod
+    def ingress_address(cls, value):
+        if value:
+            import ipaddress
+
+            ip = ipaddress.ip_address(value)
+            if ip.is_unspecified or ip.is_multicast or ip.is_loopback or ip.is_link_local:
+                raise ValueError("Use the client-reachable ingress IP, not a loopback or unspecified address")
+            return str(ip)
+        return None

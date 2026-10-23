@@ -372,6 +372,7 @@ export default function HostsList({
       const newPriority = maxPriority + 1
 
       const newHost: CreateHost = {
+        native_tunnel_id: host.native_tunnel_id ?? null,
         remark: `${host.remark || ''} (copy)`,
         address: host.address || [],
         port: host.port,

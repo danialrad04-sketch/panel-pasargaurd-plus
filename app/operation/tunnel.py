@@ -223,6 +223,9 @@ async def modify(db, tunnel_id, body, actor):
     await validate_topology(db, await rows(db))
     audit(db, actor, "update", row.id, revision=row.revision)
     await db.commit()
+    from app.tunnel.hosts import refresh_tunnel_hosts
+
+    await refresh_tunnel_hosts(db, [row.id])
     return row
 
 
@@ -236,6 +239,9 @@ async def rotate(db, tunnel_id, revision, actor):
     row.revision += 1
     audit(db, actor, "rotate", row.id, revision=row.revision)
     await db.commit()
+    from app.tunnel.hosts import refresh_tunnel_hosts
+
+    await refresh_tunnel_hosts(db, [row.id])
     return row
 
 
@@ -243,6 +249,10 @@ async def remove(db, tunnel_id, revision, actor):
     row = await get_locked(db, tunnel_id, revision)
     if row.enabled or row.applied_revision != row.revision:
         raise HTTPException(409, "Disable and successfully apply the tunnel before deleting it")
+    from app.db.models import ProxyHost
+
+    if await db.scalar(select(ProxyHost.id).where(ProxyHost.native_tunnel_id == row.id).limit(1)):
+        raise HTTPException(409, "Remove or detach tunnel subscription hosts before deleting this tunnel")
     audit(db, actor, "delete", row.id)
     await db.delete(row)
     await db.commit()
@@ -335,6 +345,9 @@ async def deploy(actor, *, session_factory=GetDB, restart=None):
             state.lease, state.lease_until = None, None
             audit(db, actor, "apply.finish", "all", **result)
             await db.commit()
+            from app.tunnel.hosts import refresh_tunnel_hosts
+
+            await refresh_tunnel_hosts(db, list(revisions))
     if cancelled:
         raise asyncio.CancelledError
     return result

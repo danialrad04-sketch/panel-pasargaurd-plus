@@ -8,10 +8,12 @@ from sqlalchemy import select
 from app.db import AsyncSession, get_db
 from app.db.models import ServiceAudit
 from app.models.admin import AdminDetails
+from app.models.host import BaseHost
 from app.models.tunnel import (
     TunnelAuditView,
     TunnelCreate,
     TunnelDeployResult,
+    TunnelHostPublish,
     TunnelModify,
     TunnelRevision,
     TunnelState,
@@ -177,3 +179,10 @@ async def native_paqet_action(tunnel_id: int, action: str, side: str, body: Tunn
     operation.audit(db, admin.username, f"paqet.{action}", row.id, side=side, revision=row.revision)
     await db.commit()
     return result
+
+
+@router.post("/{tunnel_id}/hosts", response_model=BaseHost)
+async def publish_native_tunnel_host(tunnel_id: int, body: TunnelHostPublish, db: DB, admin: Owner):
+    from app.tunnel.hosts import publish_host
+
+    return await publish_host(db, tunnel_id, body, admin)

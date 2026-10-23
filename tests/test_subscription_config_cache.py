@@ -67,9 +67,10 @@ async def test_concurrent_renders_are_single_flight():
     assert get_sub_config(key) == b"config"
 
 
-def test_cache_generation_invalidation_changes_keys():
+@pytest.mark.parametrize("config_format", ["wireguard", "links", "xray", "clash_meta", "sing_box"])
+def test_cache_generation_invalidation_changes_keys(config_format):
     user = User()
-    first = make_sub_config_key(user, "wireguard", False, False)
+    first = make_sub_config_key(user, config_format, False, False)
     clear_sub_config_cache()
-    second = make_sub_config_key(user, "wireguard", False, False)
+    second = make_sub_config_key(user, config_format, False, False)
     assert first != second

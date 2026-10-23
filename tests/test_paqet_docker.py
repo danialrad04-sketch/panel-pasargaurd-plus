@@ -210,6 +210,16 @@ async def test_actual_native_paqet_nodes_tcp_udp_and_lifecycle(tmp_path, monkeyp
 
         monkeypatch.setattr("app.tunnel.runtime.compose", fixture_compose)
         monkeypatch.setattr(core_manager, "_cores", {1: XRayConfig(base)})
+        managed = XRayConfig(base)
+        monkeypatch.setattr(core_manager, "_inbounds", list(managed.inbounds_by_tag))
+        monkeypatch.setattr(core_manager, "_inbounds_by_tag", managed.inbounds_by_tag)
+        from app.core.hosts import host_manager
+
+        monkeypatch.setattr(host_manager, "_hosts", {})
+        monkeypatch.setattr(host_manager, "_kv", None)
+        monkeypatch.setattr(host_manager, "_add_hosts_impl", host_manager._add_hosts_local)
+        await host_manager._reset_cache()
+
         monkeypatch.setattr("app.tunnel.runtime.GetDB", sessions)
         monkeypatch.setattr("app.operation.node.notification.connect_node", AsyncMock())
         monkeypatch.setattr("app.operation.node.notification.error_node", AsyncMock())
@@ -277,6 +287,37 @@ async def test_actual_native_paqet_nodes_tcp_udp_and_lifecycle(tmp_path, monkeyp
             assert applied.status_code == 200 and applied.json()["ok"], applied.text
             state = await client.get(f"/api/tunnels/{link_id}/paqet/status")
             assert state.json()["source"]["state"]["running"] and state.json()["exit"]["state"]["running"], state.text
+            # Publish the actual Iran/source user address through the native host API.
+            from app.db.crud.host import create_host
+            from app.models.host import CreateHost
+
+            async with sessions() as db:
+                template = await create_host(
+                    db, CreateHost(remark="Native template", address={ips[1]}, inbound_tag="users", priority=0)
+                )
+            published = await client.post(
+                f"/api/tunnels/{link_id}/hosts",
+                json={
+                    "expected_revision": item["revision"],
+                    "template_host_id": template.id,
+                    "address": ips[0],
+                },
+            )
+            assert published.status_code == 200, published.text
+            ingress = published.json()
+            assert ingress["address"] == [ips[0]] and ingress["port"] == 11080
+            from types import SimpleNamespace
+
+            from app.db.models import UserStatus
+            from app.models.proxy import ProxyTable
+            from app.subscription.links import StandardLinks
+            from app.subscription.share import process_inbounds_and_tags
+
+            subscription_user = SimpleNamespace(
+                id=1, status=UserStatus.active, inbounds=["users"], proxy_settings=ProxyTable(vless={"id": UUID})
+            )
+            links = await process_inbounds_and_tags(subscription_user, {}, StandardLinks(), {})
+            assert f"@{ips[0]}:11080" in links and ":40900" not in links
             local_client = {
                 "inbounds": [
                     {
@@ -294,8 +335,8 @@ async def test_actual_native_paqet_nodes_tcp_udp_and_lifecycle(tmp_path, monkeyp
                         "settings": {
                             "vnext": [
                                 {
-                                    "address": "127.0.0.1",
-                                    "port": source_port,
+                                    "address": ingress["address"][0],
+                                    "port": ingress["port"],
                                     "users": [{"id": UUID, "encryption": "none"}],
                                 }
                             ]
@@ -359,6 +400,9 @@ async def test_actual_native_paqet_nodes_tcp_udp_and_lifecycle(tmp_path, monkeyp
             assert result.json()["ok"], result.text
             for container in names:
                 assert f"pg-plus-paqet-{engine_id}" not in docker("exec", container, "iptables-save")
+            assert await process_inbounds_and_tags(subscription_user, {}, StandardLinks(), {}) == ""
+            for node_id in (1, 2):
+                assert (await client.get(f"/api/tunnels/nodes/{node_id}/paqet")).status_code == 200
             state = await client.get(f"/api/tunnels/{link_id}/paqet/status")
             assert not state.json()["source"]["state"]["running"] and not state.json()["exit"]["state"]["running"]
     except Exception:

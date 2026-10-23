@@ -24,6 +24,7 @@ from app.models.admin import AdminDetails, AdminRoleData
 from app.operation import dns as operation
 from app.routers.authentication import get_current
 from app.routers.dns import router
+from app.routers.host import router as host_router
 from app.routers.tunnel import router as tunnel_router
 
 
@@ -36,6 +37,7 @@ owner = AdminDetails(username="preview-owner", role=AdminRoleData(is_owner=True)
 app = FastAPI()
 app.include_router(router)
 app.include_router(tunnel_router)
+app.include_router(host_router)
 app.dependency_overrides[get_current] = lambda: owner
 
 
@@ -91,9 +93,76 @@ async def seed():
                     status=NodeStatus.connected,
                 )
             )
+        if os.environ.get("TEST_TUNNEL_HOST"):
+            from copy import deepcopy
+
+            from app.core.manager import core_manager
+            from app.core.xray import XRayConfig
+            from app.db.crud.host import create_host
+            from app.db.models import NativeTunnel
+            from app.models.host import CreateHost
+            from app.operation.tunnel import key
+
+            config = deepcopy(core.config)
+            config["inbounds"][0]["listen"] = "0.0.0.0"
+            core.config = config
+            await db.flush()
+            source = await db.get(Node, 1)
+            source.address = "192.0.2.10"
+            db.add(
+                NativeTunnel(
+                    name="Iran → Germany",
+                    source_node_id=1,
+                    exit_node_id=2,
+                    shared_key=key(),
+                    inbound_tags=["users"],
+                    enabled=True,
+                    revision=1,
+                    applied_revision=1,
+                )
+            )
+            await db.commit()
+            managed = XRayConfig(config)
+            core_manager._cores = {core.id: managed}
+            core_manager._inbounds = list(managed.inbounds_by_tag)
+            core_manager._inbounds_by_tag = managed.inbounds_by_tag
+            await create_host(
+                db,
+                CreateHost(
+                    remark="Original template",
+                    address={"198.51.100.20"},
+                    inbound_tag="users",
+                    port=443,
+                    priority=0,
+                    sni={"vpn.example.com"},
+                ),
+            )
         db.add(User(username="native-user"))
         db.add(DNSPolicy(name="Privacy", rules=[{"domain": "blocked.example", "action": "block", "addresses": []}]))
         await db.commit()
+
+
+@app.get("/api/inbounds/details")
+async def inbound_details():
+    return [{"tag": "users", "protocol": "vless", "network": "tcp", "port": 11080, "tls": "none"}]
+
+
+@app.get("/preview/tunnel-links")
+async def tunnel_links():
+    from types import SimpleNamespace
+
+    from app.db.models import UserStatus
+    from app.models.proxy import ProxyTable
+    from app.subscription.links import StandardLinks
+    from app.subscription.share import process_inbounds_and_tags
+
+    user = SimpleNamespace(
+        id=1,
+        status=UserStatus.active,
+        inbounds=["users"],
+        proxy_settings=ProxyTable(vless={"id": "64a0f9d1-3ad3-4026-aa43-2ac860915dee"}),
+    )
+    return {"links": await process_inbounds_and_tags(user, {}, StandardLinks(), {})}
 
 
 @app.get("/preview/subscription")
