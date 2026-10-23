@@ -625,7 +625,7 @@
             }
         </style>
 <script>
-try{document.documentElement.dataset.theme=localStorage.getItem('donino-sub-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch{document.documentElement.dataset.theme='light'}
+try{document.documentElement.dataset.theme=localStorage.getItem('pasarguard-sub-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch{document.documentElement.dataset.theme='light'}
 </script>
 {% include "subscription/qr-code.html" %}
 </head>
@@ -668,6 +668,16 @@ try{document.documentElement.dataset.theme=localStorage.getItem('donino-sub-them
 {% else %}<p class="empty">{% if status == "limited" %}حجم اشتراک به پایان رسیده است.{% elif status == "expired" %}اعتبار اشتراک به پایان رسیده است.{% else %}اشتراک شما در حال حاضر غیرفعال است.{% endif %} برای فعال‌سازی با پشتیبانی سرویس تماس بگیرید.</p>{% endif %}
 <p class="privacy">این صفحه و لینک‌های آن خصوصی هستند؛ فقط در دستگاه‌های خودتان استفاده کنید.</p>
 </section>
+{% if dns_info %}
+<section class="card wide">
+  <div class="section-head"><div><h2>DNS اختصاصی شما</h2><small>با همان حساب پاسارگارد؛ سهمیه درخواست مستقل از حجم VPN.</small></div><span class="pill">DNS / DoH</span></div>
+  <dl class="metrics"><div><dt>درخواست‌های این دوره</dt><dd>{{ dns_info.queries }}{% if dns_info.query_limit %} از {{ dns_info.query_limit }}{% endif %}</dd></div><div><dt>سیاست دامنه</dt><dd>{{ dns_info.policy_name }}</dd></div></dl>
+  {% if dns_info.token %}
+  <div class="connection"><div class="connection-main"><strong>DNS-over-HTTPS</strong><input type="text" id="dns-url" class="dns-url link-input" value="{{ dns_info.doh_url or ('/dns-query/' ~ dns_info.token) }}" readonly aria-label="آدرس خصوصی DoH"></div><div class="actions"><button type="button" id="copy-dns">کپی آدرس DNS</button></div></div>
+  <p class="privacy">آدرس DNS را در برنامه سازگار با DoH وارد کنید. این آدرس خصوصی است.</p>
+  {% else %}<p class="empty">خدمت DNS یا دسترسی این حساب در حال حاضر فعال نیست.</p>{% endif %}
+</section>
+{% endif %}
 {% if apps %}<section class="card wide"><div class="section-head"><div><h2>برنامه‌های پیشنهادی</h2><small>برنامه مناسب دستگاه خود را انتخاب کنید.</small></div><span class="num">03 / APPS</span></div><div class="application-grid">{% for app in apps %}<article class="application"><div class="app-title">{% if app.icon_url and app.icon_url.startswith(("https://","/")) and not app.icon_url.startswith("//") %}<img src="{{ app.icon_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}<div><h3>{{ app.name }}{% if app.recommended %} <span class="pill">پیشنهادی</span>{% endif %}</h3>{% if app.platform %}<small>{{ app.platform.value }}</small>{% endif %}</div></div>{% if app.description %}<p>{{ app.description.get("fa") or app.description.get('en') or '' }}</p>{% endif %}<div class="downloads">{% for link in app.download_links or [] %}{% if link.url.startswith(("https://","http://")) %}<a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.name }} ↗</a>{% endif %}{% endfor %}</div>{% if app.import_url %}<button type="button" class="import-button" data-url="{{ app.import_url }}">افزودن به برنامه ↗</button>{% endif %}</article>{% endfor %}</div></section>{% endif %}
 <section class="card wide guide">
 <div class="section-head">
@@ -699,20 +709,6 @@ try{document.documentElement.dataset.theme=localStorage.getItem('donino-sub-them
 <p class="muted">با برنامه اتصال خود اسکن کنید.</p>
 </dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>
-const $ = id => document.getElementById(id);
-let toastTimer;
-function notify(message){$('toast').textContent=message;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').textContent='',3500)}
-const themeButton=$('theme-toggle');
-function syncTheme(){themeButton.setAttribute('aria-pressed',String(document.documentElement.dataset.theme==='dark'))}
-syncTheme();themeButton.addEventListener('click',()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;try{localStorage.setItem('donino-sub-theme',next)}catch{}syncTheme()});
-async function copy(value){try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(value)}else{const input=document.createElement('textarea');input.value=value;input.style.position='fixed';input.style.opacity='0';document.body.append(input);try{input.select();if(!document.execCommand('copy'))throw new Error('copy')}finally{input.remove()}}notify('لینک با موفقیت کپی شد.')}catch{notify('کپی انجام نشد؛ لینک را انتخاب و دستی کپی کنید.')}}
-document.querySelectorAll('.copy-button').forEach(button=>button.addEventListener('click',()=>copy(button.dataset.link)));
-$('copy-all')?.addEventListener('click',()=>copy(Array.from(document.querySelectorAll('.link-input')).map(input=>input.value).join('\n')));
-document.querySelectorAll('.connection').forEach(row=>{const value=row.querySelector('input').value;let name=value.split('#').slice(1).join('#');try{name=decodeURIComponent(name)}catch{}if(name)row.querySelector('.connection-name').textContent=name});
-$('connection-search')?.addEventListener('input',event=>{const search=event.target.value.toLocaleLowerCase();let visible=0;document.querySelectorAll('.connection').forEach(row=>{row.hidden=!(row.textContent+' '+row.querySelector('input').value).toLocaleLowerCase().includes(search);if(!row.hidden)visible++});$('no-results').hidden=visible>0});
-const dialog=$('qr-dialog');document.querySelectorAll('.qr-button').forEach(button=>button.addEventListener('click',()=>{const container=$('qrCodeContainer');container.replaceChildren();try{new QRCode(container,{text:button.dataset.link,width:240,height:240,correctLevel:QRCode.CorrectLevel.L});dialog.showModal()}catch{notify('این لینک برای نمایش QR بیش از حد طولانی است؛ از کپی لینک استفاده کنید.')}}));dialog.querySelector('.dialog-close').addEventListener('click',()=>dialog.close());dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close()}});
-document.querySelectorAll('.import-button').forEach(button=>button.addEventListener('click',()=>{const url=button.dataset.url;try{const parsed=new URL(url);if(!['https:','http:','hiddify:','v2rayng:','v2rayn:','clash:','clash-verge:','sing-box:','streisand:','shadowrocket:','happ:','v2box:','nekobox:','nekoray:','surfboard:'].includes(parsed.protocol))throw new Error('scheme');window.open(url,'_blank','noopener,noreferrer')}catch{notify('این برنامه از افزودن مستقیم پشتیبانی نمی‌کند؛ لینک را دستی وارد کنید.')}}));
-</script>
+{% include "subscription/page-script.html" %}
 </body>
 </html>

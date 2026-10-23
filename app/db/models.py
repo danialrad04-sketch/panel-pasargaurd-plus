@@ -261,6 +261,7 @@ class User(Base, CreatedAtUTCMixin):
         uselist=False, back_populates="user", cascade="all, delete-orphan", init=False
     )
     hwids: Mapped[list[UserHWID]] = relationship(back_populates="user", cascade="all, delete-orphan", init=False)
+    dns_account: Mapped[DNSAccount | None] = relationship(back_populates="user", cascade="all, delete-orphan", init=False)
     groups: Mapped[list[Group]] = relationship(secondary=users_groups_association, back_populates="users", init=False)
     proxy_settings: Mapped[dict[str, Any]] = mapped_column(
         JSON(True), server_default=text("'{}'"), default_factory=dict
@@ -1070,3 +1071,55 @@ class TempKey(Base):
     expires_at: Mapped[dt] = mapped_column(DateTime(timezone=True))
     used_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True), default=None)
     used_by_ip: Mapped[str | None] = mapped_column(String(45), default=None)
+
+
+class DNSPolicy(Base, CreatedAtUTCMixin):
+    __tablename__ = "dns_policies"
+    name: Mapped[str] = mapped_column(String(80), unique=True)
+    rules: Mapped[list] = mapped_column(PostgresJSONB, default_factory=list)
+    revision: Mapped[int] = mapped_column(default=1)
+
+
+class DNSAccount(Base, CreatedAtUTCMixin):
+    __tablename__ = "dns_accounts"
+    user_id: Mapped[int] = fk_id_column("users.id", ondelete="CASCADE", unique=True)
+    policy_id: Mapped[int] = fk_id_column("dns_policies.id", ondelete="RESTRICT", index=True)
+    credential_seed: Mapped[str] = mapped_column(String(64))
+    user: Mapped[User] = relationship(back_populates="dns_account", init=False)
+    periods: Mapped[list[DNSUsagePeriod]] = relationship(cascade="all, delete-orphan", init=False)
+    leases: Mapped[list[DNSIPLease]] = relationship(cascade="all, delete-orphan", init=False)
+    token_hash: Mapped[str | None] = mapped_column(String(64), unique=True, default=None)
+    enabled: Mapped[bool] = mapped_column(default=True)
+    query_limit: Mapped[int] = mapped_column(BigInteger, default=0)
+    qps: Mapped[int] = mapped_column(default=20)
+    period: Mapped[int] = mapped_column(default=1)
+    rate_second: Mapped[int] = mapped_column(BigInteger, default=0)
+    rate_count: Mapped[int] = mapped_column(default=0)
+
+
+class DNSUsagePeriod(Base, CreatedAtUTCMixin):
+    __tablename__ = "dns_usage_periods"
+    __table_args__ = (UniqueConstraint("account_id", "period"),)
+    account_id: Mapped[int] = fk_id_column("dns_accounts.id", ondelete="CASCADE")
+    period: Mapped[int] = mapped_column()
+    queries: Mapped[int] = mapped_column(BigInteger, default=0)
+    request_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
+    response_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
+    errors: Mapped[int] = mapped_column(BigInteger, default=0)
+    blocked: Mapped[int] = mapped_column(BigInteger, default=0)
+    ended_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True), default=None)
+
+
+class DNSIPLease(Base):
+    __tablename__ = "dns_ip_leases"
+    ip: Mapped[str] = mapped_column(String(45), primary_key=True)
+    account_id: Mapped[int] = fk_id_column("dns_accounts.id", ondelete="CASCADE", index=True)
+    expires_at: Mapped[dt] = mapped_column(DateTime(timezone=True))
+
+
+class ServiceAudit(Base, CreatedAtUTCMixin):
+    __tablename__ = "service_audit"
+    actor: Mapped[str] = mapped_column(String(64))
+    action: Mapped[str] = mapped_column(String(64))
+    target_id: Mapped[str] = mapped_column(String(64))
+    details: Mapped[dict] = mapped_column(PostgresJSONB, default_factory=dict)

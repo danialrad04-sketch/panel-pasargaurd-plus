@@ -1,0 +1,14 @@
+# Merge into your distro's Unbound configuration; do not run a second resolver
+# on an occupied port. The distro must maintain its DNSSEC root trust anchor.
+server:
+    interface: 127.0.0.1
+    port: 5335
+    access-control: 127.0.0.0/8 allow
+    access-control: ::1 allow
+    hide-identity: yes
+    hide-version: yes
+    qname-minimisation: yes
+    log-queries: no
+    log-replies: no
+    verbosity: 0
+    # Configure a valid auto-trust-anchor-file using your distro's path.

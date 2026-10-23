@@ -38,6 +38,30 @@ export const PermissionScope = {
   NUMBER_2: 2,
 } as const;
 
+export type DNSPermissionsCreate = boolean | {[key: string]: PermissionScope | number} | null;
+
+export type DNSPermissionsRead = boolean | {[key: string]: PermissionScope | number} | null;
+
+export type DNSPermissionsReadSimple = boolean | {[key: string]: PermissionScope | number} | null;
+
+export type DNSPermissionsUpdate = boolean | {[key: string]: PermissionScope | number} | null;
+
+export type DNSPermissionsDelete = boolean | {[key: string]: PermissionScope | number} | null;
+
+export type DNSPermissionsResetUsage = boolean | {[key: string]: PermissionScope | number} | null;
+
+export type DNSPermissionsRotateToken = boolean | {[key: string]: PermissionScope | number} | null;
+
+export interface DNSPermissions {
+  create?: DNSPermissionsCreate;
+  read?: DNSPermissionsRead;
+  read_simple?: DNSPermissionsReadSimple;
+  update?: DNSPermissionsUpdate;
+  delete?: DNSPermissionsDelete;
+  reset_usage?: DNSPermissionsResetUsage;
+  rotate_token?: DNSPermissionsRotateToken;
+}
+
 export type UsersPermissionsCreate = boolean | {[key: string]: PermissionScope | number} | null;
 
 export type UsersPermissionsRead = boolean | {[key: string]: PermissionScope | number} | null;
@@ -205,6 +229,7 @@ export interface APIKeysPermissions {
  * Each action value is True (allowed), {"scope": N} (scoped), or None (denied).
  */
 export interface RolePermissions {
+  dns?: DNSPermissions | null;
   users?: UsersPermissions | null;
   admins?: AdminsPermissions | null;
   nodes?: NodesPermissions | null;
@@ -1402,6 +1427,38 @@ export interface BulkUsersSetOwner {
   admin_username: string;
 }
 
+export interface CatalogGroup {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  service: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  group: string;
+}
+
+export interface CatalogPolicyInput {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  name: string;
+  /**
+     * @minItems 1
+     * @maxItems 100
+     */
+  groups: CatalogGroup[];
+  /** @maxItems 8 */
+  relay_addresses?: string[];
+  /** @maxItems 1000 */
+  domains_off?: string[];
+  /** @maxItems 500 */
+  custom_domains?: string[];
+}
+
 export type ClientTemplateType = typeof ClientTemplateType[keyof typeof ClientTemplateType];
 
 
@@ -1579,6 +1636,157 @@ export interface CreateUserFromTemplate {
   user_template_id: number;
   note?: string | null;
   username: string;
+}
+
+export interface DNSAccountCreate {
+  /** @exclusiveMinimum 0 */
+  policy_id: number;
+  enabled?: boolean;
+  /**
+     * @minimum 0
+     * @maximum 9000000000000000
+     */
+  query_limit?: number;
+  /**
+     * @minimum 1
+     * @maximum 100
+     */
+  qps?: number;
+  /** @exclusiveMinimum 0 */
+  user_id: number;
+}
+
+export interface DNSAccountInput {
+  /** @exclusiveMinimum 0 */
+  policy_id: number;
+  enabled?: boolean;
+  /**
+     * @minimum 0
+     * @maximum 9000000000000000
+     */
+  query_limit?: number;
+  /**
+     * @minimum 1
+     * @maximum 100
+     */
+  qps?: number;
+}
+
+export interface DNSAccountView {
+  id: number;
+  user_id: number;
+  username: string;
+  policy_id: number;
+  policy_name: string;
+  enabled: boolean;
+  eligible: boolean;
+  query_limit: number;
+  qps: number;
+  period: number;
+  queries: number;
+  request_bytes: number;
+  response_bytes: number;
+  errors: number;
+  blocked: number;
+  created_at: string;
+}
+
+export interface DNSAccountList {
+  items: DNSAccountView[];
+  total: number;
+}
+
+export type DNSAuditViewDetails = { [key: string]: unknown };
+
+export interface DNSAuditView {
+  id: number;
+  actor: string;
+  action: string;
+  target_id: string;
+  details: DNSAuditViewDetails;
+  created_at: string;
+}
+
+export interface DNSCredential {
+  token: string;
+}
+
+export interface DNSLeaseInput {
+  ip: string;
+  /**
+     * @minimum 60
+     * @maximum 86400
+     */
+  ttl?: number;
+}
+
+export interface DNSLeaseView {
+  ip: string;
+  expires_at: string;
+}
+
+export interface DNSPeriodView {
+  period: number;
+  queries: number;
+  request_bytes: number;
+  response_bytes: number;
+  errors: number;
+  blocked: number;
+  created_at: string;
+  ended_at: string | null;
+}
+
+export interface DNSRule {
+  /**
+     * @minLength 1
+     * @maxLength 253
+     */
+  domain: string;
+  /** @pattern ^(allow|block|rewrite)$ */
+  action: string;
+  /** @maxItems 8 */
+  addresses?: string[];
+}
+
+export interface DNSPolicyInput {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  name: string;
+  /** @maxItems 2000 */
+  rules?: DNSRule[];
+}
+
+export interface DNSPolicyModify {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  name: string;
+  /** @maxItems 2000 */
+  rules?: DNSRule[];
+  /** @minimum 1 */
+  expected_revision: number;
+}
+
+export interface DNSPolicyView {
+  id: number;
+  name: string;
+  revision: number;
+  rules: DNSRule[];
+}
+
+export interface DNSRuntime {
+  native: boolean;
+  enabled: boolean;
+  doh: string;
+  source_ip_transports: string[];
+  upstream: string;
+  upstream_port: number;
+  worker_port: number;
+  dot_port: number | null;
+  readiness: string;
 }
 
 export type DataLimitResetStrategy = typeof DataLimitResetStrategy[keyof typeof DataLimitResetStrategy];
@@ -2760,6 +2968,46 @@ admin_username?: string | null;
 
 export type GetSystemUsersStatsParams = {
 admin_username?: string | null;
+};
+
+export type AccountsParams = {
+/**
+ * @minimum 0
+ */
+offset?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+/**
+ * @maxLength 64
+ */
+search?: string;
+};
+
+export type PeriodsParams = {
+/**
+ * @minimum 0
+ */
+offset?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+};
+
+export type AuditParams = {
+/**
+ * @minimum 0
+ */
+offset?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
 };
 
 export type GetAllGroupsParams = {
@@ -8107,6 +8355,1771 @@ export function useGetWorkersHealth<TData = Awaited<ReturnType<typeof getWorkers
 
 
 
+export const getRuntimeUrl = () => {
+
+
+
+
+  return `/api/dns/runtime`
+}
+
+/**
+ * @summary Runtime
+ */
+export const runtime = async ( options?: RequestInit): Promise<DNSRuntime> => {
+
+  return orvalFetcher<DNSRuntime>(getRuntimeUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getRuntimeQueryKey = () => {
+    return [
+    `/api/dns/runtime`
+    ] as const;
+    }
+
+
+export const getRuntimeQueryOptions = <TData = Awaited<ReturnType<typeof runtime>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof runtime>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getRuntimeQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof runtime>>> = ({ signal }) => runtime({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof runtime>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type RuntimeQueryResult = NonNullable<Awaited<ReturnType<typeof runtime>>>
+export type RuntimeQueryError = ErrorType<unknown>
+
+
+export function useRuntime<TData = Awaited<ReturnType<typeof runtime>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof runtime>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof runtime>>,
+          TError,
+          Awaited<ReturnType<typeof runtime>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useRuntime<TData = Awaited<ReturnType<typeof runtime>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof runtime>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof runtime>>,
+          TError,
+          Awaited<ReturnType<typeof runtime>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useRuntime<TData = Awaited<ReturnType<typeof runtime>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof runtime>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Runtime
+ */
+
+export function useRuntime<TData = Awaited<ReturnType<typeof runtime>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof runtime>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getRuntimeQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGamingCatalogUrl = () => {
+
+
+
+
+  return `/api/dns/catalog`
+}
+
+/**
+ * @summary Gaming Catalog
+ */
+export const gamingCatalog = async ( options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getGamingCatalogUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGamingCatalogQueryKey = () => {
+    return [
+    `/api/dns/catalog`
+    ] as const;
+    }
+
+
+export const getGamingCatalogQueryOptions = <TData = Awaited<ReturnType<typeof gamingCatalog>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof gamingCatalog>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGamingCatalogQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof gamingCatalog>>> = ({ signal }) => gamingCatalog({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof gamingCatalog>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GamingCatalogQueryResult = NonNullable<Awaited<ReturnType<typeof gamingCatalog>>>
+export type GamingCatalogQueryError = ErrorType<unknown>
+
+
+export function useGamingCatalog<TData = Awaited<ReturnType<typeof gamingCatalog>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof gamingCatalog>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof gamingCatalog>>,
+          TError,
+          Awaited<ReturnType<typeof gamingCatalog>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGamingCatalog<TData = Awaited<ReturnType<typeof gamingCatalog>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof gamingCatalog>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof gamingCatalog>>,
+          TError,
+          Awaited<ReturnType<typeof gamingCatalog>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGamingCatalog<TData = Awaited<ReturnType<typeof gamingCatalog>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof gamingCatalog>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Gaming Catalog
+ */
+
+export function useGamingCatalog<TData = Awaited<ReturnType<typeof gamingCatalog>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof gamingCatalog>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGamingCatalogQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPoliciesUrl = () => {
+
+
+
+
+  return `/api/dns/policies`
+}
+
+/**
+ * @summary Policies
+ */
+export const policies = async ( options?: RequestInit): Promise<DNSPolicyView[]> => {
+
+  return orvalFetcher<DNSPolicyView[]>(getPoliciesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getPoliciesQueryKey = () => {
+    return [
+    `/api/dns/policies`
+    ] as const;
+    }
+
+
+export const getPoliciesQueryOptions = <TData = Awaited<ReturnType<typeof policies>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof policies>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getPoliciesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof policies>>> = ({ signal }) => policies({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof policies>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type PoliciesQueryResult = NonNullable<Awaited<ReturnType<typeof policies>>>
+export type PoliciesQueryError = ErrorType<unknown>
+
+
+export function usePolicies<TData = Awaited<ReturnType<typeof policies>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof policies>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof policies>>,
+          TError,
+          Awaited<ReturnType<typeof policies>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePolicies<TData = Awaited<ReturnType<typeof policies>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof policies>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof policies>>,
+          TError,
+          Awaited<ReturnType<typeof policies>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePolicies<TData = Awaited<ReturnType<typeof policies>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof policies>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Policies
+ */
+
+export function usePolicies<TData = Awaited<ReturnType<typeof policies>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof policies>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getPoliciesQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreatePolicyUrl = () => {
+
+
+
+
+  return `/api/dns/policies`
+}
+
+/**
+ * @summary Create Policy
+ */
+export const createPolicy = async (dNSPolicyInput: DNSPolicyInput, options?: RequestInit): Promise<DNSPolicyView> => {
+
+  return orvalFetcher<DNSPolicyView>(getCreatePolicyUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(dNSPolicyInput)
+  }
+);}
+
+
+
+
+
+export const getCreatePolicyMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPolicy>>, TError,{data: BodyType<DNSPolicyInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPolicy>>, TError,{data: BodyType<DNSPolicyInput>}, TContext> => {
+
+const mutationKey = ['createPolicy'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPolicy>>, {data: BodyType<DNSPolicyInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createPolicy(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePolicyMutationResult = NonNullable<Awaited<ReturnType<typeof createPolicy>>>
+    export type CreatePolicyMutationBody = BodyType<DNSPolicyInput>
+    export type CreatePolicyMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Create Policy
+ */
+export const useCreatePolicy = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPolicy>>, TError,{data: BodyType<DNSPolicyInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createPolicy>>,
+        TError,
+        {data: BodyType<DNSPolicyInput>},
+        TContext
+      > => {
+      return useMutation(getCreatePolicyMutationOptions(options), queryClient);
+    }
+
+export const getCatalogPolicyUrl = () => {
+
+
+
+
+  return `/api/dns/policies/from-catalog`
+}
+
+/**
+ * @summary Catalog Policy
+ */
+export const catalogPolicy = async (catalogPolicyInput: CatalogPolicyInput, options?: RequestInit): Promise<DNSPolicyView> => {
+
+  return orvalFetcher<DNSPolicyView>(getCatalogPolicyUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(catalogPolicyInput)
+  }
+);}
+
+
+
+
+
+export const getCatalogPolicyMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof catalogPolicy>>, TError,{data: BodyType<CatalogPolicyInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof catalogPolicy>>, TError,{data: BodyType<CatalogPolicyInput>}, TContext> => {
+
+const mutationKey = ['catalogPolicy'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof catalogPolicy>>, {data: BodyType<CatalogPolicyInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  catalogPolicy(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CatalogPolicyMutationResult = NonNullable<Awaited<ReturnType<typeof catalogPolicy>>>
+    export type CatalogPolicyMutationBody = BodyType<CatalogPolicyInput>
+    export type CatalogPolicyMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Catalog Policy
+ */
+export const useCatalogPolicy = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof catalogPolicy>>, TError,{data: BodyType<CatalogPolicyInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof catalogPolicy>>,
+        TError,
+        {data: BodyType<CatalogPolicyInput>},
+        TContext
+      > => {
+      return useMutation(getCatalogPolicyMutationOptions(options), queryClient);
+    }
+
+export const getModifyPolicyUrl = (policyId: number,) => {
+
+
+
+
+  return `/api/dns/policies/${policyId}`
+}
+
+/**
+ * @summary Modify Policy
+ */
+export const modifyPolicy = async (policyId: number,
+    dNSPolicyModify: DNSPolicyModify, options?: RequestInit): Promise<DNSPolicyView> => {
+
+  return orvalFetcher<DNSPolicyView>(getModifyPolicyUrl(policyId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(dNSPolicyModify)
+  }
+);}
+
+
+
+
+
+export const getModifyPolicyMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof modifyPolicy>>, TError,{policyId: number;data: BodyType<DNSPolicyModify>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof modifyPolicy>>, TError,{policyId: number;data: BodyType<DNSPolicyModify>}, TContext> => {
+
+const mutationKey = ['modifyPolicy'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof modifyPolicy>>, {policyId: number;data: BodyType<DNSPolicyModify>}> = (props) => {
+          const {policyId,data} = props ?? {};
+
+          return  modifyPolicy(policyId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ModifyPolicyMutationResult = NonNullable<Awaited<ReturnType<typeof modifyPolicy>>>
+    export type ModifyPolicyMutationBody = BodyType<DNSPolicyModify>
+    export type ModifyPolicyMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Modify Policy
+ */
+export const useModifyPolicy = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof modifyPolicy>>, TError,{policyId: number;data: BodyType<DNSPolicyModify>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof modifyPolicy>>,
+        TError,
+        {policyId: number;data: BodyType<DNSPolicyModify>},
+        TContext
+      > => {
+      return useMutation(getModifyPolicyMutationOptions(options), queryClient);
+    }
+
+export const getRemovePolicyUrl = (policyId: number,) => {
+
+
+
+
+  return `/api/dns/policies/${policyId}`
+}
+
+/**
+ * @summary Remove Policy
+ */
+export const removePolicy = async (policyId: number, options?: RequestInit): Promise<void> => {
+
+  return orvalFetcher<void>(getRemovePolicyUrl(policyId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRemovePolicyMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removePolicy>>, TError,{policyId: number}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof removePolicy>>, TError,{policyId: number}, TContext> => {
+
+const mutationKey = ['removePolicy'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removePolicy>>, {policyId: number}> = (props) => {
+          const {policyId} = props ?? {};
+
+          return  removePolicy(policyId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemovePolicyMutationResult = NonNullable<Awaited<ReturnType<typeof removePolicy>>>
+
+    export type RemovePolicyMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Remove Policy
+ */
+export const useRemovePolicy = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removePolicy>>, TError,{policyId: number}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof removePolicy>>,
+        TError,
+        {policyId: number},
+        TContext
+      > => {
+      return useMutation(getRemovePolicyMutationOptions(options), queryClient);
+    }
+
+export const getAccountsUrl = (params?: AccountsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/dns/accounts?${stringifiedParams}` : `/api/dns/accounts`
+}
+
+/**
+ * @summary Accounts
+ */
+export const accounts = async (params?: AccountsParams, options?: RequestInit): Promise<DNSAccountList> => {
+
+  return orvalFetcher<DNSAccountList>(getAccountsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAccountsQueryKey = (params?: AccountsParams,) => {
+    return [
+    `/api/dns/accounts`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getAccountsQueryOptions = <TData = Awaited<ReturnType<typeof accounts>>, TError = ErrorType<HTTPValidationError>>(params?: AccountsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof accounts>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAccountsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof accounts>>> = ({ signal }) => accounts(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof accounts>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AccountsQueryResult = NonNullable<Awaited<ReturnType<typeof accounts>>>
+export type AccountsQueryError = ErrorType<HTTPValidationError>
+
+
+export function useAccounts<TData = Awaited<ReturnType<typeof accounts>>, TError = ErrorType<HTTPValidationError>>(
+ params: undefined |  AccountsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof accounts>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof accounts>>,
+          TError,
+          Awaited<ReturnType<typeof accounts>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAccounts<TData = Awaited<ReturnType<typeof accounts>>, TError = ErrorType<HTTPValidationError>>(
+ params?: AccountsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof accounts>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof accounts>>,
+          TError,
+          Awaited<ReturnType<typeof accounts>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAccounts<TData = Awaited<ReturnType<typeof accounts>>, TError = ErrorType<HTTPValidationError>>(
+ params?: AccountsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof accounts>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Accounts
+ */
+
+export function useAccounts<TData = Awaited<ReturnType<typeof accounts>>, TError = ErrorType<HTTPValidationError>>(
+ params?: AccountsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof accounts>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAccountsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateAccountUrl = () => {
+
+
+
+
+  return `/api/dns/accounts`
+}
+
+/**
+ * @summary Create Account
+ */
+export const createAccount = async (dNSAccountCreate: DNSAccountCreate, options?: RequestInit): Promise<DNSAccountView> => {
+
+  return orvalFetcher<DNSAccountView>(getCreateAccountUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(dNSAccountCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateAccountMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAccount>>, TError,{data: BodyType<DNSAccountCreate>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof createAccount>>, TError,{data: BodyType<DNSAccountCreate>}, TContext> => {
+
+const mutationKey = ['createAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAccount>>, {data: BodyType<DNSAccountCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createAccount(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateAccountMutationResult = NonNullable<Awaited<ReturnType<typeof createAccount>>>
+    export type CreateAccountMutationBody = BodyType<DNSAccountCreate>
+    export type CreateAccountMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Create Account
+ */
+export const useCreateAccount = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAccount>>, TError,{data: BodyType<DNSAccountCreate>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createAccount>>,
+        TError,
+        {data: BodyType<DNSAccountCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateAccountMutationOptions(options), queryClient);
+    }
+
+export const getModifyAccountUrl = (accountId: number,) => {
+
+
+
+
+  return `/api/dns/accounts/${accountId}`
+}
+
+/**
+ * @summary Modify Account
+ */
+export const modifyAccount = async (accountId: number,
+    dNSAccountInput: DNSAccountInput, options?: RequestInit): Promise<DNSAccountView> => {
+
+  return orvalFetcher<DNSAccountView>(getModifyAccountUrl(accountId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(dNSAccountInput)
+  }
+);}
+
+
+
+
+
+export const getModifyAccountMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof modifyAccount>>, TError,{accountId: number;data: BodyType<DNSAccountInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof modifyAccount>>, TError,{accountId: number;data: BodyType<DNSAccountInput>}, TContext> => {
+
+const mutationKey = ['modifyAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof modifyAccount>>, {accountId: number;data: BodyType<DNSAccountInput>}> = (props) => {
+          const {accountId,data} = props ?? {};
+
+          return  modifyAccount(accountId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ModifyAccountMutationResult = NonNullable<Awaited<ReturnType<typeof modifyAccount>>>
+    export type ModifyAccountMutationBody = BodyType<DNSAccountInput>
+    export type ModifyAccountMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Modify Account
+ */
+export const useModifyAccount = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof modifyAccount>>, TError,{accountId: number;data: BodyType<DNSAccountInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof modifyAccount>>,
+        TError,
+        {accountId: number;data: BodyType<DNSAccountInput>},
+        TContext
+      > => {
+      return useMutation(getModifyAccountMutationOptions(options), queryClient);
+    }
+
+export const getRemoveAccountUrl = (accountId: number,) => {
+
+
+
+
+  return `/api/dns/accounts/${accountId}`
+}
+
+/**
+ * @summary Remove Account
+ */
+export const removeAccount = async (accountId: number, options?: RequestInit): Promise<void> => {
+
+  return orvalFetcher<void>(getRemoveAccountUrl(accountId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRemoveAccountMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeAccount>>, TError,{accountId: number}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeAccount>>, TError,{accountId: number}, TContext> => {
+
+const mutationKey = ['removeAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeAccount>>, {accountId: number}> = (props) => {
+          const {accountId} = props ?? {};
+
+          return  removeAccount(accountId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveAccountMutationResult = NonNullable<Awaited<ReturnType<typeof removeAccount>>>
+
+    export type RemoveAccountMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Remove Account
+ */
+export const useRemoveAccount = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeAccount>>, TError,{accountId: number}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof removeAccount>>,
+        TError,
+        {accountId: number},
+        TContext
+      > => {
+      return useMutation(getRemoveAccountMutationOptions(options), queryClient);
+    }
+
+export const getResetUrl = (accountId: number,) => {
+
+
+
+
+  return `/api/dns/accounts/${accountId}/reset`
+}
+
+/**
+ * @summary Reset
+ */
+export const reset = async (accountId: number, options?: RequestInit): Promise<DNSAccountView> => {
+
+  return orvalFetcher<DNSAccountView>(getResetUrl(accountId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getResetMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reset>>, TError,{accountId: number}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof reset>>, TError,{accountId: number}, TContext> => {
+
+const mutationKey = ['reset'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reset>>, {accountId: number}> = (props) => {
+          const {accountId} = props ?? {};
+
+          return  reset(accountId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResetMutationResult = NonNullable<Awaited<ReturnType<typeof reset>>>
+
+    export type ResetMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Reset
+ */
+export const useReset = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reset>>, TError,{accountId: number}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof reset>>,
+        TError,
+        {accountId: number},
+        TContext
+      > => {
+      return useMutation(getResetMutationOptions(options), queryClient);
+    }
+
+export const getRotateUrl = (accountId: number,) => {
+
+
+
+
+  return `/api/dns/accounts/${accountId}/rotate`
+}
+
+/**
+ * @summary Rotate
+ */
+export const rotate = async (accountId: number, options?: RequestInit): Promise<DNSCredential> => {
+
+  return orvalFetcher<DNSCredential>(getRotateUrl(accountId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRotateMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rotate>>, TError,{accountId: number}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof rotate>>, TError,{accountId: number}, TContext> => {
+
+const mutationKey = ['rotate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rotate>>, {accountId: number}> = (props) => {
+          const {accountId} = props ?? {};
+
+          return  rotate(accountId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RotateMutationResult = NonNullable<Awaited<ReturnType<typeof rotate>>>
+
+    export type RotateMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Rotate
+ */
+export const useRotate = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rotate>>, TError,{accountId: number}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof rotate>>,
+        TError,
+        {accountId: number},
+        TContext
+      > => {
+      return useMutation(getRotateMutationOptions(options), queryClient);
+    }
+
+export const getCredentialsUrl = (accountId: number,) => {
+
+
+
+
+  return `/api/dns/accounts/${accountId}/credentials`
+}
+
+/**
+ * @summary Credentials
+ */
+export const credentials = async (accountId: number, options?: RequestInit): Promise<DNSCredential> => {
+
+  return orvalFetcher<DNSCredential>(getCredentialsUrl(accountId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCredentialsMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof credentials>>, TError,{accountId: number}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof credentials>>, TError,{accountId: number}, TContext> => {
+
+const mutationKey = ['credentials'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof credentials>>, {accountId: number}> = (props) => {
+          const {accountId} = props ?? {};
+
+          return  credentials(accountId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CredentialsMutationResult = NonNullable<Awaited<ReturnType<typeof credentials>>>
+
+    export type CredentialsMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Credentials
+ */
+export const useCredentials = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof credentials>>, TError,{accountId: number}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof credentials>>,
+        TError,
+        {accountId: number},
+        TContext
+      > => {
+      return useMutation(getCredentialsMutationOptions(options), queryClient);
+    }
+
+export const getPeriodsUrl = (accountId: number,
+    params?: PeriodsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/dns/accounts/${accountId}/periods?${stringifiedParams}` : `/api/dns/accounts/${accountId}/periods`
+}
+
+/**
+ * @summary Periods
+ */
+export const periods = async (accountId: number,
+    params?: PeriodsParams, options?: RequestInit): Promise<DNSPeriodView[]> => {
+
+  return orvalFetcher<DNSPeriodView[]>(getPeriodsUrl(accountId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getPeriodsQueryKey = (accountId: number,
+    params?: PeriodsParams,) => {
+    return [
+    `/api/dns/accounts/${accountId}/periods`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getPeriodsQueryOptions = <TData = Awaited<ReturnType<typeof periods>>, TError = ErrorType<HTTPValidationError>>(accountId: number,
+    params?: PeriodsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof periods>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getPeriodsQueryKey(accountId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof periods>>> = ({ signal }) => periods(accountId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: accountId !== null && accountId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof periods>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type PeriodsQueryResult = NonNullable<Awaited<ReturnType<typeof periods>>>
+export type PeriodsQueryError = ErrorType<HTTPValidationError>
+
+
+export function usePeriods<TData = Awaited<ReturnType<typeof periods>>, TError = ErrorType<HTTPValidationError>>(
+ accountId: number,
+    params: undefined |  PeriodsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof periods>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof periods>>,
+          TError,
+          Awaited<ReturnType<typeof periods>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePeriods<TData = Awaited<ReturnType<typeof periods>>, TError = ErrorType<HTTPValidationError>>(
+ accountId: number,
+    params?: PeriodsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof periods>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof periods>>,
+          TError,
+          Awaited<ReturnType<typeof periods>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePeriods<TData = Awaited<ReturnType<typeof periods>>, TError = ErrorType<HTTPValidationError>>(
+ accountId: number,
+    params?: PeriodsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof periods>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Periods
+ */
+
+export function usePeriods<TData = Awaited<ReturnType<typeof periods>>, TError = ErrorType<HTTPValidationError>>(
+ accountId: number,
+    params?: PeriodsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof periods>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getPeriodsQueryOptions(accountId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getLeasesUrl = (accountId: number,) => {
+
+
+
+
+  return `/api/dns/accounts/${accountId}/leases`
+}
+
+/**
+ * @summary Leases
+ */
+export const leases = async (accountId: number, options?: RequestInit): Promise<DNSLeaseView[]> => {
+
+  return orvalFetcher<DNSLeaseView[]>(getLeasesUrl(accountId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getLeasesQueryKey = (accountId: number,) => {
+    return [
+    `/api/dns/accounts/${accountId}/leases`
+    ] as const;
+    }
+
+
+export const getLeasesQueryOptions = <TData = Awaited<ReturnType<typeof leases>>, TError = ErrorType<HTTPValidationError>>(accountId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof leases>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getLeasesQueryKey(accountId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof leases>>> = ({ signal }) => leases(accountId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: accountId !== null && accountId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof leases>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type LeasesQueryResult = NonNullable<Awaited<ReturnType<typeof leases>>>
+export type LeasesQueryError = ErrorType<HTTPValidationError>
+
+
+export function useLeases<TData = Awaited<ReturnType<typeof leases>>, TError = ErrorType<HTTPValidationError>>(
+ accountId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof leases>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof leases>>,
+          TError,
+          Awaited<ReturnType<typeof leases>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useLeases<TData = Awaited<ReturnType<typeof leases>>, TError = ErrorType<HTTPValidationError>>(
+ accountId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof leases>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof leases>>,
+          TError,
+          Awaited<ReturnType<typeof leases>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useLeases<TData = Awaited<ReturnType<typeof leases>>, TError = ErrorType<HTTPValidationError>>(
+ accountId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof leases>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Leases
+ */
+
+export function useLeases<TData = Awaited<ReturnType<typeof leases>>, TError = ErrorType<HTTPValidationError>>(
+ accountId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof leases>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getLeasesQueryOptions(accountId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getLeaseUrl = (accountId: number,) => {
+
+
+
+
+  return `/api/dns/accounts/${accountId}/leases`
+}
+
+/**
+ * @summary Lease
+ */
+export const lease = async (accountId: number,
+    dNSLeaseInput: DNSLeaseInput, options?: RequestInit): Promise<DNSLeaseView> => {
+
+  return orvalFetcher<DNSLeaseView>(getLeaseUrl(accountId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(dNSLeaseInput)
+  }
+);}
+
+
+
+
+
+export const getLeaseMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof lease>>, TError,{accountId: number;data: BodyType<DNSLeaseInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof lease>>, TError,{accountId: number;data: BodyType<DNSLeaseInput>}, TContext> => {
+
+const mutationKey = ['lease'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof lease>>, {accountId: number;data: BodyType<DNSLeaseInput>}> = (props) => {
+          const {accountId,data} = props ?? {};
+
+          return  lease(accountId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LeaseMutationResult = NonNullable<Awaited<ReturnType<typeof lease>>>
+    export type LeaseMutationBody = BodyType<DNSLeaseInput>
+    export type LeaseMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Lease
+ */
+export const useLease = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof lease>>, TError,{accountId: number;data: BodyType<DNSLeaseInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof lease>>,
+        TError,
+        {accountId: number;data: BodyType<DNSLeaseInput>},
+        TContext
+      > => {
+      return useMutation(getLeaseMutationOptions(options), queryClient);
+    }
+
+export const getRevokeLeaseUrl = (accountId: number,
+    ip: string,) => {
+
+
+
+
+  return `/api/dns/accounts/${accountId}/leases/${ip}`
+}
+
+/**
+ * @summary Revoke Lease
+ */
+export const revokeLease = async (accountId: number,
+    ip: string, options?: RequestInit): Promise<void> => {
+
+  return orvalFetcher<void>(getRevokeLeaseUrl(accountId,ip),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRevokeLeaseMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeLease>>, TError,{accountId: number;ip: string}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof revokeLease>>, TError,{accountId: number;ip: string}, TContext> => {
+
+const mutationKey = ['revokeLease'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revokeLease>>, {accountId: number;ip: string}> = (props) => {
+          const {accountId,ip} = props ?? {};
+
+          return  revokeLease(accountId,ip,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevokeLeaseMutationResult = NonNullable<Awaited<ReturnType<typeof revokeLease>>>
+
+    export type RevokeLeaseMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Revoke Lease
+ */
+export const useRevokeLease = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeLease>>, TError,{accountId: number;ip: string}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof revokeLease>>,
+        TError,
+        {accountId: number;ip: string},
+        TContext
+      > => {
+      return useMutation(getRevokeLeaseMutationOptions(options), queryClient);
+    }
+
+export const getAuditUrl = (params?: AuditParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/dns/audit?${stringifiedParams}` : `/api/dns/audit`
+}
+
+/**
+ * @summary Audit
+ */
+export const audit = async (params?: AuditParams, options?: RequestInit): Promise<DNSAuditView[]> => {
+
+  return orvalFetcher<DNSAuditView[]>(getAuditUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAuditQueryKey = (params?: AuditParams,) => {
+    return [
+    `/api/dns/audit`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getAuditQueryOptions = <TData = Awaited<ReturnType<typeof audit>>, TError = ErrorType<HTTPValidationError>>(params?: AuditParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof audit>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAuditQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof audit>>> = ({ signal }) => audit(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof audit>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AuditQueryResult = NonNullable<Awaited<ReturnType<typeof audit>>>
+export type AuditQueryError = ErrorType<HTTPValidationError>
+
+
+export function useAudit<TData = Awaited<ReturnType<typeof audit>>, TError = ErrorType<HTTPValidationError>>(
+ params: undefined |  AuditParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof audit>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof audit>>,
+          TError,
+          Awaited<ReturnType<typeof audit>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAudit<TData = Awaited<ReturnType<typeof audit>>, TError = ErrorType<HTTPValidationError>>(
+ params?: AuditParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof audit>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof audit>>,
+          TError,
+          Awaited<ReturnType<typeof audit>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAudit<TData = Awaited<ReturnType<typeof audit>>, TError = ErrorType<HTTPValidationError>>(
+ params?: AuditParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof audit>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Audit
+ */
+
+export function useAudit<TData = Awaited<ReturnType<typeof audit>>, TError = ErrorType<HTTPValidationError>>(
+ params?: AuditParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof audit>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAuditQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDnsQueryGetUrl = () => {
+
+
+
+
+  return `/dns-query`
+}
+
+/**
+ * @summary Dns Query Get
+ */
+export const dnsQueryGet = async ( options?: RequestInit): Promise<void> => {
+
+  return orvalFetcher<void>(getDnsQueryGetUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDnsQueryGetQueryKey = () => {
+    return [
+    `/dns-query`
+    ] as const;
+    }
+
+
+export const getDnsQueryGetQueryOptions = <TData = Awaited<ReturnType<typeof dnsQueryGet>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof dnsQueryGet>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDnsQueryGetQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof dnsQueryGet>>> = ({ signal }) => dnsQueryGet({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof dnsQueryGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type DnsQueryGetQueryResult = NonNullable<Awaited<ReturnType<typeof dnsQueryGet>>>
+export type DnsQueryGetQueryError = ErrorType<unknown>
+
+
+export function useDnsQueryGet<TData = Awaited<ReturnType<typeof dnsQueryGet>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof dnsQueryGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof dnsQueryGet>>,
+          TError,
+          Awaited<ReturnType<typeof dnsQueryGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useDnsQueryGet<TData = Awaited<ReturnType<typeof dnsQueryGet>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof dnsQueryGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof dnsQueryGet>>,
+          TError,
+          Awaited<ReturnType<typeof dnsQueryGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useDnsQueryGet<TData = Awaited<ReturnType<typeof dnsQueryGet>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof dnsQueryGet>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Dns Query Get
+ */
+
+export function useDnsQueryGet<TData = Awaited<ReturnType<typeof dnsQueryGet>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof dnsQueryGet>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getDnsQueryGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDnsQueryPostUrl = () => {
+
+
+
+
+  return `/dns-query`
+}
+
+/**
+ * @summary Dns Query Post
+ */
+export const dnsQueryPost = async ( options?: RequestInit): Promise<void> => {
+
+  return orvalFetcher<void>(getDnsQueryPostUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getDnsQueryPostMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dnsQueryPost>>, TError,void, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof dnsQueryPost>>, TError,void, TContext> => {
+
+const mutationKey = ['dnsQueryPost'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof dnsQueryPost>>, void> = () => {
+
+
+          return  dnsQueryPost(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DnsQueryPostMutationResult = NonNullable<Awaited<ReturnType<typeof dnsQueryPost>>>
+
+    export type DnsQueryPostMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Dns Query Post
+ */
+export const useDnsQueryPost = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dnsQueryPost>>, TError,void, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof dnsQueryPost>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDnsQueryPostMutationOptions(options), queryClient);
+    }
+
 export const getGetSettingsUrl = () => {
 
 
@@ -10992,7 +13005,7 @@ export const removeHost = async (hostId: number, options?: RequestInit): Promise
 
 
 
-export const getRemoveHostMutationOptions = <TError = ErrorType<Unauthorized | Forbidden | NotFound | HTTPValidationError>,
+export const getRemoveHostMutationOptions = <TError = ErrorType<Unauthorized | Forbidden | NotFound | Conflict | HTTPValidationError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeHost>>, TError,{hostId: number}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
 ): UseMutationOptions<Awaited<ReturnType<typeof removeHost>>, TError,{hostId: number}, TContext> => {
 
@@ -11021,12 +13034,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type RemoveHostMutationResult = NonNullable<Awaited<ReturnType<typeof removeHost>>>
 
-    export type RemoveHostMutationError = ErrorType<Unauthorized | Forbidden | NotFound | HTTPValidationError>
+    export type RemoveHostMutationError = ErrorType<Unauthorized | Forbidden | NotFound | Conflict | HTTPValidationError>
 
     /**
  * @summary Remove Host
  */
-export const useRemoveHost = <TError = ErrorType<Unauthorized | Forbidden | NotFound | HTTPValidationError>,
+export const useRemoveHost = <TError = ErrorType<Unauthorized | Forbidden | NotFound | Conflict | HTTPValidationError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeHost>>, TError,{hostId: number}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof removeHost>>,
@@ -11327,7 +13340,7 @@ export const bulkDeleteHosts = async (bulkHostSelection: BulkHostSelection, opti
 
 
 
-export const getBulkDeleteHostsMutationOptions = <TError = ErrorType<HTTPException | Unauthorized | Forbidden | NotFound | HTTPValidationError>,
+export const getBulkDeleteHostsMutationOptions = <TError = ErrorType<HTTPException | Unauthorized | Forbidden | NotFound | Conflict | HTTPValidationError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkDeleteHosts>>, TError,{data: BodyType<BulkHostSelection>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
 ): UseMutationOptions<Awaited<ReturnType<typeof bulkDeleteHosts>>, TError,{data: BodyType<BulkHostSelection>}, TContext> => {
 
@@ -11356,12 +13369,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type BulkDeleteHostsMutationResult = NonNullable<Awaited<ReturnType<typeof bulkDeleteHosts>>>
     export type BulkDeleteHostsMutationBody = BodyType<BulkHostSelection>
-    export type BulkDeleteHostsMutationError = ErrorType<HTTPException | Unauthorized | Forbidden | NotFound | HTTPValidationError>
+    export type BulkDeleteHostsMutationError = ErrorType<HTTPException | Unauthorized | Forbidden | NotFound | Conflict | HTTPValidationError>
 
     /**
  * @summary Bulk Delete Hosts
  */
-export const useBulkDeleteHosts = <TError = ErrorType<HTTPException | Unauthorized | Forbidden | NotFound | HTTPValidationError>,
+export const useBulkDeleteHosts = <TError = ErrorType<HTTPException | Unauthorized | Forbidden | NotFound | Conflict | HTTPValidationError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkDeleteHosts>>, TError,{data: BodyType<BulkHostSelection>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof bulkDeleteHosts>>,
@@ -19655,6 +21668,108 @@ export function useGetSubUserUsage<TData = Awaited<ReturnType<typeof getSubUserU
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetSubUserUsageQueryOptions(token,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUserDnsInfoUrl = (token: string,) => {
+
+
+
+
+  return `/sub/${token}/dns`
+}
+
+/**
+ * DNS service metadata is authorized by the same subscription identity.
+ * @summary User Dns Info
+ */
+export const userDnsInfo = async (token: string, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getUserDnsInfoUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getUserDnsInfoQueryKey = (token: string,) => {
+    return [
+    `/sub/${token}/dns`
+    ] as const;
+    }
+
+
+export const getUserDnsInfoQueryOptions = <TData = Awaited<ReturnType<typeof userDnsInfo>>, TError = ErrorType<HTTPValidationError>>(token: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof userDnsInfo>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getUserDnsInfoQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof userDnsInfo>>> = ({ signal }) => userDnsInfo(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof userDnsInfo>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type UserDnsInfoQueryResult = NonNullable<Awaited<ReturnType<typeof userDnsInfo>>>
+export type UserDnsInfoQueryError = ErrorType<HTTPValidationError>
+
+
+export function useUserDnsInfo<TData = Awaited<ReturnType<typeof userDnsInfo>>, TError = ErrorType<HTTPValidationError>>(
+ token: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof userDnsInfo>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof userDnsInfo>>,
+          TError,
+          Awaited<ReturnType<typeof userDnsInfo>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useUserDnsInfo<TData = Awaited<ReturnType<typeof userDnsInfo>>, TError = ErrorType<HTTPValidationError>>(
+ token: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof userDnsInfo>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof userDnsInfo>>,
+          TError,
+          Awaited<ReturnType<typeof userDnsInfo>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useUserDnsInfo<TData = Awaited<ReturnType<typeof userDnsInfo>>, TError = ErrorType<HTTPValidationError>>(
+ token: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof userDnsInfo>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary User Dns Info
+ */
+
+export function useUserDnsInfo<TData = Awaited<ReturnType<typeof userDnsInfo>>, TError = ErrorType<HTTPValidationError>>(
+ token: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof userDnsInfo>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getUserDnsInfoQueryOptions(token,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

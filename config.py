@@ -1,5 +1,7 @@
 from functools import cached_property
+from ipaddress import ip_address
 from typing import Any
+from urllib.parse import urlsplit
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -226,8 +228,51 @@ class JobSettings(EnvSettings):
     )
 
 
+class DNSSettings(EnvSettings):
+    enabled: bool = Field(default=False, validation_alias="DNS_ENABLED")
+    public_url: str | None = Field(default=None, validation_alias="DNS_PUBLIC_URL")
+    upstream: str = Field(default="127.0.0.1", validation_alias="DNS_UPSTREAM")
+    upstream_port: int = Field(default=5335, ge=1, le=65535, validation_alias="DNS_UPSTREAM_PORT")
+    listen_addresses: list[str] = Field(default_factory=lambda: ["127.0.0.1"], validation_alias="DNS_LISTEN_ADDRESSES")
+    port: int = Field(default=5353, ge=1, le=65535, validation_alias="DNS_PORT")
+    dot_port: int | None = Field(default=None, ge=1, le=65535, validation_alias="DNS_DOT_PORT")
+    certfile: str | None = Field(default=None, validation_alias="DNS_TLS_CERTFILE")
+    keyfile: str | None = Field(default=None, validation_alias="DNS_TLS_KEYFILE")
+
+    @field_validator("public_url")
+    @classmethod
+    def public_endpoint(cls, value):
+        if not value:
+            return None
+        parsed = urlsplit(value)
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("DNS_PUBLIC_URL must be an HTTPS endpoint without credentials, query or fragment")
+        _ = parsed.port
+        return value.rstrip("/")
+
+    @field_validator("upstream")
+    @classmethod
+    def local_upstream(cls, value: str) -> str:
+        if not ip_address(value).is_loopback:
+            raise ValueError("DNS upstream must be a local validating resolver")
+        return value
+
+    @field_validator("listen_addresses")
+    @classmethod
+    def numeric_addresses(cls, value: list[str]) -> list[str]:
+        if not value or len(value) > 8:
+            raise ValueError("Use between one and eight listen addresses")
+        return list(dict.fromkeys(str(ip_address(item)) for item in value))
+
+
 class FeatureSettings(EnvSettings):
-    donino_tunnel_bridge: bool = Field(default=False, validation_alias="DONINO_TUNNEL_BRIDGE")
     stop_nodes_on_shutdown: bool = Field(default=True, validation_alias="STOP_NODES_ON_SHUTDOWN")
 
 
@@ -253,3 +298,5 @@ if not database_settings.is_postgresql:
 if runtime_settings.debug and dashboard_settings.vite_base_api == "/":
     scheme = "https" if server_settings.has_ssl else "http"
     dashboard_settings.vite_base_api = f"{scheme}://127.0.0.1:{server_settings.port}/"
+
+dns_settings = DNSSettings()

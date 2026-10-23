@@ -16,7 +16,7 @@ from . import (
     setup,
     subscription,
     system,
-    tunnel,
+    dns,
     user,
     user_template,
 )
@@ -30,7 +30,7 @@ routers = [
     admin_role.router,
     setup.router,
     system.router,
-    tunnel.router,
+    dns.router,
     settings.router,
     group.router,
     core.router,

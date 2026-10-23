@@ -2,7 +2,7 @@ import PageHeader from '@/components/layout/page-header'
 import PageTransition from '@/components/layout/page-transition'
 import { useAdmin } from '@/hooks/use-admin'
 import { getDocsUrl } from '@/utils/docs-url'
-import { isOwner, hasPermission } from '@/utils/rbac'
+import { hasPermission } from '@/utils/rbac'
 import { Cpu, LucideIcon, Share2, Plus, Logs, Network } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -20,7 +20,6 @@ const tabs: Tab[] = [
   { id: 'nodes.title', label: 'nodes.title', icon: Share2, url: '/nodes' },
   { id: 'core', label: 'core', icon: Cpu, url: '/nodes/cores' },
   { id: 'nodes.wireguard.title', label: 'nodes.wireguard.title', icon: Network, url: '/nodes/wireguard' },
-  { id: 'donino.title', label: 'donino.title', icon: Network, url: '/nodes/tunnels' },
   { id: 'nodes.logs.title', label: 'nodes.logs.title', icon: Logs, url: '/nodes/logs' },
 ]
 
@@ -35,7 +34,6 @@ const Settings = () => {
   const canCreateCores = hasPermission(admin, 'cores', 'create')
   const canReadNodeLogs = hasPermission(admin, 'nodes', 'logs')
   const visibleTabs = tabs.filter(tab => {
-    if (tab.url === '/nodes/tunnels') return isOwner(admin)
     if (tab.url === '/nodes') return canReadNodes
     if (tab.url === '/nodes/cores') return canReadCores
     if (tab.url === '/nodes/wireguard') return canReadCores
@@ -100,7 +98,6 @@ const Settings = () => {
         onButtonClick: undefined,
       }
     }
-    if (location.pathname === '/nodes/tunnels') return { title: 'donino.title', description: 'donino.description' }
     if (location.pathname === '/nodes/logs') {
       return {
         title: 'nodes.logs.title',

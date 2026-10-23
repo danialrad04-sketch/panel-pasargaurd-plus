@@ -1,8 +1,23 @@
 services:
   pasarguard:
-    image: pasarguard/panel:latest
+    # Build this fork; do not replace it with the upstream release image.
+    # Prepare dashboard/build first: see docs/DONINO-INTEGRATION.fa.md.
+    image: pasarguard-plus:local
+    build: .
     restart: always
     env_file: .env
     network_mode: host
+    volumes:
+      - /var/lib/pasarguard:/var/lib/pasarguard
+
+  dns:
+    profiles: [dns]
+    image: pasarguard-plus:local
+    pull_policy: never
+    entrypoint: [python, -m, app.dns.worker]
+    restart: on-failure
+    env_file: .env
+    network_mode: host
+    depends_on: [pasarguard]
     volumes:
       - /var/lib/pasarguard:/var/lib/pasarguard

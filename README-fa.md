@@ -244,4 +244,4 @@ pasarguard --help
 
 ## افزونه‌های PasarGuard Plus
 
-مدیریت Donino Tunnel از بخش نودها و طراحی جدید صفحه ساب: [راهنمای ادغام و محدوده امکانات](docs/DONINO-INTEGRATION.fa.md).
+خدمات DNS نیتیو با کاربران، سهمیه و مجوزهای پاسارگارد و طراحی جدید صفحه ساب: [راهنمای ادغام و محدوده امکانات](docs/DONINO-INTEGRATION.fa.md).

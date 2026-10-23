@@ -937,7 +937,8 @@
       "nodes": "Nodes",
       "coreHosts": "Core and hosts",
       "groupsTemplates": "Groups and templates",
-      "settings": "Settings"
+      "settings": "Settings",
+      "dns": "DNS services"
     },
     "actions": {
       "common": {
@@ -984,6 +985,9 @@
         "update_core": "Update node core",
         "stats": "View node statistics",
         "logs": "View node logs"
+      },
+      "dns": {
+        "rotate_token": "Manage credentials"
       }
     },
     "resources": {
@@ -999,7 +1003,8 @@
       "client_templates": "Client templates",
       "settings": "Settings",
       "system": "System",
-      "hwids": "HWIDs"
+      "hwids": "HWIDs",
+      "dns": "DNS"
     },
     "noAvailablePermissions": "No permissions available.",
     "scopedBadge": "Scoped",
@@ -2404,7 +2409,8 @@
     "pink": "Pink",
     "previewBadge": "Live",
     "previewCard": "Secondary",
-    "previewMuted": "Usage"
+    "previewMuted": "Usage",
+    "toggle": "Change theme"
   },
   "coreConfigModal": {
     "addConfig": "Create Core Configuration",
@@ -3981,10 +3987,10 @@
     "updateBannerMobile": "Update: {{latest}}",
     "updateCommandLabel": "Connect via SSH and run:",
     "closeBanner": "Close update notification",
-    "needsUpdate": "Needs update"
+    "needsUpdate": "Needs update",
+    "forkUpdateGuide": "Follow this fork’s upgrade guide on the release page."
   },
-  "donino": {
-    "title": "Donino Tunnel",
-    "description": "Manage Iran and foreign tunnel routes"
+  "dns": {
+    "title": "DNS & domain policies"
   }
 }

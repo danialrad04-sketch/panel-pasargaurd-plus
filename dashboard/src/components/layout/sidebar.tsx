@@ -77,7 +77,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const canBulkCreateFromTemplate = hasPermission(admin, 'users', 'create') && canReadTemplates
   const canBulkUpdateUsers = hasScopeAll(admin, 'users', 'update')
   const nodeNavItems = [
-    ...(isOwner(admin) ? [{ title: 'donino.title', url: '/nodes/tunnels', icon: Network }] : []),
     ...(canReadNodes
       ? [
           {
@@ -221,6 +220,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             },
           ]
         : []),
+      ...(hasPermission(admin, 'dns', 'read') ? [{ title: 'dns.title', url: '/dns', icon: Network }] : []),
       ...(canReadHosts
         ? [
             {

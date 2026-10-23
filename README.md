@@ -237,3 +237,7 @@ If PasarGuard helps you, consider supporting its development:
   Made with ❤️ for Internet freedom
 </p>
 
+
+## PasarGuard Plus native upgrades
+
+Native DNS accounts, policy rules, per-user query budgets, DoH and an optional UDP/TCP/DoT worker use the existing PasarGuard users, database and RBAC. Includes a redesigned subscription page. No standalone Donino panel or controller is required. See the [native upgrade guide](docs/DONINO-INTEGRATION.fa.md) and [feature migration status](docs/NATIVE-UPGRADE-PLAN.fa.md).
