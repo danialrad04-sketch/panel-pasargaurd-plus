@@ -3936,5 +3936,9 @@
     "updateCommandLabel": "Выполните через SSH:",
     "closeBanner": "Закрыть уведомление об обновлении",
     "needsUpdate": "Требуется обновление"
+  },
+  "donino": {
+    "title": "Donino Tunnel",
+    "description": "Manage Iran and foreign tunnel routes"
   }
 }

@@ -227,6 +227,7 @@ class JobSettings(EnvSettings):
 
 
 class FeatureSettings(EnvSettings):
+    donino_tunnel_bridge: bool = Field(default=False, validation_alias="DONINO_TUNNEL_BRIDGE")
     stop_nodes_on_shutdown: bool = Field(default=True, validation_alias="STOP_NODES_ON_SHUTDOWN")
 
 

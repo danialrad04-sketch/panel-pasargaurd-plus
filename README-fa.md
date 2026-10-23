@@ -241,3 +241,7 @@ pasarguard --help
 <p align="center">
   Made with ❤️ for Internet freedom
 </p>
+
+## افزونه‌های PasarGuard Plus
+
+مدیریت Donino Tunnel از بخش نودها و طراحی جدید صفحه ساب: [راهنمای ادغام و محدوده امکانات](docs/DONINO-INTEGRATION.fa.md).
