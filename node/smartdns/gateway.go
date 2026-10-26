@@ -47,11 +47,12 @@ type Route struct {
 	Revision       int    `json:"revision"`
 }
 type Config struct {
-	Revision int     `json:"revision"`
-	NodeID   int     `json:"node_id"`
-	PanelURL string  `json:"panel_url"`
-	PanelCA  string  `json:"panel_ca"`
-	Routes   []Route `json:"routes"`
+	DNS      *DNSListener `json:"dns,omitempty"`
+	Revision int          `json:"revision"`
+	NodeID   int          `json:"node_id"`
+	PanelURL string       `json:"panel_url"`
+	PanelCA  string       `json:"panel_ca"`
+	Routes   []Route      `json:"routes"`
 	client   *http.Client
 }
 type listener struct {
@@ -166,6 +167,18 @@ func (m *Manager) Apply(c Config) error {
 			}
 		}
 	}
+	if address, err := dnsAddress(c.DNS); err != nil {
+		return err
+	} else if address != "" {
+		if _, ok := wanted["tcp|"+address]; ok {
+			return errors.New("DNS/gateway TCP port conflict")
+		}
+		if _, ok := wanted["udp|"+address]; ok {
+			return errors.New("DNS/gateway UDP port conflict")
+		}
+		wanted["dns-tcp|"+address] = "dns-tcp"
+		wanted["dns-udp|"+address] = "dns-udp"
+	}
 	for i, r := range c.Routes {
 		for _, other := range c.Routes[i+1:] {
 			if r.BindAddress != other.BindAddress {
@@ -230,7 +243,7 @@ func (m *Manager) Apply(c Config) error {
 		}
 		address := strings.SplitN(key, "|", 2)[1]
 		var l listener
-		if kind == "tcp" {
+		if kind == "tcp" || kind == "dns-tcp" {
 			l.tcp, e = net.Listen("tcp", address)
 		} else {
 			var a *net.UDPAddr
@@ -284,7 +297,11 @@ func (m *Manager) Apply(c Config) error {
 	}
 	for key, l := range added {
 		m.listeners[key] = l
-		if l.tcp != nil {
+		if strings.HasPrefix(key, "dns-tcp|") {
+			go m.serveDNSTCP(l.tcp)
+		} else if strings.HasPrefix(key, "dns-udp|") {
+			go m.serveDNSUDP(l.udp)
+		} else if l.tcp != nil {
 			go m.serveTCP(key, l.tcp)
 		} else {
 			go m.serveUDP(key, l.udp)
@@ -325,7 +342,8 @@ func (m *Manager) Handler(key string) http.Handler {
 			return
 		}
 		if r.Method == "GET" && r.URL.Path == "/v1/smartdns/status" {
-			json.NewEncoder(w).Encode(map[string]any{"revision": m.current.Load().Revision, "active_tcp": len(m.slots), "active_udp": len(m.udpSlots)})
+			cfg := m.current.Load()
+			json.NewEncoder(w).Encode(map[string]any{"revision": cfg.Revision, "active_tcp": len(m.slots), "active_udp": len(m.udpSlots), "dns_enabled": cfg.DNS != nil && cfg.DNS.Enabled})
 			return
 		}
 		if r.Method != "PUT" || r.URL.Path != "/v1/smartdns/config" {
@@ -629,7 +647,11 @@ func (p *pool) api(action string, body, out any) bool {
 	if response.StatusCode != 200 {
 		return false
 	}
-	return json.NewDecoder(io.LimitReader(response.Body, 4096)).Decode(out) == nil
+	limit := int64(4096)
+	if action == "resolve" {
+		limit = 100000
+	}
+	return json.NewDecoder(io.LimitReader(response.Body, limit)).Decode(out) == nil
 }
 func (p *pool) finish() bool {
 	if p.id == "" {
@@ -787,7 +809,7 @@ func publicIP(ip net.IP) bool {
 	if !ip.IsGlobalUnicast() || ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() {
 		return false
 	}
-	for _, prefix := range []string{"0.0.0.0/8", "100.64.0.0/10", "192.0.0.0/24", "192.0.2.0/24", "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "64:ff9b::/96", "64:ff9b:1::/48", "2001::/32", "2001:db8::/32", "2002::/16"} {
+	for _, prefix := range []string{"0.0.0.0/8", "100.64.0.0/10", "192.0.0.0/24", "192.0.2.0/24", "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "64:ff9b::/96", "64:ff9b:1::/48", "2001::/32", "2001:db8::/32", "2002::/16", "fec0::/10", "2001:2::/48", "2001:10::/28", "2001:20::/28", "3ffe::/16", "3fff::/20"} {
 		_, network, _ := net.ParseCIDR(prefix)
 		if network.Contains(ip) {
 			return false

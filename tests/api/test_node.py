@@ -855,6 +855,7 @@ def test_create_node_returns_created_node(access_token, node_operator_mock):
     expected_payload = {
         **payload,
         "tunnel_api_port": 62052,
+        "health_echo_port": 62053,
         "connection_type": NodeConnectionType(payload["connection_type"]),
         "data_limit_reset_strategy": DataLimitResetStrategy(payload["data_limit_reset_strategy"]),
     }

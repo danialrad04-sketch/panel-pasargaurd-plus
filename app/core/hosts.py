@@ -560,6 +560,7 @@ class HostManager:
 
     def __init__(self):
         self._hosts = {}
+        self._event_lock = Lock()
         self._lock = Lock()
         self._nats_enabled = is_nats_enabled()
         self._multi_worker = is_multi_worker()
@@ -620,7 +621,7 @@ class HostManager:
                     else:
                         converted_state[host_id] = host_data
                 except ValueError, TypeError:
-                    self._logger.warning(f"Failed to convert host data for host ID {host_id_str}: {host_data}")
+                    self._logger.warning("Invalid cached host data for host ID %s", host_id_str)
                     continue
 
             async with self._lock:
@@ -640,9 +641,16 @@ class HostManager:
             self._logger.debug("HostManager state reloaded from JetStream KV cache")
 
     async def _handle_host_message(self, data: dict):
+        async with self._event_lock:
+            await self._handle_host_message_serial(data)
+
+    async def _handle_host_message_serial(self, data: dict):
         """Handle incoming host messages from router."""
         action = data.get("action")
-        if action == "tunnel":
+        if action == "reconnect_db":
+            async with GetDB() as db:
+                await self.setup_local(db)
+        elif action == "tunnel":
             from app.tunnel.hosts import refresh_tunnel_hosts
 
             ids = data.get("tunnel_ids", [])
@@ -676,22 +684,14 @@ class HostManager:
         if self._nats_enabled:
             self._nc, self._js, self._kv = await setup_nats_kv(self.KV_BUCKET_NAME)
 
-        if await self._load_state_from_cache():
-            # A node-only worker can change tunnel state while API workers are
-            # offline. Revalidate DB bindings instead of trusting a stale KV snapshot.
-            from sqlalchemy import select
-
-            from app.db.models import NativeTunnel
-
-            if await db.scalar(select(NativeTunnel.id).limit(1)) is not None:
-                await self.setup_local(db)
-            return
-
-        db_hosts = await get_hosts(db)
-        await self.add_hosts(db, db_hosts)
+        # DB is authoritative at process startup, including after restoring a
+        # backup while a newer JetStream snapshot survived independently.
+        await self.setup_local(db)
 
     async def setup_local(self, db: AsyncSession):
         db_hosts = await get_hosts(db)
+        async with self._lock:
+            self._hosts = {}
         await self._add_hosts_local(db, db_hosts)
 
     async def _reset_cache(self):

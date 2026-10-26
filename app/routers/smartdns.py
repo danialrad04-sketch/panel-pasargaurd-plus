@@ -7,7 +7,15 @@ from app.db import AsyncSession, get_db
 from app.db.base import begin_immediate_if_sqlite
 from app.db.models import DNSAccount, SmartDNSNodeState, SmartDNSRoute
 from app.models.admin import AdminDetails
-from app.models.smartdns import GrantInput, RelayAccountInput, RouteInput, RouteModify, SettleInput
+from app.models.smartdns import (
+    GrantInput,
+    NodeDNSInput,
+    NodeDNSQuery,
+    RelayAccountInput,
+    RouteInput,
+    RouteModify,
+    SettleInput,
+)
 from app.models.tunnel import TunnelRevision
 from app.routers.authentication import require_owner
 from app.smartdns import control, service
@@ -29,6 +37,9 @@ async def state(db: DB, admin: Owner):
                 "revision": node.revision,
                 "applied_revision": node.applied_revision,
                 "result": node.result,
+                "dns": node.dns_config,
+                "runtime": node.runtime_result,
+                "checked_at": node.checked_at,
             }
             for node in nodes
         ],
@@ -81,3 +92,36 @@ async def settle(
     node_id: int, body: SettleInput, db: DB, node_key: Annotated[str | None, Header(alias="x-pg-node-key")] = None
 ):
     return await service.settle(db, node_id, node_key, body)
+
+
+@router.put("/nodes/{node_id}/dns")
+async def configure_node_dns(node_id: int, body: NodeDNSInput, db: DB, admin: Owner):
+    return await control.save_dns(db, node_id, body, admin.username)
+
+
+@router.post("/nodes/{node_id}/resolve")
+async def resolve_on_behalf_of_node(
+    node_id: int, body: NodeDNSQuery, db: DB, node_key: Annotated[str | None, Header(alias="x-pg-node-key")] = None
+):
+    import base64
+    import binascii
+
+    from app.db.models import NodeStatus
+    from app.dns.service import DNSService
+
+    node = await service.authenticate(db, node_id, node_key)
+    state = await db.get(SmartDNSNodeState, node_id)
+    if (
+        node.status in (NodeStatus.disabled, NodeStatus.limited)
+        or not state
+        or not state.dns_config.get("enabled")
+        or state.revision != body.revision
+        or state.revision != state.applied_revision
+    ):
+        raise HTTPException(403, "Node DNS listener is disabled or pending")
+    try:
+        wire = base64.b64decode(body.wire, validate=True)
+    except binascii.Error, ValueError:
+        raise HTTPException(400, "Invalid DNS wire format") from None
+    answer = await DNSService().answer(wire, source_ip=body.source_ip, udp=body.udp)
+    return {"wire": base64.b64encode(answer).decode()}

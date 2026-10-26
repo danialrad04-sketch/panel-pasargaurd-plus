@@ -58,6 +58,28 @@ async def validate_topology(db, tunnels, *, core_overrides=None):
         ).all()
     }
     cores.update(core_overrides or {})
+    from app.db.models import SmartDNSNodeState, SmartDNSRoute
+
+    gateway_ports = {}
+    for gateway in (await db.scalars(select(SmartDNSRoute).where(SmartDNSRoute.enabled.is_(True)))).all():
+        gateway_ports.setdefault(gateway.node_id, set()).update(gateway.tcp_ports + gateway.udp_ports)
+    for state in (await db.scalars(select(SmartDNSNodeState))).all():
+        if state.dns_config.get("enabled"):
+            gateway_ports.setdefault(state.node_id, set()).add(state.dns_config["port"])
+    for tunnel in tunnels:
+        if not tunnel.enabled:
+            continue
+        options = tunnel.paqet_options or {}
+        if tunnel.port in gateway_ports.get(tunnel.exit_node_id, set()):
+            raise HTTPException(422, "Tunnel exit carrier conflicts with a native DNS/gateway listener")
+        if tunnel.transport == "paqet":
+            source_ports = [options.get("client_port", 11081)] + [
+                int(row["listen"].rsplit(":", 1)[1]) for row in options.get("forwards", []) + options.get("socks5", [])
+            ]
+            if set(source_ports) & gateway_ports.get(tunnel.source_node_id, set()) or options.get(
+                "exit_port", 11082
+            ) in gateway_ports.get(tunnel.exit_node_id, set()):
+                raise HTTPException(422, "Paqet proxy listener conflicts with native DNS/gateway")
     from app.paqet.compiler import node_request
 
     for row in tunnels:
@@ -84,10 +106,10 @@ async def validate_topology(db, tunnels, *, core_overrides=None):
         ):
             from app.tunnel.compiler import occupied_port
 
-            health_port = (node.tunnel_api_port or 62052) + 1
+            health_port = node.health_echo_port or 62053
             if (
                 health_port > 65535
-                or health_port in (node.port, node.api_port)
+                or health_port in (node.port, node.api_port, node.tunnel_api_port)
                 or occupied_port(core.config, health_port)
                 or any(row.exit_node_id == node_id and row.port == health_port for row in tunnels)
             ):

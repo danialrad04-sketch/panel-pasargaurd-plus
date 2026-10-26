@@ -200,6 +200,7 @@ async def managed_rules(db, account):
             select(SmartDNSRoute, SmartDNSNodeState)
             .join(SmartDNSNodeState, SmartDNSNodeState.node_id == SmartDNSRoute.node_id)
             .where(SmartDNSRoute.policy_id == account.policy_id, SmartDNSRoute.enabled.is_(True))
+            .order_by(SmartDNSRoute.id)
         )
     ).all()
     result = []

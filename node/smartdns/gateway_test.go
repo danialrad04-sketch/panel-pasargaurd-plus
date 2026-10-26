@@ -1,12 +1,14 @@
 package smartdns
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"github.com/xtls/xray-core/core"
 	"io"
 	"net"
@@ -243,4 +245,115 @@ func TestPrivateAndRebindingDestinationsRejected(t *testing.T) {
 	if !publicIP(net.ParseIP("1.1.1.1")) {
 		t.Fatal("public destination rejected")
 	}
+}
+
+func TestConcurrentGatewayLoadAndExactSettlement(t *testing.T) {
+	m, panel, authority := fixture(t)
+	tcp, e := net.Listen("tcp4", "127.0.0.2:0")
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer tcp.Close()
+	port := tcp.Addr().(*net.TCPAddr).Port
+	udp, e := net.ListenUDP("udp4", &net.UDPAddr{IP: net.ParseIP("127.0.0.2"), Port: port})
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer udp.Close()
+	go func() {
+		for {
+			c, e := tcp.Accept()
+			if e != nil {
+				return
+			}
+			go func() { defer c.Close(); io.Copy(c, c) }()
+		}
+	}()
+	go func() {
+		b := make([]byte, 4096)
+		for {
+			n, a, e := udp.ReadFromUDP(b)
+			if e != nil {
+				return
+			}
+			udp.WriteToUDP(b[:n], a)
+		}
+	}()
+	if e = m.Apply(configuration(panel, port, "fixed", "game.example.com")); e != nil {
+		t.Fatal(e)
+	}
+	started := time.Now()
+	var workers sync.WaitGroup
+	failures := make(chan error, 32)
+	for client := 0; client < 16; client++ {
+		workers.Add(2)
+		go func(client int) {
+			defer workers.Done()
+			c, e := net.DialTimeout("tcp4", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)), time.Second)
+			if e != nil {
+				failures <- e
+				return
+			}
+			defer c.Close()
+			c.SetDeadline(time.Now().Add(8 * time.Second))
+			data := bytes.Repeat([]byte{byte(client + 1)}, 512)
+			back := make([]byte, 512)
+			for i := 0; i < 32; i++ {
+				if _, e = c.Write(data); e != nil {
+					failures <- e
+					return
+				}
+				if _, e = io.ReadFull(c, back); e != nil || !bytes.Equal(back, data) {
+					failures <- errors.New("concurrent TCP stream corruption")
+					return
+				}
+			}
+		}(client)
+		go func(client int) {
+			defer workers.Done()
+			c, e := net.DialUDP("udp4", nil, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port})
+			if e != nil {
+				failures <- e
+				return
+			}
+			defer c.Close()
+			c.SetDeadline(time.Now().Add(8 * time.Second))
+			data := bytes.Repeat([]byte{byte(client + 1)}, 512)
+			back := make([]byte, 1024)
+			for i := 0; i < 64; i++ {
+				if _, e = c.Write(data); e != nil {
+					failures <- e
+					return
+				}
+				n, e := c.Read(back)
+				if e != nil || !bytes.Equal(back[:n], data) {
+					failures <- errors.New("concurrent UDP corruption or timeout")
+					return
+				}
+			}
+		}(client)
+	}
+	workers.Wait()
+	close(failures)
+	for e := range failures {
+		t.Fatal(e)
+	}
+	elapsed := time.Since(started)
+	deadline := time.Now().Add(4 * time.Second)
+	for {
+		authority.mu.Lock()
+		pending, used := authority.reserved, authority.used
+		authority.mu.Unlock()
+		if pending == 0 {
+			if used != 1572864 {
+				t.Fatalf("quota ledger mismatch: %d", used)
+			}
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("reservations did not settle")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Logf("Local synthetic load: 16 TCP + 16 UDP clients, 1536 round trips, %d application bytes, elapsed=%s", 1572864, elapsed)
 }

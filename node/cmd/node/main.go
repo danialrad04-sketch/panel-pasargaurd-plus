@@ -62,7 +62,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		healthManager, err := health.New(cfg.XrayExecutablePath, cfg.PaqetPort+1)
+		healthManager, err := health.New(cfg.XrayExecutablePath, cfg.HealthPort)
 		if err != nil {
 			log.Printf("native carrier health unavailable: echo port is not available")
 		} else {

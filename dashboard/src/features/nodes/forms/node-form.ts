@@ -7,6 +7,7 @@ export const nodeFormSchema = z.object({
   port: z.number().min(1, 'Port is required'),
   api_port: z.number().min(1).optional().nullable(),
   tunnel_api_port: z.number().min(1).max(65535).optional().nullable(),
+  health_echo_port: z.number().min(1024).max(65535).optional().nullable(),
   usage_coefficient: z.number().min(0, 'Usage ratio cannot be negative').optional(),
   connection_type: z.enum([NodeConnectionType.grpc, NodeConnectionType.rest]),
   server_ca: z.string().min(1, 'Server CA is required'),

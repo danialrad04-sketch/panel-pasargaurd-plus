@@ -13,7 +13,7 @@ from sqlalchemy import select
 from app.db.base import GetDB
 from app.db.models import NativeTunnel, Node, ServiceAudit, SmartDNSNodeState, TunnelDeployment, TunnelFailoverPolicy
 from app.paqet.client import request
-from app.tunnel.guards import lock_state
+from app.tunnel.guards import leased, lock_state
 
 
 async def snapshot(db):
@@ -115,6 +115,10 @@ async def reconcile(expected, disable_orphans, actor, *, sessions=GetDB):
         if fingerprint != expected:
             raise HTTPException(409, "Panel state changed; reload recovery inventory")
         state.lease, state.lease_until = claim, datetime.now(UTC) + timedelta(seconds=120)
+        if any(leased(row) for row in gateways):
+            raise HTTPException(409, "A gateway deployment is still in progress")
+        if any(leased(row) for row in (await db.scalars(select(TunnelFailoverPolicy))).all()):
+            raise HTTPException(409, "A failover transition is still in progress")
         for row in tunnels:
             row.applied_revision = 0
         for row in gateways:
@@ -129,24 +133,39 @@ async def reconcile(expected, disable_orphans, actor, *, sessions=GetDB):
     ok = True
     try:
         by_id = {node.id: node for node in nodes}
-        for node_id, link in orphans:
-            try:
-                answer = await request(
-                    by_id[node_id],
-                    "PUT",
-                    f"links/{link['id']}",
-                    {
-                        "revision": link["revision"] + 1,
-                        "enabled": False,
-                        "config": None,
-                        "peer": "",
-                        "manage_firewall": False,
-                    },
-                )
-                if answer.get("running") or answer.get("revision") != link["revision"] + 1:
-                    ok = False
-            except RuntimeError, ValueError:
-                ok = False
+        semaphore = asyncio.Semaphore(4)
+
+        async def retire(node_id, link):
+            async with semaphore:
+                try:
+                    answer = await asyncio.wait_for(
+                        request(
+                            by_id[node_id],
+                            "PUT",
+                            f"links/{link['id']}",
+                            {
+                                "revision": link["revision"] + 1,
+                                "enabled": False,
+                                "config": None,
+                                "peer": "",
+                                "manage_firewall": False,
+                            },
+                        ),
+                        timeout=8,
+                    )
+                    return (
+                        isinstance(answer, dict)
+                        and not answer.get("running")
+                        and answer.get("revision") == link["revision"] + 1
+                    )
+                except RuntimeError, ValueError, TimeoutError:
+                    return False
+
+        try:
+            async with asyncio.timeout(90):
+                ok = all(await asyncio.gather(*(retire(identity, link) for identity, link in orphans)))
+        except TimeoutError:
+            ok = False
         async with sessions() as db:
             state = await lock_state(db, allow_applying=True)
             if state.lease != claim:

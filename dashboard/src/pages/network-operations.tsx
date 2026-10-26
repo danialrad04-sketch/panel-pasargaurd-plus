@@ -250,6 +250,7 @@ export default function NetworkOperations({ items, nodes, fa }: { items: TunnelV
             <label className="block space-y-2 text-sm">
               <span>{t('نود مبدا', 'Source node')}</span>
               <select
+                aria-label={t('نود مبدا', 'Source node')}
                 className="bg-background h-10 w-full rounded-md border px-3"
                 value={source}
                 required

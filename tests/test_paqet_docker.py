@@ -268,6 +268,7 @@ async def test_actual_native_paqet_nodes_tcp_udp_and_lifecycle(tmp_path, monkeyp
                     "inbound_tags": ["users"],
                     "port": 40900,
                     "enabled": True,
+                    "health_enabled": True,
                     "paqet_options": {
                         "log_level": "debug",
                         "client_address": ips[0],
@@ -287,6 +288,13 @@ async def test_actual_native_paqet_nodes_tcp_udp_and_lifecycle(tmp_path, monkeyp
             assert applied.status_code == 200 and applied.json()["ok"], applied.text
             state = await client.get(f"/api/tunnels/{link_id}/paqet/status")
             assert state.json()["source"]["state"]["running"] and state.json()["exit"]["state"]["running"], state.text
+            # Management ports are NAT-forwarded and differ from the internal echo
+            # port. The measured sample traverses real Paqet + exit SS2022.
+            from app.tunnel.health import probe
+
+            measured = await probe(link_id, item["revision"], sessions=sessions)
+            assert measured["result"]["healthy"], measured
+            assert measured["result"]["udp_loss_percent"] == 0
             # Publish the actual Iran/source user address through the native host API.
             from app.db.crud.host import create_host
             from app.models.host import CreateHost

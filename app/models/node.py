@@ -42,6 +42,7 @@ class Node(BaseModel):
     port: int = 62050
     api_port: int = 62051
     tunnel_api_port: int = Field(default=62052, ge=1, le=65535)
+    health_echo_port: int = Field(default=62053, ge=1024, le=65535)
     usage_coefficient: float = Field(ge=0, default=1.0)
     connection_type: NodeConnectionType
     server_ca: str
@@ -169,6 +170,7 @@ class NodeCreate(Node):
 
 class NodeModify(NodeCreate):
     tunnel_api_port: int | None = Field(default=None, ge=1, le=65535)
+    health_echo_port: int | None = Field(default=None, ge=1024, le=65535)
     name: str | None = Field(default=None)
     address: str | None = Field(default=None)
     port: int | None = Field(default=None)

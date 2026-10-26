@@ -14,6 +14,7 @@ import (
 )
 
 type Config struct {
+	HealthPort                  int
 	PaqetEnabled                bool
 	PaqetPort                   int
 	PaqetBinary                 string
@@ -49,6 +50,7 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
+		HealthPort:                  GetEnvAsInt("PG_NODE_HEALTH_PORT", 62053),
 		PaqetEnabled:                GetEnvAsBool("PG_NODE_PAQET_ENABLED", false),
 		PaqetPort:                   GetEnvAsInt("PG_NODE_PAQET_PORT", 62052),
 		PaqetBinary:                 GetEnv("PG_NODE_PAQET_BINARY", "/usr/local/bin/paqet"),
@@ -99,6 +101,9 @@ func Load() (*Config, error) {
 
 	if cfg.PaqetEnabled && (cfg.PaqetPort < 1 || cfg.PaqetPort > 65535 || cfg.PaqetPort == cfg.ServicePort) {
 		return cfg, errors.New("PG_NODE_PAQET_PORT must be a distinct TCP port between 1 and 65535")
+	}
+	if cfg.PaqetEnabled && (cfg.HealthPort < 1024 || cfg.HealthPort > 65535 || cfg.HealthPort == cfg.ServicePort || cfg.HealthPort == cfg.PaqetPort) {
+		return cfg, errors.New("PG_NODE_HEALTH_PORT must be a distinct internal port between 1024 and 65535")
 	}
 	return cfg, apiKeyErr
 }

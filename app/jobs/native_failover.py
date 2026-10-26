@@ -18,7 +18,7 @@ if runtime_settings.role.runs_node:
         replace_existing=True,
     )
 
-if runtime_settings.role.runs_panel:
+if runtime_settings.role.runs_scheduler:
     scheduler.add_job(
         scheduled_backup,
         "interval",
@@ -39,7 +39,7 @@ if runtime_settings.role.runs_node:
         id="native-carrier-health",
         replace_existing=True,
     )
-if runtime_settings.role.runs_panel:
+if runtime_settings.role.runs_scheduler:
     scheduler.add_job(
         maintain,
         "interval",
@@ -47,5 +47,18 @@ if runtime_settings.role.runs_panel:
         coalesce=True,
         max_instances=1,
         id="native-smartdns-grants",
+        replace_existing=True,
+    )
+
+if runtime_settings.role.runs_node:
+    from app.smartdns.monitor import collect as collect_gateways
+
+    scheduler.add_job(
+        collect_gateways,
+        "interval",
+        seconds=60,
+        coalesce=True,
+        max_instances=1,
+        id="native-gateway-health",
         replace_existing=True,
     )

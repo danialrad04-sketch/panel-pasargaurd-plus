@@ -2173,6 +2173,11 @@ export interface NodeCreate {
      * @maximum 65535
      */
   tunnel_api_port?: number;
+  /**
+     * @minimum 1024
+     * @maximum 65535
+     */
+  health_echo_port?: number;
   /** @minimum 0 */
   usage_coefficient?: number;
   connection_type: NodeConnectionType;
@@ -2191,6 +2196,30 @@ export interface NodeCreate {
      */
   internal_timeout?: number;
   proxy_url?: string | null;
+}
+
+export interface NodeDNSInput {
+  /** @minimum 0 */
+  expected_revision?: number;
+  enabled?: boolean;
+  bind_address?: string;
+  /**
+     * @minimum 1
+     * @maximum 65535
+     */
+  port?: number;
+}
+
+export interface NodeDNSQuery {
+  /** @minimum 1 */
+  revision: number;
+  source_ip: string;
+  udp?: boolean;
+  /**
+     * @minLength 16
+     * @maxLength 8192
+     */
+  wire: string;
 }
 
 export interface NodeGeoFilesUpdate {
@@ -2214,6 +2243,7 @@ export interface NodeModify {
   port?: number | null;
   api_port?: number;
   tunnel_api_port?: number | null;
+  health_echo_port?: number | null;
   usage_coefficient?: number | null;
   connection_type?: NodeConnectionType | null;
   server_ca?: string | null;
@@ -2274,6 +2304,11 @@ export interface NodeResponse {
      * @maximum 65535
      */
   tunnel_api_port?: number;
+  /**
+     * @minimum 1024
+     * @maximum 65535
+     */
+  health_echo_port?: number;
   /** @minimum 0 */
   usage_coefficient?: number;
   connection_type: NodeConnectionType;
@@ -2737,6 +2772,12 @@ export const RunMethod = {
   webhook: 'webhook',
   'long-polling': 'long-polling',
 } as const;
+
+export interface RuntimeRecoveryRequest {
+  /** @pattern ^[0-9a-f]{64}$ */
+  fingerprint: string;
+  disable_orphans?: boolean;
+}
 
 export interface Telegram {
   enable?: boolean;
@@ -4188,6 +4229,178 @@ export function useReadiness<TData = Awaited<ReturnType<typeof readiness>>, TErr
 
 
 
+
+export const getRecoveryInventoryUrl = () => {
+
+
+
+
+  return `/api/operations/runtime-recovery`
+}
+
+/**
+ * @summary Recovery Inventory
+ */
+export const recoveryInventory = async ( options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getRecoveryInventoryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getRecoveryInventoryQueryKey = () => {
+    return [
+    `/api/operations/runtime-recovery`
+    ] as const;
+    }
+
+
+export const getRecoveryInventoryQueryOptions = <TData = Awaited<ReturnType<typeof recoveryInventory>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof recoveryInventory>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getRecoveryInventoryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof recoveryInventory>>> = ({ signal }) => recoveryInventory({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof recoveryInventory>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type RecoveryInventoryQueryResult = NonNullable<Awaited<ReturnType<typeof recoveryInventory>>>
+export type RecoveryInventoryQueryError = ErrorType<unknown>
+
+
+export function useRecoveryInventory<TData = Awaited<ReturnType<typeof recoveryInventory>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof recoveryInventory>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof recoveryInventory>>,
+          TError,
+          Awaited<ReturnType<typeof recoveryInventory>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useRecoveryInventory<TData = Awaited<ReturnType<typeof recoveryInventory>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof recoveryInventory>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof recoveryInventory>>,
+          TError,
+          Awaited<ReturnType<typeof recoveryInventory>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useRecoveryInventory<TData = Awaited<ReturnType<typeof recoveryInventory>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof recoveryInventory>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Recovery Inventory
+ */
+
+export function useRecoveryInventory<TData = Awaited<ReturnType<typeof recoveryInventory>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof recoveryInventory>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getRecoveryInventoryQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRuntimeRecoveryUrl = () => {
+
+
+
+
+  return `/api/operations/runtime-recovery`
+}
+
+/**
+ * @summary Runtime Recovery
+ */
+export const runtimeRecovery = async (runtimeRecoveryRequest: RuntimeRecoveryRequest, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getRuntimeRecoveryUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(runtimeRecoveryRequest)
+  }
+);}
+
+
+
+
+
+export const getRuntimeRecoveryMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runtimeRecovery>>, TError,{data: BodyType<RuntimeRecoveryRequest>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof runtimeRecovery>>, TError,{data: BodyType<RuntimeRecoveryRequest>}, TContext> => {
+
+const mutationKey = ['runtimeRecovery'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runtimeRecovery>>, {data: BodyType<RuntimeRecoveryRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  runtimeRecovery(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RuntimeRecoveryMutationResult = NonNullable<Awaited<ReturnType<typeof runtimeRecovery>>>
+    export type RuntimeRecoveryMutationBody = BodyType<RuntimeRecoveryRequest>
+    export type RuntimeRecoveryMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Runtime Recovery
+ */
+export const useRuntimeRecovery = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runtimeRecovery>>, TError,{data: BodyType<RuntimeRecoveryRequest>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof runtimeRecovery>>,
+        TError,
+        {data: BodyType<RuntimeRecoveryRequest>},
+        TContext
+      > => {
+      return useMutation(getRuntimeRecoveryMutationOptions(options), queryClient);
+    }
 
 export const getAdminTokenUrl = () => {
 
@@ -11380,6 +11593,150 @@ export const useSettle = <TError = ErrorType<HTTPValidationError>,
         TContext
       > => {
       return useMutation(getSettleMutationOptions(options), queryClient);
+    }
+
+export const getConfigureNodeDnsUrl = (nodeId: number,) => {
+
+
+
+
+  return `/api/smartdns/nodes/${nodeId}/dns`
+}
+
+/**
+ * @summary Configure Node Dns
+ */
+export const configureNodeDns = async (nodeId: number,
+    nodeDNSInput: NodeDNSInput, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getConfigureNodeDnsUrl(nodeId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(nodeDNSInput)
+  }
+);}
+
+
+
+
+
+export const getConfigureNodeDnsMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof configureNodeDns>>, TError,{nodeId: number;data: BodyType<NodeDNSInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof configureNodeDns>>, TError,{nodeId: number;data: BodyType<NodeDNSInput>}, TContext> => {
+
+const mutationKey = ['configureNodeDns'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof configureNodeDns>>, {nodeId: number;data: BodyType<NodeDNSInput>}> = (props) => {
+          const {nodeId,data} = props ?? {};
+
+          return  configureNodeDns(nodeId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConfigureNodeDnsMutationResult = NonNullable<Awaited<ReturnType<typeof configureNodeDns>>>
+    export type ConfigureNodeDnsMutationBody = BodyType<NodeDNSInput>
+    export type ConfigureNodeDnsMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Configure Node Dns
+ */
+export const useConfigureNodeDns = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof configureNodeDns>>, TError,{nodeId: number;data: BodyType<NodeDNSInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof configureNodeDns>>,
+        TError,
+        {nodeId: number;data: BodyType<NodeDNSInput>},
+        TContext
+      > => {
+      return useMutation(getConfigureNodeDnsMutationOptions(options), queryClient);
+    }
+
+export const getResolveOnBehalfOfNodeUrl = (nodeId: number,) => {
+
+
+
+
+  return `/api/smartdns/nodes/${nodeId}/resolve`
+}
+
+/**
+ * @summary Resolve On Behalf Of Node
+ */
+export const resolveOnBehalfOfNode = async (nodeId: number,
+    nodeDNSQuery: NodeDNSQuery, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getResolveOnBehalfOfNodeUrl(nodeId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(nodeDNSQuery)
+  }
+);}
+
+
+
+
+
+export const getResolveOnBehalfOfNodeMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveOnBehalfOfNode>>, TError,{nodeId: number;data: BodyType<NodeDNSQuery>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof resolveOnBehalfOfNode>>, TError,{nodeId: number;data: BodyType<NodeDNSQuery>}, TContext> => {
+
+const mutationKey = ['resolveOnBehalfOfNode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resolveOnBehalfOfNode>>, {nodeId: number;data: BodyType<NodeDNSQuery>}> = (props) => {
+          const {nodeId,data} = props ?? {};
+
+          return  resolveOnBehalfOfNode(nodeId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResolveOnBehalfOfNodeMutationResult = NonNullable<Awaited<ReturnType<typeof resolveOnBehalfOfNode>>>
+    export type ResolveOnBehalfOfNodeMutationBody = BodyType<NodeDNSQuery>
+    export type ResolveOnBehalfOfNodeMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Resolve On Behalf Of Node
+ */
+export const useResolveOnBehalfOfNode = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveOnBehalfOfNode>>, TError,{nodeId: number;data: BodyType<NodeDNSQuery>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof resolveOnBehalfOfNode>>,
+        TError,
+        {nodeId: number;data: BodyType<NodeDNSQuery>},
+        TContext
+      > => {
+      return useMutation(getResolveOnBehalfOfNodeMutationOptions(options), queryClient);
     }
 
 export const getNativeTunnelStateUrl = () => {

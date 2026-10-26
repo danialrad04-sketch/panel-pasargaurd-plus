@@ -75,16 +75,29 @@ async def scheduled_backup(*, sessions=GetDB, run_snapshot=snapshot):
         state.lease, state.lease_until = token, now + timedelta(hours=1)
         await db.commit()
     result = {"ok": False, "status": "backup_failed"}
+    cancelled = False
     try:
         result = await asyncio.to_thread(run_snapshot)
+    except asyncio.CancelledError:
+        # Cancelling to_thread does not stop the snapshot thread. Keep its lease
+        # until expiry so another worker cannot start an overlapping snapshot.
+        cancelled = True
+        raise
     except OSError, ValueError, RuntimeError:
         pass
     finally:
-        async with sessions() as db:
-            await begin_immediate_if_sqlite(db)
-            state = await db.get(NativeMaintenanceJob, "backup", with_for_update=True)
-            if state and state.lease == token:
-                state.lease = state.lease_until = None
-                state.last_run = datetime.now(UTC)
-                state.last_result = result
-                await db.commit()
+        if not cancelled:
+            await finish_backup_claim(sessions, token, result)
+
+
+async def finish_backup_claim(sessions, token, result):
+    async with sessions() as db:
+        await begin_immediate_if_sqlite(db)
+        state = await db.get(NativeMaintenanceJob, "backup", with_for_update=True)
+        if state and state.lease == token:
+            state.lease = state.lease_until = None
+            state.last_run = datetime.now(UTC)
+            if not result.get("ok"):
+                state.last_run -= timedelta(hours=settings.backup_interval_hours) - timedelta(minutes=15)
+            state.last_result = result
+            await db.commit()

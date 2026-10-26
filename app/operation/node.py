@@ -626,7 +626,14 @@ class NodeOperation(BaseOperation):
     async def modify_node(self, db: AsyncSession, node_id: int, modified_node: NodeModify, admin: AdminDetails) -> Node:
         from app.tunnel.guards import lock_state
 
-        if {"address", "core_config_id", "port", "api_port", "tunnel_api_port"} & modified_node.model_fields_set:
+        if {
+            "address",
+            "core_config_id",
+            "port",
+            "api_port",
+            "tunnel_api_port",
+            "health_echo_port",
+        } & modified_node.model_fields_set:
             await lock_state(db)
         db_node = await self.get_validated_node(db=db, node_id=node_id)
         if modified_node.core_config_id is not None:
@@ -635,7 +642,7 @@ class NodeOperation(BaseOperation):
         updates = modified_node.model_dump(exclude_none=True)
         if any(
             field in updates and updates[field] != getattr(db_node, field)
-            for field in ("address", "core_config_id", "port", "api_port", "tunnel_api_port")
+            for field in ("address", "core_config_id", "port", "api_port", "tunnel_api_port", "health_echo_port")
         ):
             from app.tunnel.guards import assert_node_unreferenced
 

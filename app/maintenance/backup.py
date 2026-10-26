@@ -50,7 +50,7 @@ def file_hash(path):
 
 
 def check_database(path):
-    with closing(sqlite3.connect(f"file:{Path(path).resolve()}?mode=ro", uri=True)) as db:
+    with closing(sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True)) as db:
         if db.execute("PRAGMA integrity_check").fetchall() != [("ok",)]:
             raise ValueError("Snapshot failed SQLite integrity checking")
 
@@ -63,11 +63,24 @@ def create(database, destination, key_file, *, include=()):
     if not database.is_file() or len(include) > 32:
         raise ValueError("Select an existing SQLite database and at most 32 configuration files")
     destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as source:
+        pages = source.execute("PRAGMA page_count").fetchone()[0]
+        page_size = source.execute("PRAGMA page_size").fetchone()[0]
+    estimated = pages * page_size
+    for value in include:
+        value = Path(value)
+        if not stat.S_ISREG(value.lstat().st_mode) or value.stat().st_size > 64 * CHUNK:
+            raise ValueError("Configuration attachments must be bounded regular files")
+        estimated += value.stat().st_size
+    if estimated > MAX_ARCHIVE - CHUNK:
+        raise ValueError("Backup exceeds its archive limit")
+    if shutil.disk_usage(destination.parent).free < 3 * estimated + 64 * CHUNK:
+        raise ValueError("Insufficient staging space for a verified encrypted snapshot")
     with tempfile.TemporaryDirectory(prefix=".pg-backup-", dir=destination.parent) as directory:
         temporary = Path(directory)
         snapshot = temporary / "db.sqlite3"
         with (
-            closing(sqlite3.connect(f"file:{database}?mode=ro", uri=True)) as source,
+            closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as source,
             closing(sqlite3.connect(snapshot)) as target,
         ):
             source.backup(target)
@@ -132,6 +145,8 @@ def restore(backup, output_dir, key_file):
     if not backup.is_file() or not len(MAGIC) + 28 < backup.stat().st_size <= MAX_ARCHIVE:
         raise ValueError("Invalid or oversized backup")
     output_dir.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if shutil.disk_usage(output_dir.parent).free < 2 * backup.stat().st_size + 64 * CHUNK:
+        raise ValueError("Insufficient staging space for authenticated restoration")
     with tempfile.TemporaryDirectory(prefix=".pg-restore-", dir=output_dir.parent) as directory:
         temporary = Path(directory)
         archive = temporary / "verified.tar"

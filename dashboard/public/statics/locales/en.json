@@ -2299,7 +2299,9 @@
     "importRegistration": "Import native node registration",
     "registrationHelp": "Select the private node-registration.json created on this node. Review all fields before saving.",
     "registrationLoaded": "Connection loaded. Review the core and save to register the node.",
-    "registrationInvalid": "Invalid node registration file (maximum 64 KB)."
+    "registrationInvalid": "Invalid node registration file (maximum 64 KB).",
+    "healthEchoPort": "Internal carrier health port",
+    "healthEchoHelp": "Node loopback only. Match the node service setting; do not expose this port publicly."
   },
   "theme": {
     "title": "Theme",

@@ -90,6 +90,16 @@ class DashboardSettings(EnvSettings):
 class NatsSettings(EnvSettings):
     enabled: bool = Field(default=False, validation_alias="NATS_ENABLED")
     url: str = Field(default="nats://localhost:4222", validation_alias="NATS_URL")
+    kv_replicas: int = Field(default=1, ge=1, le=5, validation_alias="NATS_KV_REPLICAS")
+
+    @field_validator("kv_replicas")
+    @classmethod
+    def valid_replicas(cls, value):
+        if value not in (1, 3, 5):
+            raise ValueError("JetStream replica count must be 1, 3 or 5")
+        return value
+
+    reconnect_attempts: int = Field(default=60, ge=-1, validation_alias="NATS_RECONNECT_ATTEMPTS")
     worker_sync_subject: str = Field(default="pasarguard.worker_sync", validation_alias="NATS_WORKER_SYNC_SUBJECT")
     node_command_subject: str = Field(default="pasarguard.node.command", validation_alias="NATS_NODE_COMMAND_SUBJECT")
     node_rpc_subject: str = Field(default="pasarguard.node.rpc", validation_alias="NATS_NODE_RPC_SUBJECT")

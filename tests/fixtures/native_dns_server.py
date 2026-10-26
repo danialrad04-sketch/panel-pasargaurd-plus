@@ -26,6 +26,8 @@ from app.routers.authentication import get_current
 from app.routers.dns import router
 from app.routers.host import router as host_router
 from app.routers.tunnel import router as tunnel_router
+from app.routers.smartdns import router as smartdns_router
+from app.routers.maintenance import router as maintenance_router
 
 
 async def signing_key():
@@ -38,6 +40,8 @@ app = FastAPI()
 app.include_router(router)
 app.include_router(tunnel_router)
 app.include_router(host_router)
+app.include_router(smartdns_router)
+app.include_router(maintenance_router)
 app.dependency_overrides[get_current] = lambda: owner
 
 
@@ -119,6 +123,7 @@ async def seed():
                     enabled=True,
                     revision=1,
                     applied_revision=1,
+                    health_enabled=bool(os.environ.get("TEST_NATIVE_OPERATIONS")),
                 )
             )
             await db.commit()
@@ -137,6 +142,10 @@ async def seed():
                     sni={"vpn.example.com"},
                 ),
             )
+        if os.environ.get("TEST_NATIVE_OPERATIONS"):
+            from app.db.models import NativeTunnel
+            from app.operation.tunnel import key
+            db.add(NativeTunnel(name="Standby Finland",source_node_id=1,exit_node_id=3,shared_key=key(),inbound_tags=["users"],enabled=False,health_enabled=True))
         db.add(User(username="native-user"))
         db.add(DNSPolicy(name="Privacy", rules=[{"domain": "blocked.example", "action": "block", "addresses": []}]))
         await db.commit()

@@ -1,0 +1,9 @@
+# Copy to compose.backup.yml in the repository root; review host paths first.
+# Use: docker compose -f docker-compose.yml -f compose.backup.yml up -d
+# For split roles, mount these files on the scheduler service instead.
+services:
+  pasarguard:
+    volumes:
+      - /etc/pasarguard-private/backup.key:/run/private/backup.key:ro
+      # Optional when NATIVE_BACKUP_CONFIG_FILE is set:
+      # - /etc/pasarguard-private/panel.env:/run/private/panel.env:ro

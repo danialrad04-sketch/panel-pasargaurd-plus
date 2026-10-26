@@ -735,6 +735,7 @@ class Node(Base, CreatedAtUTCMixin):
     proxy_url: Mapped[str | None] = mapped_column(String(256), default="", unique=False, nullable=True)
     sort_order: Mapped[int] = mapped_column(default=0, server_default=text("0"))
     tunnel_api_port: Mapped[int] = mapped_column(default=62052, server_default=text("62052"))
+    health_echo_port: Mapped[int] = mapped_column(default=62053, server_default=text("62053"))
     _reseted_uplink_query: Mapped[int | None] = query_expression(repr=False)
     _reseted_downlink_query: Mapped[int | None] = query_expression(repr=False)
 
@@ -1214,6 +1215,9 @@ class SmartDNSRoute(Base, CreatedAtUTCMixin):
 class SmartDNSNodeState(Base):
     __tablename__ = "smartdns_node_state"
     node_id: Mapped[int] = fk_id_column("nodes.id", primary_key=True, ondelete="CASCADE")
+    checked_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True), default=None)
+    runtime_result: Mapped[dict] = mapped_column(PostgresJSONB, default_factory=dict)
+    dns_config: Mapped[dict] = mapped_column(PostgresJSONB, default_factory=dict)
     revision: Mapped[int] = mapped_column(default=1)
     applied_revision: Mapped[int] = mapped_column(default=0)
     lease: Mapped[str | None] = mapped_column(String(36), default=None)

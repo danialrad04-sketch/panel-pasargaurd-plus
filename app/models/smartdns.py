@@ -18,7 +18,7 @@ class RouteInput(BaseModel):
     udp_ports: list[int] = Field(default_factory=list, max_length=16)
     mode: Literal["sniff", "fixed"] = "sniff"
     enabled: bool = False
-    egress_tunnel_id: int | None = Field(default=None,gt=0)
+    egress_tunnel_id: int | None = Field(default=None, gt=0)
     _domain = field_validator("domain")(DNSRule.normalized_domain.__func__)
 
     @field_validator("public_address", "bind_address")
@@ -88,3 +88,34 @@ class SettleInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     grant_id: UUID
     used: int = Field(ge=0, le=262144)
+
+
+class NodeDNSInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expected_revision: int = Field(default=0, ge=0)
+    enabled: bool = False
+    bind_address: str = "0.0.0.0"
+    port: int = Field(default=53, ge=1, le=65535)
+
+    @field_validator("bind_address")
+    @classmethod
+    def address(cls, value):
+        address = ip_address(value)
+        if address.is_multicast or address.is_link_local:
+            raise ValueError("Use a local unicast listener IP")
+        return str(address)
+
+
+class NodeDNSQuery(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    revision: int = Field(ge=1)
+    source_ip: str
+    udp: bool = True
+    wire: str = Field(min_length=16, max_length=8192)
+
+    @field_validator("source_ip")
+    @classmethod
+    def source(cls, value):
+        from app.dns.service import source_address
+
+        return source_address(value)

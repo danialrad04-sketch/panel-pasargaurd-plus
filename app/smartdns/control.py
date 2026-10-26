@@ -79,9 +79,21 @@ async def validate(db, route, *, allow_failover=False):
             and other.domain != route.domain
         ):
             raise HTTPException(409, "Fixed TCP listeners cannot share a port across different destination domains")
+    state = await db.get(SmartDNSNodeState, node.id)
+    dns_config = state.dns_config if state else {}
+    if route.enabled and dns_config.get("enabled") and dns_config.get("port") in route.tcp_ports + route.udp_ports:
+        address = dns_config.get("bind_address", "0.0.0.0")
+        if (
+            address == route.bind_address
+            or ipaddress.ip_address(address).is_unspecified
+            or ipaddress.ip_address(route.bind_address).is_unspecified
+        ):
+            raise HTTPException(422, "Gateway port conflicts with the node DNS listener")
     core = await db.get(CoreConfig, node.core_config_id or 1)
+    if core and core.config.get("listen_port") in route.udp_ports:
+        raise HTTPException(422, "Gateway UDP listener conflicts with WireGuard")
     for port in set(route.tcp_ports + route.udp_ports):
-        if port in (node.port, node.api_port, node.tunnel_api_port, node.tunnel_api_port + 1):
+        if port in (node.port, node.api_port, node.tunnel_api_port, node.health_echo_port):
             raise HTTPException(422, "Gateway port conflicts with node management or health")
         if core and occupied_port(core.config, port):
             for inbound in core.config.get("inbounds", []):
@@ -194,6 +206,7 @@ async def deploy(node_id, revision, actor, *, sessions=GetDB, allow_failover=Fal
         routes = (await db.scalars(select(SmartDNSRoute).where(SmartDNSRoute.node_id == node_id))).all()
         for route in routes:
             await validate(db, route, allow_failover=allow_failover)
+        await validate_dns_listener(db, node, state.dns_config)
         compiled = []
         from app.db.models import NativeTunnel
 
@@ -203,7 +216,10 @@ async def deploy(node_id, revision, actor, *, sessions=GetDB, allow_failover=Fal
             item = view(route)
             if route.egress_tunnel_id:
                 tunnel = await db.get(NativeTunnel, route.egress_tunnel_id)
-                if not tunnel or not tunnel.enabled or tunnel.revision != tunnel.applied_revision:
+                if tunnel and not tunnel.enabled:
+                    # Remove its listener/proxy while keeping dependent DNS fail-closed.
+                    continue
+                if not tunnel or tunnel.revision != tunnel.applied_revision:
                     raise HTTPException(409, "Apply the gateway's active native tunnel before deploying SmartDNS")
                 exit_node = await db.get(Node, tunnel.exit_node_id)
                 item["egress"] = {
@@ -220,6 +236,7 @@ async def deploy(node_id, revision, actor, *, sessions=GetDB, allow_failover=Fal
             "panel_url": origin,
             "panel_ca": ca,
             "routes": compiled,
+            "dns": state.dns_config or {"enabled": False, "bind_address": "0.0.0.0", "port": 53},
         }
         state.lease, state.lease_until = claim, datetime.now(UTC) + timedelta(seconds=45)
         audit(db, actor, "apply.start", node_id, revision=revision)
@@ -305,6 +322,8 @@ async def validate_core(db, core_id, candidate):
     for route in (
         await db.scalars(select(SmartDNSRoute).where(SmartDNSRoute.node_id.in_(ids), SmartDNSRoute.enabled.is_(True)))
     ).all():
+        if candidate.config.get("listen_port") in route.udp_ports:
+            raise HTTPException(409, "Core WireGuard listener conflicts with a SmartDNS UDP gateway")
         for port in route.tcp_ports + route.udp_ports:
             for inbound in candidate.config.get("inbounds", []):
                 if occupied_port({"inbounds": [inbound]}, port) and (
@@ -312,3 +331,74 @@ async def validate_core(db, core_id, candidate):
                     or ipaddress.ip_address(route.bind_address).is_unspecified
                 ):
                     raise HTTPException(409, "Core listener conflicts with an enabled SmartDNS gateway")
+    for state in (await db.scalars(select(SmartDNSNodeState).where(SmartDNSNodeState.node_id.in_(ids)))).all():
+        dns_config = state.dns_config or {}
+        if dns_config.get("enabled"):
+            address, port = dns_config["bind_address"], dns_config["port"]
+            if candidate.config.get("listen_port") == port:
+                raise HTTPException(409, "Core WireGuard listener conflicts with native node DNS")
+            for inbound in candidate.config.get("inbounds", []):
+                if occupied_port({"inbounds": [inbound]}, port) and (
+                    inbound.get("listen", "0.0.0.0") in ("0.0.0.0", "::", address)
+                    or ipaddress.ip_address(address).is_unspecified
+                ):
+                    raise HTTPException(409, "Core listener conflicts with native node DNS")
+
+
+async def validate_dns_listener(db, node, config):
+    if not config or not config.get("enabled"):
+        return
+    port = config["port"]
+    address = config["bind_address"]
+    if port in (node.port, node.api_port, node.tunnel_api_port, node.health_echo_port):
+        raise HTTPException(422, "DNS listener conflicts with management or carrier health")
+    core = await db.get(CoreConfig, node.core_config_id or 1)
+    if core:
+        if core.config.get("listen_port") == port:
+            raise HTTPException(422, "DNS listener conflicts with WireGuard")
+        for inbound in core.config.get("inbounds", []):
+            if occupied_port({"inbounds": [inbound]}, port) and (
+                inbound.get("listen", "0.0.0.0") in ("0.0.0.0", "::", address)
+                or ipaddress.ip_address(address).is_unspecified
+            ):
+                raise HTTPException(422, "DNS listener conflicts with a core inbound")
+    for route in (
+        await db.scalars(select(SmartDNSRoute).where(SmartDNSRoute.node_id == node.id, SmartDNSRoute.enabled.is_(True)))
+    ).all():
+        if port in route.tcp_ports + route.udp_ports and (
+            route.bind_address == address
+            or ipaddress.ip_address(address).is_unspecified
+            or ipaddress.ip_address(route.bind_address).is_unspecified
+        ):
+            raise HTTPException(422, "DNS listener conflicts with a gateway listener")
+    from app.db.models import NativeTunnel
+
+    for tunnel in (await db.scalars(select(NativeTunnel).where(NativeTunnel.enabled.is_(True)))).all():
+        options = tunnel.paqet_options or {}
+        reserved = []
+        if node.id == tunnel.exit_node_id:
+            reserved = [tunnel.port] + ([options.get("exit_port", 11082)] if tunnel.transport == "paqet" else [])
+        if node.id == tunnel.source_node_id and tunnel.transport == "paqet":
+            reserved = [options.get("client_port", 11081)] + [
+                int(row["listen"].rsplit(":", 1)[1]) for row in options.get("forwards", []) + options.get("socks5", [])
+            ]
+        if port in reserved:
+            raise HTTPException(422, "DNS listener conflicts with a native tunnel")
+
+
+async def save_dns(db, node_id, body, actor):
+    await lock_state(db)
+    node = await db.get(Node, node_id)
+    if not node:
+        raise HTTPException(404, "Node not found")
+    current = await db.get(SmartDNSNodeState, node_id)
+    if (current.revision if current else 0) != body.expected_revision:
+        raise HTTPException(409, "Node gateway/DNS generation changed; reload")
+    state = await node_state(db, node_id)
+    value = body.model_dump(exclude={"expected_revision"})
+    await validate_dns_listener(db, node, value)
+    state.dns_config = value
+    state.revision += 1
+    audit(db, actor, "node_dns", node_id, revision=state.revision, enabled=body.enabled)
+    await db.commit()
+    return {"node_id": node_id, "revision": state.revision, "dns": state.dns_config}

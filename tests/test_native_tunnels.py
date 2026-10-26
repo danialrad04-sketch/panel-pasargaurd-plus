@@ -306,3 +306,24 @@ async def test_busy_or_ambiguous_start_cannot_acknowledge_tunnel_revision(monkey
     )
     assert result is None
     attach.assert_not_awaited()
+
+
+async def test_health_exception_scoped_to_carrier_and_explicit_internal_port(native):
+    row = await add(native, enabled=True, health_enabled=True)
+    node = SimpleNamespace(address="192.0.2.1", tunnel_api_port=44000, health_echo_port=62555)
+    result, _ = compose(BASE, 2, [row], {2: node})
+    rule = result["routing"]["rules"][0]
+    assert rule == {
+        "type": "field",
+        "inboundTag": [f"pg-tunnel-{row.id}"],
+        "ip": ["127.0.0.1/32"],
+        "port": "62555",
+        "outboundTag": f"pg-tunnel-{row.id}-health",
+    }
+    health_outbound = next(item for item in result["outbounds"] if item["tag"] == rule["outboundTag"])
+    assert health_outbound["settings"] == {"finalRules": [{"action": "allow", "ip": ["127.0.0.1/32"]}]}
+    normal = next(item for item in result["outbounds"] if item["tag"] == f"pg-tunnel-{row.id}")
+    assert normal["settings"] == {}
+    row.health_enabled = False
+    disabled, _ = compose(BASE, 2, [row], {2: node})
+    assert not any(item["tag"].endswith("-health") for item in disabled["outbounds"])

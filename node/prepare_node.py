@@ -42,7 +42,10 @@ def prepare(args):
     targets = [args.env_file.absolute(), args.registration_file.absolute(), cert, key]
     if len(set(targets)) != 4 or any(path.exists() or path.is_symlink() for path in targets):
         raise FileExistsError("Refusing to overwrite an existing identity or registration file")
-    if len({args.port, args.api_port, args.tunnel_port}) != 3:
+    health_port = getattr(args, "health_port", 62053)
+    if not 1024 <= health_port <= 65535:
+        raise ValueError("Internal health port must be between 1024 and 65535")
+    if len({args.port, args.api_port, args.tunnel_port, health_port}) != 4:
         raise ValueError("Node control, API and tunnel ports must be distinct")
     for path in targets:
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -84,6 +87,7 @@ def prepare(args):
             "port": args.port,
             "api_port": args.api_port,
             "tunnel_api_port": args.tunnel_port,
+            "health_echo_port": health_port,
             "connection_type": "grpc",
             "server_ca": certificate,
             "api_key": api_key,
@@ -94,7 +98,7 @@ def prepare(args):
             f'PG_NODE_DATA_DIR="{state}"\nSERVICE_PORT={args.port}\nSERVICE_PROTOCOL=grpc\n'
             f"API_KEY={api_key}\nSSL_CERT_FILE=/var/lib/pg-node/certs/ssl_cert.pem\n"
             "SSL_KEY_FILE=/var/lib/pg-node/certs/ssl_key.pem\n"
-            f"PG_NODE_PAQET_ENABLED=true\nPG_NODE_PAQET_PORT={args.tunnel_port}\n"
+            f"PG_NODE_PAQET_ENABLED=true\nPG_NODE_PAQET_PORT={args.tunnel_port}\nPG_NODE_HEALTH_PORT={health_port}\n"
         )
         write_private(targets[0], environment, created)
         write_private(targets[1], json.dumps(settings, ensure_ascii=False, indent=2) + "\n", created)
@@ -115,6 +119,7 @@ def main():
     parser.add_argument("--port", type=port, default=62050)
     parser.add_argument("--api-port", type=port, default=62051)
     parser.add_argument("--tunnel-port", type=port, default=62052)
+    parser.add_argument("--health-port", type=port, default=62053)
     args = parser.parse_args()
     try:
         registration = prepare(args)

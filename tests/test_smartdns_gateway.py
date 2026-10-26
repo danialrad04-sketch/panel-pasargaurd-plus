@@ -157,7 +157,7 @@ async def test_crash_reservation_remains_bounded_and_late_settlement_corrects(ga
 
 
 async def test_native_dns_publishes_only_acknowledged_gateway(gateway):
-    native, node, route = gateway
+    native, node, _route = gateway
     wire = dns.message.make_query("game.example", "A").to_wire()
     answer = dns.message.from_wire(await native.service.answer(wire, token=native.token))
     assert answer.answer[0][0].address == "192.0.2.2"
@@ -169,3 +169,43 @@ async def test_native_dns_publishes_only_acknowledged_gateway(gateway):
         await db.commit()
     response = dns.message.from_wire(await native.service.answer(wire, token=native.token))
     assert response.rcode() == dns.rcode.SERVFAIL
+
+
+async def test_node_dns_authorization_source_ip_budget_and_generation(gateway, monkeypatch):
+    import base64
+
+    from app.models.smartdns import NodeDNSQuery
+    from app.routers.smartdns import resolve_on_behalf_of_node
+
+    native, node, _ = gateway
+    monkeypatch.setattr("app.dns.service.DNSService", lambda: native.service)
+    async with native.sessions() as db:
+        state = await db.get(SmartDNSNodeState, node.id)
+        state.dns_config = {"enabled": True, "bind_address": "0.0.0.0", "port": 5354}
+        await db.commit()
+    query = dns.message.make_query("blocked.example", "A")
+    body = NodeDNSQuery(
+        revision=2, source_ip="198.51.100.10", udp=True, wire=base64.b64encode(query.to_wire()).decode()
+    )
+    async with native.sessions() as db:
+        with pytest.raises(HTTPException) as denied:
+            await resolve_on_behalf_of_node(node.id, body, db, "wrong-key")
+        assert denied.value.status_code == 401
+        unknown = body.model_copy(update={"source_ip": "198.51.100.11"})
+        with pytest.raises(HTTPException):
+            await resolve_on_behalf_of_node(node.id, unknown, db, node.api_key)
+    for udp in (True, False, True):
+        async with native.sessions() as db:
+            answer = await resolve_on_behalf_of_node(node.id, body.model_copy(update={"udp": udp}), db, node.api_key)
+            assert dns.message.from_wire(base64.b64decode(answer["wire"])).rcode() == dns.rcode.NXDOMAIN
+    assert (await usage(native)).queries == 3
+    async with native.sessions() as db:
+        with pytest.raises(HTTPException) as exhausted:
+            await resolve_on_behalf_of_node(node.id, body, db, node.api_key)
+        assert exhausted.value.status_code == 403
+        state = await db.get(SmartDNSNodeState, node.id)
+        state.revision += 1
+        await db.commit()
+        with pytest.raises(HTTPException) as pending:
+            await resolve_on_behalf_of_node(node.id, body, db, node.api_key)
+        assert "pending" in pending.value.detail

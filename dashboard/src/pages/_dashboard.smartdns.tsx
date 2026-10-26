@@ -1,4 +1,5 @@
 import { useDeferredValue, useState } from 'react'
+import NodeDNSSettings from './node-dns-settings'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
@@ -24,7 +25,7 @@ type Route = {
   revision: number
   egress_tunnel_id?: number | null
 }
-type State = { routes: Route[]; nodes: { node_id: number; revision: number; applied_revision: number; result: { ok?: boolean } }[] }
+type State = { routes: Route[]; nodes: { node_id: number; revision: number; applied_revision: number; result: { ok?: boolean }; dns?: { enabled?: boolean; bind_address?: string; port?: number } }[] }
 const select = 'bg-background h-10 w-full rounded-md border px-3 text-sm'
 
 export default function SmartDNS() {
@@ -120,12 +121,18 @@ export default function SmartDNS() {
           </div>
         ))}
       </div>
+      <NodeDNSSettings nodes={topology.data?.nodes || []} states={state.data?.nodes || []} fa={fa} onSaved={() => client.invalidateQueries({ queryKey: ['smartdns'] })} />
       <section className="space-y-3">
         <h2 className="font-medium">{t('اعمال تنظیمات gateway روی نود', 'Apply gateway configuration')}</h2>
         {state.data?.nodes.map(state => (
           <div key={state.node_id} className="bg-card flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 text-sm">
             <div>
               <span className="font-medium">{nodeName(state.node_id)}</span>
+              {state.dns?.enabled && (
+                <span className="text-muted-foreground ms-2 text-xs" dir="ltr">
+                  DNS {state.dns.bind_address}:{state.dns.port} · UDP/TCP
+                </span>
+              )}
               <span className="text-muted-foreground ms-3 text-xs">
                 {state.revision === state.applied_revision ? t('تنظیمات تأیید شده', 'Acknowledged') : t('در انتظار اعمال؛ DNS وابسته بسته است', 'Pending apply; dependent DNS fails closed')}
               </span>
@@ -276,7 +283,7 @@ export default function SmartDNS() {
           >
             <label className="space-y-2 text-sm">
               <span>{t('نود gateway', 'Gateway node')}</span>
-              <select className={select} value={node} onChange={event => setNode(event.target.value)} required disabled={editing !== 'new'}>
+              <select aria-label={t('نود gateway', 'Gateway node')} className={select} value={node} onChange={event => setNode(event.target.value)} required disabled={editing !== 'new'}>
                 <option value="">—</option>
                 {topology.data?.nodes.map(node => (
                   <option key={node.id} value={node.id}>
@@ -287,7 +294,7 @@ export default function SmartDNS() {
             </label>
             <label className="space-y-2 text-sm">
               <span>{t('سیاست DNS', 'DNS policy')}</span>
-              <select name="policy" className={select} required defaultValue={editing && editing !== 'new' ? editing.policy_id : ''}>
+              <select aria-label={t('سیاست DNS', 'DNS policy')} name="policy" className={select} required defaultValue={editing && editing !== 'new' ? editing.policy_id : ''}>
                 <option value="">—</option>
                 {policies.data?.map(policy => (
                   <option key={policy.id} value={policy.id}>
@@ -302,7 +309,7 @@ export default function SmartDNS() {
             </label>
             <label className="space-y-2 text-sm">
               <span>{t('روش مسیریابی TCP', 'TCP routing mode')}</span>
-              <select name="mode" className={select} defaultValue={editing && editing !== 'new' ? editing.mode : 'sniff'}>
+              <select aria-label={t('روش مسیریابی TCP', 'TCP routing mode')} name="mode" className={select} defaultValue={editing && editing !== 'new' ? editing.mode : 'sniff'}>
                 <option value="sniff">TLS SNI / HTTP Host</option>
                 <option value="fixed">{t('مقصد ثابت؛ بازی و پروتکل خام', 'Fixed target; games and raw protocols')}</option>
               </select>
@@ -325,7 +332,7 @@ export default function SmartDNS() {
             </label>
             <label className="space-y-2 text-sm sm:col-span-2">
               <span>{t('خروج ترافیک', 'Traffic egress')}</span>
-              <select name="egress" className={select} defaultValue={editing && editing !== 'new' ? editing.egress_tunnel_id || '' : ''}>
+              <select aria-label={t('خروج ترافیک', 'Traffic egress')} name="egress" className={select} defaultValue={editing && editing !== 'new' ? editing.egress_tunnel_id || '' : ''}>
                 <option value="">{t('مستقیم از همین نود', 'Direct from this node')}</option>
                 {topology.data?.items
                   .filter(item => item.source_node_id === Number(node))

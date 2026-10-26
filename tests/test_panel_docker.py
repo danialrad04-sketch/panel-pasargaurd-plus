@@ -115,7 +115,15 @@ async def test_production_install_bundle_and_persistent_database(tmp_path):
                 return response.json()["access_token"]
 
             token = await login()
-            for path in ("/api/tunnels", "/api/dns/runtime"):
+            for path in (
+                "/api/tunnels",
+                "/api/dns/runtime",
+                "/api/smartdns",
+                "/api/tunnels/health/state",
+                "/api/tunnels/failover/state",
+                "/api/operations/readiness",
+                "/api/operations/runtime-recovery",
+            ):
                 response = await client.get(path, headers={"Authorization": f"Bearer {token}"})
                 assert response.status_code == 200, (path, response.text)
             html = await client.get("/dashboard/")

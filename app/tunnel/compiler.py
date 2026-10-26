@@ -80,7 +80,7 @@ def compose(config: dict, node_id: int, tunnels, nodes: dict, excluded=()):
             )
             # The authenticated health echo is the only permitted loopback exception.
             # Keep normal freedom security defaults for all other private destinations.
-            health_port = (getattr(nodes.get(node_id), "tunnel_api_port", 62052) or 62052) + 1
+            health_port = getattr(nodes.get(node_id), "health_echo_port", 62053) or 62053
             if getattr(tunnel, "health_enabled", False) and health_port <= 65535:
                 health_tag = f"{tag}-health"
                 result.setdefault("outbounds", []).append(

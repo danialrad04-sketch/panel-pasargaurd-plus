@@ -21,6 +21,11 @@ try {
   }, process.env.PANEL_TEST_TOKEN)
   await page.goto(`${origin}/dashboard/#/tunnels`)
   await page.getByRole('heading', { name: 'تونل‌های بومی نودها' }).waitFor()
+  await page.locator('summary').filter({ hasText: 'پایش مسیر، بازیابی و سلامت سرویس‌ها' }).click()
+  await page.goto(`${origin}/dashboard/#/smartdns`)
+  await page.getByRole('heading', { name: 'دسترسی سرویس‌ها بدون VPN', exact: true }).waitFor()
+  await page.getByRole('button', { name: 'تنظیم DNS نود', exact: true }).waitFor()
+
   await page.route('**/*_dashboard.nodes._index-*.js', async route => {
     await new Promise(resolve => setTimeout(resolve, 700))
     await route.continue()

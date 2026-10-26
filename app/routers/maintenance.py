@@ -120,7 +120,11 @@ async def readiness(
             result=sample.result if sample and not stale else {"status": "stale_or_missing"},
         )
     for policy in (
-        await db.scalars(select(TunnelFailoverPolicy).where(TunnelFailoverPolicy.suspended.is_(True)))
+        await db.scalars(
+            select(TunnelFailoverPolicy).where(
+                TunnelFailoverPolicy.suspended.is_(True), TunnelFailoverPolicy.enabled.is_(True)
+            )
+        )
     ).all():
         add(
             "failover",
@@ -130,6 +134,17 @@ async def readiness(
             result=policy.last_result,
         )
     for state in (await db.scalars(select(SmartDNSNodeState))).all():
+        if state.checked_at:
+            stale = now - fix_datetime_timezone(state.checked_at) > timedelta(minutes=3)
+            if state.runtime_result.get("status") == "node_disabled":
+                add("smartdns", "info", "Gateway node was disabled or limited", node_id=state.node_id)
+            elif stale or not state.runtime_result.get("healthy"):
+                add(
+                    "smartdns",
+                    "warning" if stale else "critical",
+                    "Gateway/DNS runtime is unavailable or stale",
+                    node_id=state.node_id,
+                )
         if state.revision != state.applied_revision:
             add(
                 "smartdns",
