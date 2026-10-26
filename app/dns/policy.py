@@ -113,7 +113,7 @@ def parse_query(wire):
 
 def rule_for(name, rules):
     name = name.to_text().rstrip(".").lower()
-    matches = [r for r in rules if name == r["domain"] or name.endswith("." + r["domain"])]
+    matches = [r for r in rules if name == r["domain"] or (not r.get("exact") and name.endswith("." + r["domain"]))]
     return max(matches, key=lambda r: len(r["domain"])) if matches else None
 
 

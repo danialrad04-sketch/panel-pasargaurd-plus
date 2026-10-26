@@ -36,6 +36,15 @@ async def assert_core_unreferenced(db, core_ids):
 
 
 async def assert_node_unreferenced(db, node_ids):
+    from app.db.models import SmartDNSRoute, TunnelFailoverPolicy
+
+    if await db.scalar(select(SmartDNSRoute.id).where(SmartDNSRoute.node_id.in_(node_ids)).limit(1)):
+        raise HTTPException(409, "Disable/apply/remove native SmartDNS routes before replacing or deleting this node")
+    if await db.scalar(
+        select(TunnelFailoverPolicy.source_node_id).where(TunnelFailoverPolicy.source_node_id.in_(node_ids)).limit(1)
+    ):
+        raise HTTPException(409, "Remove the failover policy before deleting this node")
+
     if await db.scalar(
         select(NativeTunnel.id)
         .where(
@@ -50,10 +59,14 @@ async def assert_node_unreferenced(db, node_ids):
 
 
 async def assert_paqet_node_update_safe(db, node_id):
+    from app.db.models import SmartDNSRoute
+
+    if await db.scalar(select(SmartDNSRoute.id).where(SmartDNSRoute.node_id == node_id).limit(1)):
+        raise HTTPException(409, "SmartDNS nodes require the source-built fork; update its image")
     if await db.scalar(
         select(NativeTunnel.id)
         .where(
-            NativeTunnel.transport == "paqet",
+            or_(NativeTunnel.transport == "paqet", NativeTunnel.health_enabled.is_(True)),
             or_(NativeTunnel.source_node_id == node_id, NativeTunnel.exit_node_id == node_id),
         )
         .limit(1)

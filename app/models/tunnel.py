@@ -16,6 +16,7 @@ class TunnelInput(BaseModel):
     domains: list[str] = Field(default_factory=list, max_length=2000)
     port: int = Field(default=40900, ge=1024, le=65535)
     enabled: bool = False
+    health_enabled: bool = False
     transport: Literal["shadowsocks-2022", "paqet"] = "shadowsocks-2022"
     paqet_options: PaqetOptions | None = None
     paqet_key: SecretStr | None = Field(None, json_schema_extra={"writeOnly": True})
@@ -54,6 +55,7 @@ class TunnelCreate(TunnelInput):
 
 
 class TunnelModify(TunnelInput):
+    health_enabled: bool | None = None
     expected_revision: int = Field(ge=1)
 
 
@@ -118,6 +120,7 @@ class TunnelNodeResult(BaseModel):
 
 
 class TunnelDeployResult(BaseModel):
+    smartdns_nodes: list[TunnelNodeResult] = Field(default_factory=list)
     ok: bool
     state: Literal["applying", "applied", "partial_failure", "no_changes"]
     nodes: list[TunnelNodeResult] = Field(default_factory=list)
@@ -161,3 +164,12 @@ class TunnelHostPublish(TunnelRevision):
                 raise ValueError("Use the client-reachable ingress IP, not a loopback or unspecified address")
             return str(ip)
         return None
+
+
+class FailoverPolicyInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expected_revision: int = Field(default=0, ge=0)
+    candidates: list[int] = Field(min_length=2, max_length=8)
+    enabled: bool = False
+    failure_threshold: int = Field(default=3, ge=2, le=10)
+    cooldown_seconds: int = Field(default=300, ge=120, le=86400)

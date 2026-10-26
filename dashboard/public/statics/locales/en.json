@@ -4000,5 +4000,8 @@
   },
   "tunnels": {
     "title": "Node tunnels"
+  },
+  "smartdns": {
+    "title": "SmartDNS gateways"
   }
 }

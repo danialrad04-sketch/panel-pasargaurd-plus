@@ -1681,6 +1681,12 @@ export interface DNSAccountInput {
 }
 
 export interface DNSAccountView {
+  relay_rps?: number;
+  relay_enabled?: boolean;
+  relay_byte_limit?: number;
+  relay_bytes?: number;
+  relay_reserved?: number;
+  relay_uncertain_bytes?: number;
   id: number;
   user_id: number;
   username: string;
@@ -1734,6 +1740,9 @@ export interface DNSLeaseView {
 }
 
 export interface DNSPeriodView {
+  relay_bytes?: number;
+  relay_reserved?: number;
+  relay_uncertain_bytes?: number;
   period: number;
   queries: number;
   request_bytes: number;
@@ -1812,6 +1821,27 @@ export interface ExtraSettings {
   method?: ShadowsocksMethods | null;
 }
 
+export interface FailoverPolicyInput {
+  /** @minimum 0 */
+  expected_revision?: number;
+  /**
+     * @minItems 2
+     * @maxItems 8
+     */
+  candidates: number[];
+  enabled?: boolean;
+  /**
+     * @minimum 2
+     * @maximum 10
+     */
+  failure_threshold?: number;
+  /**
+     * @minimum 120
+     * @maximum 86400
+     */
+  cooldown_seconds?: number;
+}
+
 export interface Forbidden {
   detail?: string;
 }
@@ -1853,6 +1883,36 @@ export const GeoFilseRegion = {
   china: 'china',
   russia: 'russia',
 } as const;
+
+export type GrantInputNetwork = typeof GrantInputNetwork[keyof typeof GrantInputNetwork];
+
+
+export const GrantInputNetwork = {
+  tcp: 'tcp',
+  udp: 'udp',
+} as const;
+
+export interface GrantInput {
+  request_id: string;
+  issued_at: number;
+  /** @exclusiveMinimum 0 */
+  route_id: number;
+  /** @minimum 1 */
+  revision: number;
+  source_ip: string;
+  host: string;
+  /**
+     * @minimum 1
+     * @maximum 65535
+     */
+  port: number;
+  network: GrantInputNetwork;
+  /**
+     * @minimum 1
+     * @maximum 262144
+     */
+  amount?: number;
+}
 
 export interface GroupCreate {
   /**
@@ -2527,6 +2587,20 @@ export interface RealityScanResult {
   reason?: string | null;
 }
 
+export interface RelayAccountInput {
+  enabled?: boolean;
+  /**
+     * @minimum 0
+     * @maximum 9000000000000000
+     */
+  byte_limit?: number;
+  /**
+     * @minimum 1
+     * @maximum 2000
+     */
+  grants_per_second?: number;
+}
+
 /**
  * Response model for bulk API key deletion.
  */
@@ -2602,6 +2676,58 @@ export interface ReorderRequest {
      * @maxItems 10000
      */
   ordered_ids: number[];
+}
+
+export type RouteInputMode = typeof RouteInputMode[keyof typeof RouteInputMode];
+
+
+export const RouteInputMode = {
+  sniff: 'sniff',
+  fixed: 'fixed',
+} as const;
+
+export interface RouteInput {
+  /** @exclusiveMinimum 0 */
+  node_id: number;
+  /** @exclusiveMinimum 0 */
+  policy_id: number;
+  domain: string;
+  public_address: string;
+  bind_address: string;
+  /** @maxItems 16 */
+  tcp_ports?: number[];
+  /** @maxItems 16 */
+  udp_ports?: number[];
+  mode?: RouteInputMode;
+  enabled?: boolean;
+  egress_tunnel_id?: number | null;
+}
+
+export type RouteModifyMode = typeof RouteModifyMode[keyof typeof RouteModifyMode];
+
+
+export const RouteModifyMode = {
+  sniff: 'sniff',
+  fixed: 'fixed',
+} as const;
+
+export interface RouteModify {
+  /** @exclusiveMinimum 0 */
+  node_id: number;
+  /** @exclusiveMinimum 0 */
+  policy_id: number;
+  domain: string;
+  public_address: string;
+  bind_address: string;
+  /** @maxItems 16 */
+  tcp_ports?: number[];
+  /** @maxItems 16 */
+  udp_ports?: number[];
+  mode?: RouteModifyMode;
+  enabled?: boolean;
+  egress_tunnel_id?: number | null;
+  /** @minimum 1 */
+  expected_revision: number;
 }
 
 export type RunMethod = typeof RunMethod[keyof typeof RunMethod];
@@ -2689,6 +2815,15 @@ export interface SettingsSchema {
   subscription?: Subscription | null;
   hwid?: HWIDSettings | null;
   general?: General | null;
+}
+
+export interface SettleInput {
+  grant_id: string;
+  /**
+     * @minimum 0
+     * @maximum 262144
+     */
+  used: number;
 }
 
 export interface SubscriptionUserResponse {
@@ -2799,6 +2934,7 @@ export interface TunnelCreate {
      */
   port?: number;
   enabled?: boolean;
+  health_enabled?: boolean;
   transport?: TunnelCreateTransport;
   paqet_options?: PaqetOptions | null;
   paqet_key?: string | null;
@@ -2824,6 +2960,7 @@ export interface TunnelNodeResult {
 }
 
 export interface TunnelDeployResult {
+  smartdns_nodes?: TunnelNodeResult[];
   ok: boolean;
   state: TunnelDeployResultState;
   nodes?: TunnelNodeResult[];
@@ -2867,6 +3004,7 @@ export interface TunnelModify {
      */
   port?: number;
   enabled?: boolean;
+  health_enabled?: boolean | null;
   transport?: TunnelModifyTransport;
   paqet_options?: PaqetOptions | null;
   paqet_key?: string | null;
@@ -2943,6 +3081,7 @@ export interface TunnelView {
      */
   port?: number;
   enabled?: boolean;
+  health_enabled?: boolean;
   transport?: TunnelViewTransport;
   paqet_options?: TunnelViewPaqetOptions;
   engine_id: string;
@@ -3937,6 +4076,107 @@ export function useHealth<TData = Awaited<ReturnType<typeof health>>, TError = E
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getHealthQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getReadinessUrl = () => {
+
+
+
+
+  return `/api/operations/readiness`
+}
+
+/**
+ * @summary Readiness
+ */
+export const readiness = async ( options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getReadinessUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getReadinessQueryKey = () => {
+    return [
+    `/api/operations/readiness`
+    ] as const;
+    }
+
+
+export const getReadinessQueryOptions = <TData = Awaited<ReturnType<typeof readiness>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof readiness>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getReadinessQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof readiness>>> = ({ signal }) => readiness({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof readiness>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ReadinessQueryResult = NonNullable<Awaited<ReturnType<typeof readiness>>>
+export type ReadinessQueryError = ErrorType<unknown>
+
+
+export function useReadiness<TData = Awaited<ReturnType<typeof readiness>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof readiness>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof readiness>>,
+          TError,
+          Awaited<ReturnType<typeof readiness>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useReadiness<TData = Awaited<ReturnType<typeof readiness>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof readiness>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof readiness>>,
+          TError,
+          Awaited<ReturnType<typeof readiness>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useReadiness<TData = Awaited<ReturnType<typeof readiness>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof readiness>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Readiness
+ */
+
+export function useReadiness<TData = Awaited<ReturnType<typeof readiness>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof readiness>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getReadinessQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -10538,6 +10778,610 @@ export const useDnsQueryPost = <TError = ErrorType<unknown>,
       return useMutation(getDnsQueryPostMutationOptions(options), queryClient);
     }
 
+export const getStateUrl = () => {
+
+
+
+
+  return `/api/smartdns`
+}
+
+/**
+ * @summary State
+ */
+export const state = async ( options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getStateUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getStateQueryKey = () => {
+    return [
+    `/api/smartdns`
+    ] as const;
+    }
+
+
+export const getStateQueryOptions = <TData = Awaited<ReturnType<typeof state>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof state>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getStateQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof state>>> = ({ signal }) => state({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof state>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type StateQueryResult = NonNullable<Awaited<ReturnType<typeof state>>>
+export type StateQueryError = ErrorType<unknown>
+
+
+export function useState<TData = Awaited<ReturnType<typeof state>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof state>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof state>>,
+          TError,
+          Awaited<ReturnType<typeof state>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useState<TData = Awaited<ReturnType<typeof state>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof state>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof state>>,
+          TError,
+          Awaited<ReturnType<typeof state>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useState<TData = Awaited<ReturnType<typeof state>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof state>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary State
+ */
+
+export function useState<TData = Awaited<ReturnType<typeof state>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof state>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getStateQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateUrl = () => {
+
+
+
+
+  return `/api/smartdns/routes`
+}
+
+/**
+ * @summary Create
+ */
+export const create = async (routeInput: RouteInput, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getCreateUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(routeInput)
+  }
+);}
+
+
+
+
+
+export const getCreateMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof create>>, TError,{data: BodyType<RouteInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof create>>, TError,{data: BodyType<RouteInput>}, TContext> => {
+
+const mutationKey = ['create'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof create>>, {data: BodyType<RouteInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  create(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateMutationResult = NonNullable<Awaited<ReturnType<typeof create>>>
+    export type CreateMutationBody = BodyType<RouteInput>
+    export type CreateMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Create
+ */
+export const useCreate = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof create>>, TError,{data: BodyType<RouteInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof create>>,
+        TError,
+        {data: BodyType<RouteInput>},
+        TContext
+      > => {
+      return useMutation(getCreateMutationOptions(options), queryClient);
+    }
+
+export const getModifyUrl = (routeId: number,) => {
+
+
+
+
+  return `/api/smartdns/routes/${routeId}`
+}
+
+/**
+ * @summary Modify
+ */
+export const modify = async (routeId: number,
+    routeModify: RouteModify, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getModifyUrl(routeId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(routeModify)
+  }
+);}
+
+
+
+
+
+export const getModifyMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof modify>>, TError,{routeId: number;data: BodyType<RouteModify>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof modify>>, TError,{routeId: number;data: BodyType<RouteModify>}, TContext> => {
+
+const mutationKey = ['modify'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof modify>>, {routeId: number;data: BodyType<RouteModify>}> = (props) => {
+          const {routeId,data} = props ?? {};
+
+          return  modify(routeId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ModifyMutationResult = NonNullable<Awaited<ReturnType<typeof modify>>>
+    export type ModifyMutationBody = BodyType<RouteModify>
+    export type ModifyMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Modify
+ */
+export const useModify = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof modify>>, TError,{routeId: number;data: BodyType<RouteModify>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof modify>>,
+        TError,
+        {routeId: number;data: BodyType<RouteModify>},
+        TContext
+      > => {
+      return useMutation(getModifyMutationOptions(options), queryClient);
+    }
+
+export const getRemoveUrl = (routeId: number,) => {
+
+
+
+
+  return `/api/smartdns/routes/${routeId}`
+}
+
+/**
+ * @summary Remove
+ */
+export const remove = async (routeId: number,
+    tunnelRevision: TunnelRevision, options?: RequestInit): Promise<void> => {
+
+  return orvalFetcher<void>(getRemoveUrl(routeId),
+  {
+    ...options,
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tunnelRevision)
+  }
+);}
+
+
+
+
+
+export const getRemoveMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof remove>>, TError,{routeId: number;data: BodyType<TunnelRevision>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof remove>>, TError,{routeId: number;data: BodyType<TunnelRevision>}, TContext> => {
+
+const mutationKey = ['remove'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof remove>>, {routeId: number;data: BodyType<TunnelRevision>}> = (props) => {
+          const {routeId,data} = props ?? {};
+
+          return  remove(routeId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveMutationResult = NonNullable<Awaited<ReturnType<typeof remove>>>
+    export type RemoveMutationBody = BodyType<TunnelRevision>
+    export type RemoveMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Remove
+ */
+export const useRemove = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof remove>>, TError,{routeId: number;data: BodyType<TunnelRevision>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof remove>>,
+        TError,
+        {routeId: number;data: BodyType<TunnelRevision>},
+        TContext
+      > => {
+      return useMutation(getRemoveMutationOptions(options), queryClient);
+    }
+
+export const getDeployUrl = (nodeId: number,) => {
+
+
+
+
+  return `/api/smartdns/nodes/${nodeId}/apply`
+}
+
+/**
+ * @summary Deploy
+ */
+export const deploy = async (nodeId: number,
+    tunnelRevision: TunnelRevision, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getDeployUrl(nodeId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tunnelRevision)
+  }
+);}
+
+
+
+
+
+export const getDeployMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deploy>>, TError,{nodeId: number;data: BodyType<TunnelRevision>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof deploy>>, TError,{nodeId: number;data: BodyType<TunnelRevision>}, TContext> => {
+
+const mutationKey = ['deploy'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deploy>>, {nodeId: number;data: BodyType<TunnelRevision>}> = (props) => {
+          const {nodeId,data} = props ?? {};
+
+          return  deploy(nodeId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeployMutationResult = NonNullable<Awaited<ReturnType<typeof deploy>>>
+    export type DeployMutationBody = BodyType<TunnelRevision>
+    export type DeployMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Deploy
+ */
+export const useDeploy = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deploy>>, TError,{nodeId: number;data: BodyType<TunnelRevision>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deploy>>,
+        TError,
+        {nodeId: number;data: BodyType<TunnelRevision>},
+        TContext
+      > => {
+      return useMutation(getDeployMutationOptions(options), queryClient);
+    }
+
+export const getAccountUrl = (accountId: number,) => {
+
+
+
+
+  return `/api/smartdns/accounts/${accountId}`
+}
+
+/**
+ * @summary Account
+ */
+export const account = async (accountId: number,
+    relayAccountInput: RelayAccountInput, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getAccountUrl(accountId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(relayAccountInput)
+  }
+);}
+
+
+
+
+
+export const getAccountMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof account>>, TError,{accountId: number;data: BodyType<RelayAccountInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof account>>, TError,{accountId: number;data: BodyType<RelayAccountInput>}, TContext> => {
+
+const mutationKey = ['account'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof account>>, {accountId: number;data: BodyType<RelayAccountInput>}> = (props) => {
+          const {accountId,data} = props ?? {};
+
+          return  account(accountId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AccountMutationResult = NonNullable<Awaited<ReturnType<typeof account>>>
+    export type AccountMutationBody = BodyType<RelayAccountInput>
+    export type AccountMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Account
+ */
+export const useAccount = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof account>>, TError,{accountId: number;data: BodyType<RelayAccountInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof account>>,
+        TError,
+        {accountId: number;data: BodyType<RelayAccountInput>},
+        TContext
+      > => {
+      return useMutation(getAccountMutationOptions(options), queryClient);
+    }
+
+export const getReserveUrl = (nodeId: number,) => {
+
+
+
+
+  return `/api/smartdns/nodes/${nodeId}/reserve`
+}
+
+/**
+ * @summary Reserve
+ */
+export const reserve = async (nodeId: number,
+    grantInput: GrantInput, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getReserveUrl(nodeId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(grantInput)
+  }
+);}
+
+
+
+
+
+export const getReserveMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reserve>>, TError,{nodeId: number;data: BodyType<GrantInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof reserve>>, TError,{nodeId: number;data: BodyType<GrantInput>}, TContext> => {
+
+const mutationKey = ['reserve'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reserve>>, {nodeId: number;data: BodyType<GrantInput>}> = (props) => {
+          const {nodeId,data} = props ?? {};
+
+          return  reserve(nodeId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReserveMutationResult = NonNullable<Awaited<ReturnType<typeof reserve>>>
+    export type ReserveMutationBody = BodyType<GrantInput>
+    export type ReserveMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Reserve
+ */
+export const useReserve = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reserve>>, TError,{nodeId: number;data: BodyType<GrantInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof reserve>>,
+        TError,
+        {nodeId: number;data: BodyType<GrantInput>},
+        TContext
+      > => {
+      return useMutation(getReserveMutationOptions(options), queryClient);
+    }
+
+export const getSettleUrl = (nodeId: number,) => {
+
+
+
+
+  return `/api/smartdns/nodes/${nodeId}/settle`
+}
+
+/**
+ * @summary Settle
+ */
+export const settle = async (nodeId: number,
+    settleInput: SettleInput, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getSettleUrl(nodeId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(settleInput)
+  }
+);}
+
+
+
+
+
+export const getSettleMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof settle>>, TError,{nodeId: number;data: BodyType<SettleInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof settle>>, TError,{nodeId: number;data: BodyType<SettleInput>}, TContext> => {
+
+const mutationKey = ['settle'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof settle>>, {nodeId: number;data: BodyType<SettleInput>}> = (props) => {
+          const {nodeId,data} = props ?? {};
+
+          return  settle(nodeId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SettleMutationResult = NonNullable<Awaited<ReturnType<typeof settle>>>
+    export type SettleMutationBody = BodyType<SettleInput>
+    export type SettleMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Settle
+ */
+export const useSettle = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof settle>>, TError,{nodeId: number;data: BodyType<SettleInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof settle>>,
+        TError,
+        {nodeId: number;data: BodyType<SettleInput>},
+        TContext
+      > => {
+      return useMutation(getSettleMutationOptions(options), queryClient);
+    }
+
 export const getNativeTunnelStateUrl = () => {
 
 
@@ -11747,6 +12591,424 @@ export const useNativeTunnelPreflight = <TError = ErrorType<HTTPValidationError>
         TContext
       > => {
       return useMutation(getNativeTunnelPreflightMutationOptions(options), queryClient);
+    }
+
+export const getNativeTunnelHealthStateUrl = () => {
+
+
+
+
+  return `/api/tunnels/health/state`
+}
+
+/**
+ * @summary Native Tunnel Health State
+ */
+export const nativeTunnelHealthState = async ( options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getNativeTunnelHealthStateUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getNativeTunnelHealthStateQueryKey = () => {
+    return [
+    `/api/tunnels/health/state`
+    ] as const;
+    }
+
+
+export const getNativeTunnelHealthStateQueryOptions = <TData = Awaited<ReturnType<typeof nativeTunnelHealthState>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeTunnelHealthState>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getNativeTunnelHealthStateQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof nativeTunnelHealthState>>> = ({ signal }) => nativeTunnelHealthState({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof nativeTunnelHealthState>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type NativeTunnelHealthStateQueryResult = NonNullable<Awaited<ReturnType<typeof nativeTunnelHealthState>>>
+export type NativeTunnelHealthStateQueryError = ErrorType<unknown>
+
+
+export function useNativeTunnelHealthState<TData = Awaited<ReturnType<typeof nativeTunnelHealthState>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeTunnelHealthState>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeTunnelHealthState>>,
+          TError,
+          Awaited<ReturnType<typeof nativeTunnelHealthState>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeTunnelHealthState<TData = Awaited<ReturnType<typeof nativeTunnelHealthState>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeTunnelHealthState>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeTunnelHealthState>>,
+          TError,
+          Awaited<ReturnType<typeof nativeTunnelHealthState>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeTunnelHealthState<TData = Awaited<ReturnType<typeof nativeTunnelHealthState>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeTunnelHealthState>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Native Tunnel Health State
+ */
+
+export function useNativeTunnelHealthState<TData = Awaited<ReturnType<typeof nativeTunnelHealthState>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeTunnelHealthState>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getNativeTunnelHealthStateQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getNativeTunnelHealthProbeUrl = (tunnelId: number,) => {
+
+
+
+
+  return `/api/tunnels/${tunnelId}/health`
+}
+
+/**
+ * @summary Native Tunnel Health Probe
+ */
+export const nativeTunnelHealthProbe = async (tunnelId: number,
+    tunnelRevision: TunnelRevision, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getNativeTunnelHealthProbeUrl(tunnelId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tunnelRevision)
+  }
+);}
+
+
+
+
+
+export const getNativeTunnelHealthProbeMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nativeTunnelHealthProbe>>, TError,{tunnelId: number;data: BodyType<TunnelRevision>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof nativeTunnelHealthProbe>>, TError,{tunnelId: number;data: BodyType<TunnelRevision>}, TContext> => {
+
+const mutationKey = ['nativeTunnelHealthProbe'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof nativeTunnelHealthProbe>>, {tunnelId: number;data: BodyType<TunnelRevision>}> = (props) => {
+          const {tunnelId,data} = props ?? {};
+
+          return  nativeTunnelHealthProbe(tunnelId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type NativeTunnelHealthProbeMutationResult = NonNullable<Awaited<ReturnType<typeof nativeTunnelHealthProbe>>>
+    export type NativeTunnelHealthProbeMutationBody = BodyType<TunnelRevision>
+    export type NativeTunnelHealthProbeMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Native Tunnel Health Probe
+ */
+export const useNativeTunnelHealthProbe = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nativeTunnelHealthProbe>>, TError,{tunnelId: number;data: BodyType<TunnelRevision>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof nativeTunnelHealthProbe>>,
+        TError,
+        {tunnelId: number;data: BodyType<TunnelRevision>},
+        TContext
+      > => {
+      return useMutation(getNativeTunnelHealthProbeMutationOptions(options), queryClient);
+    }
+
+export const getNativeFailoverStateUrl = () => {
+
+
+
+
+  return `/api/tunnels/failover/state`
+}
+
+/**
+ * @summary Native Failover State
+ */
+export const nativeFailoverState = async ( options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getNativeFailoverStateUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getNativeFailoverStateQueryKey = () => {
+    return [
+    `/api/tunnels/failover/state`
+    ] as const;
+    }
+
+
+export const getNativeFailoverStateQueryOptions = <TData = Awaited<ReturnType<typeof nativeFailoverState>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeFailoverState>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getNativeFailoverStateQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof nativeFailoverState>>> = ({ signal }) => nativeFailoverState({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof nativeFailoverState>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type NativeFailoverStateQueryResult = NonNullable<Awaited<ReturnType<typeof nativeFailoverState>>>
+export type NativeFailoverStateQueryError = ErrorType<unknown>
+
+
+export function useNativeFailoverState<TData = Awaited<ReturnType<typeof nativeFailoverState>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeFailoverState>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeFailoverState>>,
+          TError,
+          Awaited<ReturnType<typeof nativeFailoverState>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeFailoverState<TData = Awaited<ReturnType<typeof nativeFailoverState>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeFailoverState>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeFailoverState>>,
+          TError,
+          Awaited<ReturnType<typeof nativeFailoverState>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeFailoverState<TData = Awaited<ReturnType<typeof nativeFailoverState>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeFailoverState>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Native Failover State
+ */
+
+export function useNativeFailoverState<TData = Awaited<ReturnType<typeof nativeFailoverState>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeFailoverState>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getNativeFailoverStateQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getNativeFailoverSaveUrl = (sourceId: number,) => {
+
+
+
+
+  return `/api/tunnels/failover/${sourceId}`
+}
+
+/**
+ * @summary Native Failover Save
+ */
+export const nativeFailoverSave = async (sourceId: number,
+    failoverPolicyInput: FailoverPolicyInput, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getNativeFailoverSaveUrl(sourceId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(failoverPolicyInput)
+  }
+);}
+
+
+
+
+
+export const getNativeFailoverSaveMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nativeFailoverSave>>, TError,{sourceId: number;data: BodyType<FailoverPolicyInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof nativeFailoverSave>>, TError,{sourceId: number;data: BodyType<FailoverPolicyInput>}, TContext> => {
+
+const mutationKey = ['nativeFailoverSave'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof nativeFailoverSave>>, {sourceId: number;data: BodyType<FailoverPolicyInput>}> = (props) => {
+          const {sourceId,data} = props ?? {};
+
+          return  nativeFailoverSave(sourceId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type NativeFailoverSaveMutationResult = NonNullable<Awaited<ReturnType<typeof nativeFailoverSave>>>
+    export type NativeFailoverSaveMutationBody = BodyType<FailoverPolicyInput>
+    export type NativeFailoverSaveMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Native Failover Save
+ */
+export const useNativeFailoverSave = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nativeFailoverSave>>, TError,{sourceId: number;data: BodyType<FailoverPolicyInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof nativeFailoverSave>>,
+        TError,
+        {sourceId: number;data: BodyType<FailoverPolicyInput>},
+        TContext
+      > => {
+      return useMutation(getNativeFailoverSaveMutationOptions(options), queryClient);
+    }
+
+export const getNativeFailoverRemoveUrl = (sourceId: number,) => {
+
+
+
+
+  return `/api/tunnels/failover/${sourceId}`
+}
+
+/**
+ * @summary Native Failover Remove
+ */
+export const nativeFailoverRemove = async (sourceId: number,
+    tunnelRevision: TunnelRevision, options?: RequestInit): Promise<void> => {
+
+  return orvalFetcher<void>(getNativeFailoverRemoveUrl(sourceId),
+  {
+    ...options,
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tunnelRevision)
+  }
+);}
+
+
+
+
+
+export const getNativeFailoverRemoveMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nativeFailoverRemove>>, TError,{sourceId: number;data: BodyType<TunnelRevision>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof nativeFailoverRemove>>, TError,{sourceId: number;data: BodyType<TunnelRevision>}, TContext> => {
+
+const mutationKey = ['nativeFailoverRemove'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof nativeFailoverRemove>>, {sourceId: number;data: BodyType<TunnelRevision>}> = (props) => {
+          const {sourceId,data} = props ?? {};
+
+          return  nativeFailoverRemove(sourceId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type NativeFailoverRemoveMutationResult = NonNullable<Awaited<ReturnType<typeof nativeFailoverRemove>>>
+    export type NativeFailoverRemoveMutationBody = BodyType<TunnelRevision>
+    export type NativeFailoverRemoveMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Native Failover Remove
+ */
+export const useNativeFailoverRemove = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nativeFailoverRemove>>, TError,{sourceId: number;data: BodyType<TunnelRevision>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof nativeFailoverRemove>>,
+        TError,
+        {sourceId: number;data: BodyType<TunnelRevision>},
+        TContext
+      > => {
+      return useMutation(getNativeFailoverRemoveMutationOptions(options), queryClient);
     }
 
 export const getGetSettingsUrl = () => {

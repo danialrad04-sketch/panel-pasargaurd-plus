@@ -3969,5 +3969,8 @@
   },
   "tunnels": {
     "title": "تونل‌های نودها"
+  },
+  "smartdns": {
+    "title": "SmartDNS و دسترسی سرویس‌ها"
   }
 }

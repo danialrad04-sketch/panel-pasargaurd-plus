@@ -11,7 +11,9 @@ class PaqetNodeError(RuntimeError):
     pass
 
 
-async def request(node, method, path, body=None):
+async def request(node, method, path, body=None, *, namespace="paqet"):
+    if namespace not in ("paqet", "health", "smartdns"):
+        raise ValueError("Unknown native node namespace")
     try:
         ctx = ssl.create_default_context(cadata=node.server_ca)
     except ValueError, ssl.SSLError:
@@ -27,7 +29,7 @@ async def request(node, method, path, body=None):
     # Proxy settings belong on requests, not ClientSession's constructor.
     connector = kwargs.pop("connector", None)
     host = f"[{node.address}]" if ":" in node.address else node.address
-    url = f"https://{host}:{node.tunnel_api_port}/v1/paqet/{path}"
+    url = f"https://{host}:{node.tunnel_api_port}/v1/{namespace}/{path}"
     try:
         async with (
             aiohttp.ClientSession(connector=connector, timeout=aiohttp.ClientTimeout(total=25)) as client,

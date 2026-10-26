@@ -3,12 +3,15 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"github.com/pasarguard/node/smartdns"
+	"github.com/pasarguard/node/tunnel/health"
 	"github.com/pasarguard/node/tunnel/paqet"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
@@ -59,7 +62,27 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		server := &http.Server{Handler: manager.Handler(cfg.ApiKey.String()), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 30 * time.Second, MaxHeaderBytes: 16384}
+		healthManager, err := health.New(cfg.XrayExecutablePath, cfg.PaqetPort+1)
+		if err != nil {
+			log.Printf("native carrier health unavailable: echo port is not available")
+		} else {
+			defer healthManager.Close()
+		}
+		gateway, gatewayError := smartdns.New(filepath.Join(filepath.Dir(cfg.PaqetStateDir), "smartdns"), cfg.ApiKey.String())
+		if gatewayError != nil {
+			log.Printf("native SmartDNS unavailable: inspect its private state and listener conflicts")
+		} else {
+			defer gateway.Close()
+		}
+		mux := http.NewServeMux()
+		mux.Handle("/v1/paqet/", manager.Handler(cfg.ApiKey.String()))
+		if gateway != nil {
+			mux.Handle("/v1/smartdns/", gateway.Handler(cfg.ApiKey.String()))
+		}
+		if healthManager != nil {
+			mux.Handle("/v1/health/", healthManager.Handler(cfg.ApiKey.String()))
+		}
+		server := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 30 * time.Second, MaxHeaderBytes: 16384}
 		defer server.Close()
 		go func() {
 			if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {

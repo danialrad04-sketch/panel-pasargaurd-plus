@@ -78,6 +78,29 @@ def compose(config: dict, node_id: int, tunnels, nodes: dict, excluded=()):
                     "settings": {"method": METHOD, "password": tunnel.shared_key, "network": "tcp,udp"},
                 }
             )
+            # The authenticated health echo is the only permitted loopback exception.
+            # Keep normal freedom security defaults for all other private destinations.
+            health_port = (getattr(nodes.get(node_id), "tunnel_api_port", 62052) or 62052) + 1
+            if getattr(tunnel, "health_enabled", False) and health_port <= 65535:
+                health_tag = f"{tag}-health"
+                result.setdefault("outbounds", []).append(
+                    {
+                        "tag": health_tag,
+                        "protocol": "freedom",
+                        "settings": {
+                            "finalRules": [{"action": "allow", "ip": ["127.0.0.1/32"]}],
+                        },
+                    }
+                )
+                rules.append(
+                    {
+                        "type": "field",
+                        "inboundTag": [tag],
+                        "ip": ["127.0.0.1/32"],
+                        "port": str(health_port),
+                        "outboundTag": health_tag,
+                    }
+                )
             result.setdefault("outbounds", []).append({"tag": tag, "protocol": "freedom", "settings": {}})
             rules.append({"type": "field", "inboundTag": [tag], "outboundTag": tag})
             exclude.add(tag)

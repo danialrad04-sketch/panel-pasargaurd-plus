@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import PaqetEditor, { editablePaqet } from './paqet-editor'
 import TunnelPreflight from './tunnel-preflight'
+import NetworkOperations from './network-operations'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Activity, ArrowLeftRight, ArrowRight, Check, Globe2, KeyRound, Layers3, Plus, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
@@ -424,6 +425,7 @@ export default function NativeTunnels() {
           </pre>
         </DialogContent>
       </Dialog>
+      <NetworkOperations items={items} nodes={nodes} fa={fa} />
       <Dialog
         open={editing !== null}
         onOpenChange={value => {
@@ -455,6 +457,7 @@ export default function NativeTunnels() {
                   domains: domains.split(/[\s,]+/).filter(Boolean),
                   port: Number(form.get('port')),
                   enabled: form.get('enabled') === 'on',
+                  health_enabled: form.get('health_enabled') === 'on',
                   transport,
                   paqet_options: transport === 'paqet' ? JSON.parse(paqetText) : null,
                   ...(form.get('paqet_key') ? { paqet_key: String(form.get('paqet_key')) } : {}),
@@ -542,6 +545,12 @@ export default function NativeTunnels() {
                 {t('فعال در تنظیمات', 'Enabled in desired state')}
               </label>
             </div>
+            <label className="flex items-start gap-2 rounded-xl border p-3 text-sm">
+              <input name="health_enabled" type="checkbox" defaultChecked={editing && editing !== 'new' ? editing.health_enabled : false} />
+              <span>
+                {t('پایش واقعی حامل TCP/UDP؛ نیازمند نود همین فورک روی هر دو سمت و اعمال مجدد مسیر', 'Measure encrypted TCP/UDP carrier; requires fork nodes on both sides and a fresh apply')}
+              </span>
+            </label>
             <label className="block space-y-2 text-sm">
               <span>{t('دامنه‌ها؛ خالی یعنی تمام مقصدها', 'Domain suffixes; empty means all destinations')}</span>
               <textarea

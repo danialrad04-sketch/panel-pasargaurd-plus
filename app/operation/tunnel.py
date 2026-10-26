@@ -78,6 +78,20 @@ async def validate_topology(db, tunnels, *, core_overrides=None):
             for row in tunnels
         ):
             raise HTTPException(422, "Tunnel port conflicts with the node management API")
+        if any(
+            getattr(row, "health_enabled", False) and node_id in (row.source_node_id, row.exit_node_id)
+            for row in tunnels
+        ):
+            from app.tunnel.compiler import occupied_port
+
+            health_port = (node.tunnel_api_port or 62052) + 1
+            if (
+                health_port > 65535
+                or health_port in (node.port, node.api_port)
+                or occupied_port(core.config, health_port)
+                or any(row.exit_node_id == node_id and row.port == health_port for row in tunnels)
+            ):
+                raise HTTPException(422, "Carrier monitoring echo port conflicts with a core or node listener")
         # Validate disabled drafts too, before they can be enabled later.
         relevant = [row for row in tunnels if node_id in (row.source_node_id, row.exit_node_id)]
         try:
@@ -133,6 +147,9 @@ async def validate_topology(db, tunnels, *, core_overrides=None):
 
 async def validate_core_change(db, core_id, candidate):
     await lock_state(db)
+    from app.smartdns.control import validate_core
+
+    await validate_core(db, core_id, candidate)
     tunnels = await rows(db)
     if tunnels:
         await validate_topology(db, tunnels, core_overrides={core_id: candidate})
@@ -206,6 +223,9 @@ async def get_locked(db, tunnel_id, revision):
 
 async def modify(db, tunnel_id, body, actor):
     row = await get_locked(db, tunnel_id, body.expected_revision)
+    from app.tunnel.failover import assert_edit_safe
+
+    await assert_edit_safe(db, tunnel_id, disable_health=body.health_enabled is False, body=body)
     if await db.scalar(select(NativeTunnel.id).where(NativeTunnel.name == body.name, NativeTunnel.id != row.id)):
         raise HTTPException(409, "Tunnel name already exists")
     if body.transport != row.transport:
@@ -217,10 +237,15 @@ async def modify(db, tunnel_id, body, actor):
         if body.paqet_key:
             row.paqet_key = paqet_key(body.paqet_key)
     for field, value in body.model_dump(exclude={"expected_revision", "paqet_options", "paqet_key"}).items():
+        if field == "health_enabled" and value is None:
+            continue
         setattr(row, field, value)
     row.revision += 1
     await db.flush()
     await validate_topology(db, await rows(db))
+    from app.smartdns.control import touch_tunnel
+
+    await touch_tunnel(db, row.id)
     audit(db, actor, "update", row.id, revision=row.revision)
     await db.commit()
     from app.tunnel.hosts import refresh_tunnel_hosts
@@ -231,12 +256,18 @@ async def modify(db, tunnel_id, body, actor):
 
 async def rotate(db, tunnel_id, revision, actor):
     row = await get_locked(db, tunnel_id, revision)
+    from app.tunnel.failover import assert_edit_safe
+
+    await assert_edit_safe(db, tunnel_id)
     row.shared_key = key()
     if row.transport == "paqet":
         from app.paqet.compiler import key as paqet_key
 
         row.paqet_key = paqet_key()
     row.revision += 1
+    from app.smartdns.control import touch_tunnel
+
+    await touch_tunnel(db, row.id)
     audit(db, actor, "rotate", row.id, revision=row.revision)
     await db.commit()
     from app.tunnel.hosts import refresh_tunnel_hosts
@@ -247,9 +278,15 @@ async def rotate(db, tunnel_id, revision, actor):
 
 async def remove(db, tunnel_id, revision, actor):
     row = await get_locked(db, tunnel_id, revision)
+    from app.tunnel.failover import assert_edit_safe
+
+    await assert_edit_safe(db, tunnel_id, remove=True)
     if row.enabled or row.applied_revision != row.revision:
         raise HTTPException(409, "Disable and successfully apply the tunnel before deleting it")
-    from app.db.models import ProxyHost
+    from app.db.models import ProxyHost, SmartDNSRoute
+
+    if await db.scalar(select(SmartDNSRoute.id).where(SmartDNSRoute.egress_tunnel_id == row.id).limit(1)):
+        raise HTTPException(409, "Remove or reassign SmartDNS routes before deleting their encrypted egress")
 
     if await db.scalar(select(ProxyHost.id).where(ProxyHost.native_tunnel_id == row.id).limit(1)):
         raise HTTPException(409, "Remove or detach tunnel subscription hosts before deleting this tunnel")
@@ -258,7 +295,7 @@ async def remove(db, tunnel_id, revision, actor):
     await db.commit()
 
 
-async def deploy(actor, *, session_factory=GetDB, restart=None):
+async def deploy(actor, *, session_factory=GetDB, restart=None, prepare=None):
     """Runs on the native node worker. RPC completion acknowledges Start, never game health.
 
     Partial failures stay pending. No automatic direct-route fallback; failed encrypted
@@ -273,6 +310,9 @@ async def deploy(actor, *, session_factory=GetDB, restart=None):
     token = str(uuid4())
     async with session_factory() as db:
         state = await lock_state(db)
+        if prepare is not None:
+            await prepare(db)
+            await db.flush()
         tunnels = await rows(db)
         nodes = await validate_topology(db, tunnels)
         if not tunnels:
@@ -288,6 +328,11 @@ async def deploy(actor, *, session_factory=GetDB, restart=None):
         audit(db, actor, "apply.start", "all", revisions=revisions)
         # Do not hold a database write transaction during network operations.
         await db.commit()
+    if prepare is not None:
+        from app.tunnel.hosts import refresh_tunnel_hosts
+
+        async with session_factory() as db:
+            await refresh_tunnel_hosts(db, list(revisions))
     active = [row for row in tunnels if row.enabled]
     active_sources = {row.source_node_id for row in active}
     active_exits = {row.exit_node_id for row in active}
@@ -348,6 +393,21 @@ async def deploy(actor, *, session_factory=GetDB, restart=None):
             from app.tunnel.hosts import refresh_tunnel_hosts
 
             await refresh_tunnel_hosts(db, list(revisions))
+    if ok and not cancelled:
+        from app.smartdns.control import apply_bound_gateways
+
+        gateways = await apply_bound_gateways(
+            list(revisions), actor, sessions=session_factory, allow_failover=prepare is not None
+        )
+        if gateways:
+            result["smartdns_nodes"] = gateways
+            if not all(item["ok"] for item in gateways):
+                result["ok"], result["state"] = False, "partial_failure"
+            async with session_factory() as db:
+                deployment = await db.get(TunnelDeployment, 1)
+                if deployment and not leased(deployment) and deployment.last_result.get("nodes") == results:
+                    deployment.last_result = result
+                    await db.commit()
     if cancelled:
         raise asyncio.CancelledError
     return result

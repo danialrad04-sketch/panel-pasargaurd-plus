@@ -8,3 +8,6 @@ __pycache__/
 **/link-*.json
 **/link-*.state
 **/.new-*
+
+**/gateway.json
+**/.gateway-*

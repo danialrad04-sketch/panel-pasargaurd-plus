@@ -23,6 +23,13 @@ class DNSAccountCreate(DNSAccountInput):
 
 
 class DNSAccountView(BaseModel):
+    relay_rps: int = 200
+    relay_enabled: bool = False
+    relay_byte_limit: int = 0
+    relay_bytes: int = 0
+    relay_reserved: int = 0
+    relay_uncertain_bytes: int = 0
+
     id: int
     user_id: int
     username: str
@@ -80,6 +87,9 @@ class DNSLeaseView(BaseModel):
 
 
 class DNSPeriodView(BaseModel):
+    relay_bytes: int = 0
+    relay_reserved: int = 0
+    relay_uncertain_bytes: int = 0
     period: int
     queries: int
     request_bytes: int

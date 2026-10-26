@@ -228,6 +228,9 @@ async def periods(
             "response_bytes": r.response_bytes,
             "errors": r.errors,
             "blocked": r.blocked,
+            "relay_bytes": r.relay_bytes,
+            "relay_reserved": r.relay_reserved,
+            "relay_uncertain_bytes": r.relay_uncertain_bytes,
             "created_at": r.created_at,
             "ended_at": r.ended_at,
         }

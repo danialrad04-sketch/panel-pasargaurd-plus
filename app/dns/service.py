@@ -90,10 +90,32 @@ class DNSService:
             usage.request_bytes += size
             # A timeout still consumed the reserved query. Response bytes stay in
             # the period reserved here, including when reset occurs in flight.
+            from app.smartdns.service import managed_rules
+
+            relay_rules = await managed_rules(db, account)
+            blocked_domains = {rule["domain"] for rule in policy.rules if rule["action"] == "block"}
+            relay_rules = [rule for rule in relay_rules if rule["domain"] not in blocked_domains]
             reservation = (
                 account.id,
                 account.period,
-                {"id": policy.id, "revision": policy.revision, "rules": policy.rules},
+                {
+                    "id": policy.id,
+                    "revision": (
+                        policy.revision,
+                        tuple(
+                            (rule["domain"], rule["action"], tuple(rule["addresses"]), rule.get("exact", False))
+                            for rule in relay_rules
+                        ),
+                    )
+                    if relay_rules
+                    else policy.revision,
+                    "rules": relay_rules
+                    + [
+                        rule
+                        for rule in policy.rules
+                        if rule["domain"] not in {item["domain"] for item in relay_rules} or rule["action"] == "block"
+                    ],
+                },
             )
             await db.commit()
             return reservation

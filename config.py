@@ -300,3 +300,23 @@ if runtime_settings.debug and dashboard_settings.vite_base_api == "/":
     dashboard_settings.vite_base_api = f"{scheme}://127.0.0.1:{server_settings.port}/"
 
 dns_settings = DNSSettings()
+
+
+class SmartDNSSettings(EnvSettings):
+    panel_url: str = Field(default="", validation_alias="SMARTDNS_PANEL_URL")
+    panel_ca_file: str | None = Field(default=None, validation_alias="SMARTDNS_PANEL_CA_FILE")
+
+
+smartdns_settings = SmartDNSSettings()
+
+
+class NativeMaintenanceSettings(EnvSettings):
+    backup_enabled: bool = Field(default=False, validation_alias="NATIVE_BACKUP_ENABLED")
+    backup_key_file: str | None = Field(default=None, validation_alias="NATIVE_BACKUP_KEY_FILE")
+    backup_directory: str = Field(default="/var/lib/pasarguard/backups", validation_alias="NATIVE_BACKUP_DIRECTORY")
+    backup_config_file: str | None = Field(default=None, validation_alias="NATIVE_BACKUP_CONFIG_FILE")
+    backup_interval_hours: int = Field(default=24, ge=1, le=168, validation_alias="NATIVE_BACKUP_INTERVAL_HOURS")
+    backup_retain: int = Field(default=7, ge=2, le=100, validation_alias="NATIVE_BACKUP_RETAIN")
+
+
+native_maintenance_settings = NativeMaintenanceSettings()

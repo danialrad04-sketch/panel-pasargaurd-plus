@@ -1102,6 +1102,11 @@ class DNSAccount(Base, CreatedAtUTCMixin):
     period: Mapped[int] = mapped_column(default=1)
     rate_second: Mapped[int] = mapped_column(BigInteger, default=0)
     rate_count: Mapped[int] = mapped_column(default=0)
+    relay_enabled: Mapped[bool] = mapped_column(default=False)
+    relay_byte_limit: Mapped[int] = mapped_column(BigInteger, default=0)
+    relay_rps: Mapped[int] = mapped_column(default=200)
+    relay_rate_second: Mapped[int] = mapped_column(BigInteger, default=0)
+    relay_rate_count: Mapped[int] = mapped_column(default=0)
 
 
 class DNSUsagePeriod(Base, CreatedAtUTCMixin):
@@ -1114,6 +1119,10 @@ class DNSUsagePeriod(Base, CreatedAtUTCMixin):
     response_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
     errors: Mapped[int] = mapped_column(BigInteger, default=0)
     blocked: Mapped[int] = mapped_column(BigInteger, default=0)
+    relay_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
+    relay_reservations: Mapped[int] = mapped_column(BigInteger, default=0)
+    relay_reserved: Mapped[int] = mapped_column(BigInteger, default=0)
+    relay_uncertain_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
     ended_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True), default=None)
 
 
@@ -1139,6 +1148,7 @@ class NativeTunnel(Base, CreatedAtUTCMixin):
     exit_node_id: Mapped[int] = fk_id_column("nodes.id", ondelete="RESTRICT", index=True)
     shared_key: Mapped[str] = mapped_column(String(44), repr=False)
     transport: Mapped[str] = mapped_column(String(32), default="shadowsocks-2022", server_default="shadowsocks-2022")
+    health_enabled: Mapped[bool] = mapped_column(default=False)
     paqet_options: Mapped[dict] = mapped_column(PostgresJSONB, default_factory=dict, repr=False)
     engine_id: Mapped[str] = mapped_column(String(32), default_factory=lambda: uuid4().hex, unique=True)
     paqet_key: Mapped[str | None] = mapped_column(String(512), default=None, repr=False)
@@ -1156,4 +1166,80 @@ class TunnelDeployment(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     lease: Mapped[str | None] = mapped_column(String(36), default=None)
     lease_until: Mapped[dt | None] = mapped_column(DateTime(timezone=True), default=None)
+    last_result: Mapped[dict] = mapped_column(PostgresJSONB, default_factory=dict)
+
+
+class TunnelHealthState(Base):
+    __tablename__ = "tunnel_health_state"
+    tunnel_id: Mapped[int] = fk_id_column("native_tunnels.id", primary_key=True, ondelete="CASCADE")
+    revision: Mapped[int] = mapped_column(default=0)
+    checked_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True), default=None)
+    lease: Mapped[str | None] = mapped_column(String(36), default=None)
+    lease_until: Mapped[dt | None] = mapped_column(DateTime(timezone=True), default=None)
+    failures: Mapped[int] = mapped_column(default=0)
+    successes: Mapped[int] = mapped_column(default=0)
+    result: Mapped[dict] = mapped_column(PostgresJSONB, default_factory=dict)
+
+
+class TunnelFailoverPolicy(Base):
+    __tablename__ = "tunnel_failover_policies"
+    source_node_id: Mapped[int] = fk_id_column("nodes.id", primary_key=True, ondelete="RESTRICT")
+    candidates: Mapped[list] = mapped_column(PostgresJSONB)
+    revision: Mapped[int] = mapped_column(default=1)
+    enabled: Mapped[bool] = mapped_column(default=False)
+    suspended: Mapped[bool] = mapped_column(default=False)
+    failure_threshold: Mapped[int] = mapped_column(default=3)
+    cooldown_seconds: Mapped[int] = mapped_column(default=300)
+    switched_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True), default=None)
+    lease: Mapped[str | None] = mapped_column(String(36), default=None)
+    lease_until: Mapped[dt | None] = mapped_column(DateTime(timezone=True), default=None)
+    last_result: Mapped[dict] = mapped_column(PostgresJSONB, default_factory=dict)
+
+
+class SmartDNSRoute(Base, CreatedAtUTCMixin):
+    __tablename__ = "smartdns_routes"
+    node_id: Mapped[int] = fk_id_column("nodes.id", ondelete="RESTRICT", index=True)
+    policy_id: Mapped[int] = fk_id_column("dns_policies.id", ondelete="RESTRICT", index=True)
+    domain: Mapped[str] = mapped_column(String(253))
+    public_address: Mapped[str] = mapped_column(String(45))
+    bind_address: Mapped[str] = mapped_column(String(45))
+    tcp_ports: Mapped[list] = mapped_column(PostgresJSONB)
+    udp_ports: Mapped[list] = mapped_column(PostgresJSONB)
+    egress_tunnel_id: Mapped[int | None] = fk_id_column("native_tunnels.id", ondelete="RESTRICT", default=None)
+    mode: Mapped[str] = mapped_column(String(16), default="sniff")
+    enabled: Mapped[bool] = mapped_column(default=False)
+    revision: Mapped[int] = mapped_column(default=1)
+
+
+class SmartDNSNodeState(Base):
+    __tablename__ = "smartdns_node_state"
+    node_id: Mapped[int] = fk_id_column("nodes.id", primary_key=True, ondelete="CASCADE")
+    revision: Mapped[int] = mapped_column(default=1)
+    applied_revision: Mapped[int] = mapped_column(default=0)
+    lease: Mapped[str | None] = mapped_column(String(36), default=None)
+    lease_until: Mapped[dt | None] = mapped_column(DateTime(timezone=True), default=None)
+    result: Mapped[dict] = mapped_column(PostgresJSONB, default_factory=dict)
+
+
+class SmartDNSGrant(Base):
+    __tablename__ = "smartdns_grants"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    account_id: Mapped[int] = fk_id_column("dns_accounts.id", ondelete="CASCADE", index=True)
+    period: Mapped[int] = mapped_column()
+    node_id: Mapped[int] = mapped_column()
+    route_id: Mapped[int] = mapped_column()
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    amount: Mapped[int] = mapped_column()
+    expires_at: Mapped[dt] = mapped_column(DateTime(timezone=True), index=True)
+    used: Mapped[int] = mapped_column(default=0)
+    closed: Mapped[bool] = mapped_column(default=False)
+    uncertain: Mapped[bool] = mapped_column(default=False)
+
+
+class NativeMaintenanceJob(Base):
+    __tablename__ = "native_maintenance_jobs"
+    name: Mapped[str] = mapped_column(String(64), primary_key=True)
+    lease: Mapped[str | None] = mapped_column(String(36), default=None)
+    lease_until: Mapped[dt | None] = mapped_column(DateTime(timezone=True), default=None)
+    last_run: Mapped[dt | None] = mapped_column(DateTime(timezone=True), default=None)
     last_result: Mapped[dict] = mapped_column(PostgresJSONB, default_factory=dict)

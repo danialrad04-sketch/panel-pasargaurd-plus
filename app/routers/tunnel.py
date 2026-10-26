@@ -10,6 +10,7 @@ from app.db.models import ServiceAudit
 from app.models.admin import AdminDetails
 from app.models.host import BaseHost
 from app.models.tunnel import (
+    FailoverPolicyInput,
     TunnelAuditView,
     TunnelCreate,
     TunnelDeployResult,
@@ -194,3 +195,39 @@ async def native_tunnel_preflight(tunnel_id: int, body: TunnelRevision, db: DB, 
     from app.tunnel.preflight import preflight
 
     return await preflight(db, tunnel_id, body.expected_revision)
+
+
+@router.get("/health/state")
+async def native_tunnel_health_state(db: DB, admin: Owner):
+    from app.tunnel.health import states
+
+    return await states(db)
+
+
+@router.post("/{tunnel_id}/health")
+async def native_tunnel_health_probe(tunnel_id: int, body: TunnelRevision, admin: Owner):
+    from app.tunnel.health import probe
+
+    return await probe(tunnel_id, body.expected_revision)
+
+
+@router.get("/failover/state")
+async def native_failover_state(db: DB, admin: Owner):
+    from app.tunnel.failover import policies
+
+    return await policies(db)
+
+
+@router.put("/failover/{source_id}")
+async def native_failover_save(source_id: int, body: FailoverPolicyInput, db: DB, admin: Owner):
+    from app.tunnel.failover import save
+
+    return await save(db, source_id, body, admin.username)
+
+
+@router.delete("/failover/{source_id}", status_code=204)
+async def native_failover_remove(source_id: int, body: TunnelRevision, db: DB, admin: Owner):
+    from app.tunnel.failover import remove
+
+    await remove(db, source_id, body.expected_revision, admin.username)
+    return Response(status_code=204)

@@ -101,6 +101,13 @@ def view_from_rows(account, user, policy, usage):
         "eligible": eligible(user),
         "query_limit": account.query_limit,
         "qps": account.qps,
+        "relay_rps": account.relay_rps,
+        "relay_enabled": account.relay_enabled,
+        "relay_byte_limit": account.relay_byte_limit,
+        "relay_bytes": usage.relay_bytes,
+        "relay_reserved": usage.relay_reserved,
+        "relay_uncertain_bytes": usage.relay_uncertain_bytes,
+
         "period": account.period,
         "queries": usage.queries,
         "request_bytes": usage.request_bytes,
