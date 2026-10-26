@@ -1,3 +1,7 @@
+# Building this fork
+
+Use the [native fork installation and testing guide (Persian)](docs/TESTING-START.fa.md) to build the panel and source-built Paqet nodes. The upstream installer does not install this fork's features.
+
 <p align="center">
   <a href="https://github.com/PasarGuard/panel" target="_blank" rel="noopener noreferrer">
     <picture>

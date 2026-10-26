@@ -106,6 +106,11 @@ try {
   assert.equal(changed.status(), 200, await changed.text())
   const disabledLinks = await (await page.request.get(`${backend}/preview/tunnel-links`)).json()
   assert(!disabledLinks.links.includes('192.0.2.11'))
+  await page.goto(`${process.env.DASHBOARD_URL || 'http://127.0.0.1:4173'}/#/tunnels`)
+  await page.getByRole('button', { name: 'بررسی آمادگی', exact: true }).click()
+  const readiness = page.getByRole('dialog')
+  await readiness.getByText('applied_revision', { exact: true }).waitFor()
+  await readiness.getByText('Enable and apply this revision before publishing', { exact: true }).waitFor()
   assert.equal(errors.length, 0, errors.join('\n'))
   console.log('Passed: actual host publication, automatic source IP/user port, preserved SNI, rendered subscription, idempotent update, disable removal and mobile layout.')
 } finally {

@@ -1,3 +1,7 @@
+# نصب همین فورک
+
+برای ساخت پنل و نود بومی Paqet و آزمون سناریوی ایران ← آلمان، [راهنمای نصب و تست](docs/TESTING-START.fa.md) را ببینید. اسکریپت نصب upstream قابلیت‌های این فورک را نصب نمی‌کند.
+
 <p align="center">
   <a href="https://github.com/PasarGuard/panel" target="_blank" rel="noopener noreferrer">
     <picture>

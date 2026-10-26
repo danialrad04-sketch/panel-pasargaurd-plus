@@ -61,6 +61,23 @@ class TunnelRevision(BaseModel):
     expected_revision: int = Field(ge=1)
 
 
+class TunnelPreflightCheck(BaseModel):
+    code: str
+    status: Literal["pass", "warning", "fail"]
+    detail: str
+    blocks_apply: bool = False
+    blocks_publish: bool = False
+
+
+class TunnelPreflight(BaseModel):
+    tunnel_id: int
+    revision: int
+    can_apply: bool
+    can_publish: bool
+    checks: list[TunnelPreflightCheck]
+    traffic_readiness: Literal["not_probed"] = "not_probed"
+
+
 class TunnelView(TunnelInput):
     engine_id: str
     id: int

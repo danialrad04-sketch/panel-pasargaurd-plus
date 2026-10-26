@@ -2083,7 +2083,11 @@
     "updateAvailable": "به‌روزرسانی موجود است",
     "prerelease": "نسخه پیش‌انتشار",
     "loadingReleases": "در حال بارگذاری نسخه‌ها...",
-    "tunnelApiPort": "پورت API بومی تونل / Paqet"
+    "tunnelApiPort": "پورت API بومی تونل / Paqet",
+    "importRegistration": "واردکردن فایل ثبت نود بومی",
+    "registrationHelp": "فایل خصوصی node-registration.json ساخته‌شده روی همین نود را انتخاب کنید. پیش از ذخیره، تنظیمات و هسته را بررسی کنید.",
+    "registrationLoaded": "اطلاعات اتصال وارد شد؛ هسته را بررسی کنید و برای ثبت نود ذخیره کنید.",
+    "registrationInvalid": "فایل ثبت نود معتبر نیست؛ حداکثر حجم ۶۴ کیلوبایت است."
   },
   "nodes": {
     "title": "گره‌ها",

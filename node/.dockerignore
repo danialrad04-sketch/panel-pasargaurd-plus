@@ -1,0 +1,10 @@
+.env*
+node-registration*.json
+*.pem
+*.key
+certs/
+__pycache__/
+*.log
+**/link-*.json
+**/link-*.state
+**/.new-*

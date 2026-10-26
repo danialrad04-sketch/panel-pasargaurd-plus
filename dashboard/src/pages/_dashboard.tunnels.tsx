@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import PaqetEditor, { editablePaqet } from './paqet-editor'
+import TunnelPreflight from './tunnel-preflight'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Activity, ArrowLeftRight, ArrowRight, Check, Globe2, KeyRound, Layers3, Plus, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
@@ -27,6 +28,7 @@ export default function NativeTunnels() {
   const audit = useQuery({ queryKey: ['native-tunnels', 'audit', auditOffset], queryFn: () => fetcher<TunnelAuditView[]>(`/api/tunnels/audit?offset=${auditOffset}&limit=10`), enabled: owner })
   const catalog = useQuery({ queryKey: ['native-tunnel-catalog'], queryFn: () => fetcher<Catalog>('/api/dns/catalog'), enabled: owner })
   const [editing, setEditing] = useState<TunnelView | 'new' | null>(null)
+  const [checking, setChecking] = useState<TunnelView | null>(null)
   const [transport, setTransport] = useState<'shadowsocks-2022' | 'paqet'>('shadowsocks-2022')
   const [paqetText, setPaqetText] = useState('{}')
   const [output, setOutput] = useState<{ title: string; text: string } | null>(null)
@@ -100,6 +102,7 @@ export default function NativeTunnels() {
   if (!owner) return <div className={panel}>{t('مدیریت زیرساخت تونل فقط برای مالک پنل در دسترس است.', 'Tunnel infrastructure is available to the panel owner.')}</div>
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 pb-8" dir={fa ? 'rtl' : 'ltr'}>
+      {checking && <TunnelPreflight tunnel={checking} fa={fa} onClose={() => setChecking(null)} />}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="text-muted-foreground mb-2 flex items-center gap-2 text-xs">
@@ -172,6 +175,9 @@ export default function NativeTunnels() {
           )}
           {items.map(item => (
             <article key={item.id} className={panel}>
+              <Button variant="outline" size="sm" className="mb-3" onClick={() => setChecking(item)}>
+                {t('بررسی آمادگی', 'Check readiness')}
+              </Button>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="font-semibold">{item.name}</h2>

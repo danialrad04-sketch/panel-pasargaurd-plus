@@ -2883,6 +2883,32 @@ export interface TunnelNodeOption {
   inbound_tags: string[];
 }
 
+export type TunnelPreflightCheckStatus = typeof TunnelPreflightCheckStatus[keyof typeof TunnelPreflightCheckStatus];
+
+
+export const TunnelPreflightCheckStatus = {
+  pass: 'pass',
+  warning: 'warning',
+  fail: 'fail',
+} as const;
+
+export interface TunnelPreflightCheck {
+  code: string;
+  status: TunnelPreflightCheckStatus;
+  detail: string;
+  blocks_apply?: boolean;
+  blocks_publish?: boolean;
+}
+
+export interface TunnelPreflight {
+  tunnel_id: number;
+  revision: number;
+  can_apply: boolean;
+  can_publish: boolean;
+  checks: TunnelPreflightCheck[];
+  traffic_readiness?: 'not_probed';
+}
+
 export interface TunnelRevision {
   /** @minimum 1 */
   expected_revision: number;
@@ -11649,6 +11675,78 @@ export const usePublishNativeTunnelHost = <TError = ErrorType<HTTPValidationErro
         TContext
       > => {
       return useMutation(getPublishNativeTunnelHostMutationOptions(options), queryClient);
+    }
+
+export const getNativeTunnelPreflightUrl = (tunnelId: number,) => {
+
+
+
+
+  return `/api/tunnels/${tunnelId}/preflight`
+}
+
+/**
+ * @summary Native Tunnel Preflight
+ */
+export const nativeTunnelPreflight = async (tunnelId: number,
+    tunnelRevision: TunnelRevision, options?: RequestInit): Promise<TunnelPreflight> => {
+
+  return orvalFetcher<TunnelPreflight>(getNativeTunnelPreflightUrl(tunnelId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tunnelRevision)
+  }
+);}
+
+
+
+
+
+export const getNativeTunnelPreflightMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nativeTunnelPreflight>>, TError,{tunnelId: number;data: BodyType<TunnelRevision>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof nativeTunnelPreflight>>, TError,{tunnelId: number;data: BodyType<TunnelRevision>}, TContext> => {
+
+const mutationKey = ['nativeTunnelPreflight'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof nativeTunnelPreflight>>, {tunnelId: number;data: BodyType<TunnelRevision>}> = (props) => {
+          const {tunnelId,data} = props ?? {};
+
+          return  nativeTunnelPreflight(tunnelId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type NativeTunnelPreflightMutationResult = NonNullable<Awaited<ReturnType<typeof nativeTunnelPreflight>>>
+    export type NativeTunnelPreflightMutationBody = BodyType<TunnelRevision>
+    export type NativeTunnelPreflightMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Native Tunnel Preflight
+ */
+export const useNativeTunnelPreflight = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nativeTunnelPreflight>>, TError,{tunnelId: number;data: BodyType<TunnelRevision>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof nativeTunnelPreflight>>,
+        TError,
+        {tunnelId: number;data: BodyType<TunnelRevision>},
+        TContext
+      > => {
+      return useMutation(getNativeTunnelPreflightMutationOptions(options), queryClient);
     }
 
 export const getGetSettingsUrl = () => {

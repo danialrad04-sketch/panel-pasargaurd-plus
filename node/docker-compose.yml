@@ -1,17 +1,20 @@
 services:
   node:
-    image: pasarguard/node:latest
-    # for situations, you don't have access to docker hub use 👇
-    # image: ghcr.io/pasarguard/node:latest
+    image: pasarguard-plus-node:local
+    build:
+      context: .
+      dockerfile: Dockerfile.plus
     restart: always
+    env_file: .env
     network_mode: host
     cap_add:
       - NET_ADMIN
+      - NET_RAW
     # WireGuard in this image uses the Linux kernel interface.
     # The host must have WireGuard kernel support available (for example: modprobe wireguard).
 
     environment:
-      SERVICE_PORT: 62050
+      SERVICE_PORT: ${SERVICE_PORT:-62050}
       SERVICE_PROTOCOL: "grpc"
       # Linux: enable runtime IPv4 forwarding and install scoped nftables NAT/forwarding rules.
       # NAT egress is auto-detected (ip route / /proc/net/route); set PG_NODE_WG_NAT_OUTPUT_INTERFACE to override (e.g. eth0, ens192).
@@ -26,4 +29,6 @@ services:
       GENERATED_CONFIG_PATH: "/var/lib/pg-node/generated"
 
     volumes:
-      - /var/lib/pg-node:/var/lib/pg-node
+      - type: bind
+        source: ${PG_NODE_DATA_DIR:-/var/lib/pg-node}
+        target: /var/lib/pg-node

@@ -1,11 +1,18 @@
 services:
   pasarguard:
     # Build this fork; do not replace it with the upstream release image.
-    # Prepare dashboard/build first: see docs/DONINO-INTEGRATION.fa.md.
     image: pasarguard-plus:local
     build: .
     restart: always
     env_file: .env
+    environment:
+      SQLALCHEMY_DATABASE_URL: ${SQLALCHEMY_DATABASE_URL:-sqlite+aiosqlite:////var/lib/pasarguard/db.sqlite3}
+    healthcheck:
+      test: [CMD, /code/healthcheck.sh]
+      interval: 30s
+      timeout: 8s
+      start_period: 60s
+      retries: 3
     network_mode: host
     volumes:
       - /var/lib/pasarguard:/var/lib/pasarguard
@@ -17,7 +24,26 @@ services:
     entrypoint: [python, -m, app.dns.worker]
     restart: on-failure
     env_file: .env
+    environment:
+      SQLALCHEMY_DATABASE_URL: ${SQLALCHEMY_DATABASE_URL:-sqlite+aiosqlite:////var/lib/pasarguard/db.sqlite3}
     network_mode: host
-    depends_on: [pasarguard]
+    depends_on:
+      pasarguard:
+        condition: service_healthy
+      resolver:
+        condition: service_started
     volumes:
       - /var/lib/pasarguard:/var/lib/pasarguard
+
+  resolver:
+    profiles: [dns]
+    image: pasarguard-plus:local
+    pull_policy: never
+    entrypoint: [unbound, -d, -c, /code/deploy/native-dns/unbound.container.conf]
+    restart: on-failure
+    network_mode: host
+    volumes:
+      - unbound-state:/var/lib/unbound
+
+volumes:
+  unbound-state:

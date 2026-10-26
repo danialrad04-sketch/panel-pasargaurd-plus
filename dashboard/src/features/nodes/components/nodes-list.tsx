@@ -56,7 +56,12 @@ interface BulkActionDialogConfig {
   destructive?: boolean
 }
 
-export default function NodesList() {
+interface NodesListProps {
+  createNodeRequest?: number
+  onCreateNodeConsumed?: () => void
+}
+
+export default function NodesList({ createNodeRequest = 0, onCreateNodeConsumed }: NodesListProps) {
   const { t } = useTranslation()
   const { admin } = useAdmin()
   const canCreateNodes = hasPermission(admin, 'nodes', 'create')
@@ -171,12 +176,11 @@ export default function NodesList() {
   }, [isFetching, isChangingPage, nodesResponse])
 
   useEffect(() => {
-    const handleOpenDialog = () => {
-      if (canCreateNodes) setIsDialogOpen(true)
-    }
-    window.addEventListener('openNodeDialog', handleOpenDialog)
-    return () => window.removeEventListener('openNodeDialog', handleOpenDialog)
-  }, [canCreateNodes])
+    if (!createNodeRequest || !canCreateNodes) return
+    setEditingNode(null)
+    setIsDialogOpen(true)
+    onCreateNodeConsumed?.()
+  }, [createNodeRequest, canCreateNodes, onCreateNodeConsumed])
 
   const clearSelection = () => {
     setSelectedNodeIds([])

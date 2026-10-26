@@ -2295,7 +2295,11 @@
     "updateAvailable": "Update Available",
     "prerelease": "Pre-release",
     "loadingReleases": "Loading releases...",
-    "tunnelApiPort": "Native tunnel / Paqet API port"
+    "tunnelApiPort": "Native tunnel / Paqet API port",
+    "importRegistration": "Import native node registration",
+    "registrationHelp": "Select the private node-registration.json created on this node. Review all fields before saving.",
+    "registrationLoaded": "Connection loaded. Review the core and save to register the node.",
+    "registrationInvalid": "Invalid node registration file (maximum 64 KB)."
   },
   "theme": {
     "title": "Theme",

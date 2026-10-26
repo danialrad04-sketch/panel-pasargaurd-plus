@@ -15,6 +15,7 @@ from app.models.tunnel import (
     TunnelDeployResult,
     TunnelHostPublish,
     TunnelModify,
+    TunnelPreflight,
     TunnelRevision,
     TunnelState,
     TunnelView,
@@ -186,3 +187,10 @@ async def publish_native_tunnel_host(tunnel_id: int, body: TunnelHostPublish, db
     from app.tunnel.hosts import publish_host
 
     return await publish_host(db, tunnel_id, body, admin)
+
+
+@router.post("/{tunnel_id}/preflight", response_model=TunnelPreflight)
+async def native_tunnel_preflight(tunnel_id: int, body: TunnelRevision, db: DB, admin: Owner):
+    from app.tunnel.preflight import preflight
+
+    return await preflight(db, tunnel_id, body.expected_revision)
