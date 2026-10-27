@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import CarrierEditor from './carrier-editor'
+import TunnelEngineCore from './tunnel-engine-core'
 import PaqetEditor, { editablePaqet } from './paqet-editor'
 import TunnelPreflight from './tunnel-preflight'
 import NetworkOperations from './network-operations'
@@ -15,6 +17,8 @@ import type { TunnelAuditView, TunnelState, TunnelView } from '@/service/api'
 
 const panel = 'rounded-2xl border bg-card p-5'
 const selectClass = 'border-input bg-background h-10 w-full rounded-md border px-3 text-sm'
+type CarrierTransport = 'shadowsocks-2022' | 'paqet' | 'backhaul' | 'gost' | 'frp'
+const companion = (value: string | undefined): value is 'backhaul' | 'gost' | 'frp' => ['backhaul', 'gost', 'frp'].includes(value || '')
 type Catalog = { services: { key: string; label: string; groups: { key: string; label: string; domains: string[] }[] }[] }
 
 export default function NativeTunnels() {
@@ -30,8 +34,9 @@ export default function NativeTunnels() {
   const catalog = useQuery({ queryKey: ['native-tunnel-catalog'], queryFn: () => fetcher<Catalog>('/api/dns/catalog'), enabled: owner })
   const [editing, setEditing] = useState<TunnelView | 'new' | null>(null)
   const [checking, setChecking] = useState<TunnelView | null>(null)
-  const [transport, setTransport] = useState<'shadowsocks-2022' | 'paqet'>('shadowsocks-2022')
+  const [transport, setTransport] = useState<CarrierTransport>('paqet')
   const [paqetText, setPaqetText] = useState('{}')
+  const [carrierText, setCarrierText] = useState('{}')
   const [output, setOutput] = useState<{ title: string; text: string } | null>(null)
   const [source, setSource] = useState('')
   const [exit, setExit] = useState('')
@@ -77,8 +82,9 @@ export default function NativeTunnels() {
     setError('')
     setEditing(item)
     setNotice('')
-    setTransport(item === 'new' ? 'shadowsocks-2022' : item.transport || 'shadowsocks-2022')
+    setTransport(item === 'new' ? 'paqet' : item.transport || 'shadowsocks-2022')
     setPaqetText(editablePaqet(item === 'new' ? {} : item.paqet_options))
+    setCarrierText(JSON.stringify(item === 'new' ? {} : item.carrier_options || {}))
     setSource(item === 'new' ? '' : String(item.source_node_id))
     setExit(item === 'new' ? '' : String(item.exit_node_id))
     setTags(item === 'new' ? [] : item.inbound_tags)
@@ -183,7 +189,7 @@ export default function NativeTunnels() {
                 <div>
                   <h2 className="font-semibold">{item.name}</h2>
                   <div className="text-muted-foreground mt-1 text-xs" dir="ltr">
-                    {item.transport === 'paqet' ? 'Paqet · KCP' : 'SS2022'} · TCP + UDP · :{item.port}
+                    {{ paqet: 'Paqet · KCP', backhaul: 'Backhaul', gost: 'GOST', frp: 'FRP', 'shadowsocks-2022': 'SS2022' }[item.transport || 'shadowsocks-2022']} · TCP + UDP · :{item.port}
                   </div>
                 </div>
                 <div className="flex gap-2 text-xs">
@@ -263,6 +269,49 @@ export default function NativeTunnels() {
                   {t('حذف', 'Delete')}
                 </Button>
               </div>
+              {companion(item.transport) && (
+                <details className="mt-4 rounded-xl border p-3">
+                  <summary className="cursor-pointer text-sm">{t('وضعیت و کنترل موتور', 'Engine runtime and control')}</summary>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!!applying}
+                      onClick={() => mutate(async () => setOutput({ title: item.transport || 'SS2022', text: JSON.stringify(await fetcher(`/api/tunnels/${item.id}/engine/status`), null, 2) }))}
+                    >
+                      {t('وضعیت موتور', 'Engine status')}
+                    </Button>
+                    {(['source', 'exit'] as const).map(side =>
+                      ['logs', 'restart'].map(action => (
+                        <Button
+                          key={side + action}
+                          size="sm"
+                          variant="ghost"
+                          disabled={!!applying}
+                          onClick={() => {
+                            const run = async () =>
+                              setOutput({
+                                title: `${item.transport} ${side} · ${action}`,
+                                text: JSON.stringify(
+                                  await fetcher(`/api/tunnels/${item.id}/engine/action?action=${action}&side=${side}`, { method: 'POST', body: { expected_revision: item.revision } }),
+                                  null,
+                                  2,
+                                ),
+                              })
+                            if (action === 'restart')
+                              setConfirm({
+                                title: t('راه‌اندازی مجدد حامل', 'Restart carrier'),
+                                detail: t('ارتباط‌های فعال این حامل موقتاً قطع می‌شوند.', 'Active carrier connections will be interrupted.'),
+                                run,
+                              })
+                            else mutate(run)
+                          }}
+                        >{`${side} · ${action}`}</Button>
+                      )),
+                    )}
+                  </div>
+                </details>
+              )}
               {item.transport === 'paqet' && (
                 <details className="mt-4 rounded-lg border p-3">
                   <summary className="cursor-pointer text-xs">{t('وضعیت، ابزارها و لاگ Paqet', 'Paqet state, tools and logs')}</summary>
@@ -425,6 +474,7 @@ export default function NativeTunnels() {
           </pre>
         </DialogContent>
       </Dialog>
+      <TunnelEngineCore nodes={nodes} fa={fa} />
       <NetworkOperations items={items} nodes={nodes} fa={fa} />
       <Dialog
         open={editing !== null}
@@ -460,6 +510,8 @@ export default function NativeTunnels() {
                   health_enabled: form.get('health_enabled') === 'on',
                   transport,
                   paqet_options: transport === 'paqet' ? JSON.parse(paqetText) : null,
+                  carrier_options: companion(transport) ? JSON.parse(carrierText) : null,
+                  ...(form.get('carrier_key') ? { carrier_key: String(form.get('carrier_key')) } : {}),
                   ...(form.get('paqet_key') ? { paqet_key: String(form.get('paqet_key')) } : {}),
                 }
                 await fetcher(editing === 'new' ? '/api/tunnels' : `/api/tunnels/${editing?.id}`, {
@@ -473,9 +525,21 @@ export default function NativeTunnels() {
           >
             <label className="block space-y-2 text-sm">
               <span>{t('حامل بین نودها', 'Inter-node carrier')}</span>
-              <select name="transport" className={selectClass} disabled={editing !== 'new'} value={transport} onChange={e => setTransport(e.target.value as 'shadowsocks-2022' | 'paqet')}>
+              <select
+                name="transport"
+                className={selectClass}
+                disabled={editing !== 'new'}
+                value={transport}
+                onChange={e => {
+                  setTransport(e.target.value as CarrierTransport)
+                  setCarrierText('{}')
+                }}
+              >
                 <option value="shadowsocks-2022">Shadowsocks 2022</option>
                 <option value="paqet">Paqet · KCP over raw TCP</option>
+                <option value="backhaul">Backhaul · reverse TCP + UDP</option>
+                <option value="gost">GOST · TCP / WS / TLS / WSS</option>
+                <option value="frp">FRP · TCP / WebSocket / KCP / QUIC</option>
               </select>
             </label>
             <label className="block space-y-2 text-sm">
@@ -534,7 +598,13 @@ export default function NativeTunnels() {
             </fieldset>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block space-y-2 text-sm">
-                <span>{transport === 'paqet' ? t('پورت raw TCP خروجی', 'Exit raw TCP port') : t('پورت TCP/UDP خروجی', 'Exit TCP/UDP port')}</span>
+                <span>
+                  {companion(transport)
+                    ? t('پورت کنترل حامل', 'Carrier control port')
+                    : transport === 'paqet'
+                      ? t('پورت raw TCP خروجی', 'Exit raw TCP port')
+                      : t('پورت TCP/UDP خروجی', 'Exit TCP/UDP port')}
+                </span>
                 <Input name="port" type="number" min={1024} max={65535} required defaultValue={editing && editing !== 'new' ? editing.port : 40900} />
                 <span className="text-muted-foreground block text-xs leading-6">
                   {t('فایروال خروجی باید هر دو پروتکل را از مبدا بپذیرد.', 'Exit firewall must accept both protocols from the source.')}
@@ -584,6 +654,15 @@ export default function NativeTunnels() {
                   ))}
               </div>
             </details>
+            {companion(transport) && (
+              <>
+                <CarrierEditor engine={transport} value={carrierText} onChange={setCarrierText} fa={fa} />
+                <label className="block space-y-2 text-sm">
+                  <span>{t('کلید حامل؛ خالی = تولید یا حفظ', 'Carrier key; blank = generate or retain')}</span>
+                  <Input name="carrier_key" type="password" autoComplete="new-password" minLength={32} maxLength={256} />
+                </label>
+              </>
+            )}
             {transport === 'paqet' && (
               <>
                 <PaqetEditor value={paqetText} onChange={setPaqetText} fa={fa} />

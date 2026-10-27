@@ -9,5 +9,6 @@
     "commit": "4b81ce0ab56b7cc9aec7501c87c4804676cdb1b4",
     "license": "MIT"
   },
-  "integration": "Native PasarGuard Plus node runtime; upstream sources retained with licenses"
+  "integration": "Native PasarGuard Plus node runtime; upstream sources retained with licenses",
+  "companion_engines_manifest": "engines/UPSTREAM.json"
 }

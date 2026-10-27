@@ -61,7 +61,19 @@ type Status struct {
 	LastError  string `json:"last_error"`
 	Logs       string `json:"logs,omitempty"`
 }
+
+// Adapter keeps all engine processes on the same journal/revision/rollback lifecycle.
+// Only built-in adapters may supply binaries and arguments; requests contain no commands.
+type Adapter struct {
+	Name, Version, SourceCommit string
+	Installed                   func() bool
+	Encode                      func(Request) ([]byte, error)
+	Start                       func(string, Request) (string, []string)
+	Check                       func(string, Request) (string, []string)
+}
+
 type Manager struct {
+	adapter     *Adapter
 	mu          sync.Mutex
 	binary, dir string
 	entries     map[string]*entry
@@ -69,7 +81,14 @@ type Manager struct {
 	closed      bool
 }
 
-func New(binary, dir string) (*Manager, error) {
+func New(binary, dir string) (*Manager, error) { return newManager(binary, dir, nil) }
+func NewAdapter(binary, dir string, adapter Adapter) (*Manager, error) {
+	if adapter.Name == "" || adapter.Encode == nil || adapter.Start == nil {
+		return nil, errors.New("invalid engine adapter")
+	}
+	return newManager(binary, dir, &adapter)
+}
+func newManager(binary, dir string, adapter *Adapter) (*Manager, error) {
 	if !filepath.IsAbs(binary) || !filepath.IsAbs(dir) {
 		return nil, errors.New("Paqet paths must be absolute")
 	}
@@ -79,7 +98,7 @@ func New(binary, dir string) (*Manager, error) {
 	if err := os.Chmod(dir, 0700); err != nil {
 		return nil, err
 	}
-	m := &Manager{binary: binary, dir: dir, entries: make(map[string]*entry), done: make(chan struct{})}
+	m := &Manager{adapter: adapter, binary: binary, dir: dir, entries: make(map[string]*entry), done: make(chan struct{})}
 	files, _ := filepath.Glob(filepath.Join(dir, "link-*.state"))
 	for _, file := range files {
 		data, err := os.ReadFile(file)
@@ -153,19 +172,23 @@ func running(e *entry) bool {
 	}
 }
 func (m *Manager) launch(e *entry) error {
-	cmd := exec.Command(m.binary, "run", "-c", e.Path)
+	binary, args := m.binary, []string{"run", "-c", e.Path}
+	if m.adapter != nil {
+		binary, args = m.adapter.Start(e.Path, e.Request)
+	}
+	cmd := exec.Command(binary, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pdeathsig: syscall.SIGKILL}
 	cmd.Stdout = e.logs
 	cmd.Stderr = e.logs
 	if err := cmd.Start(); err != nil {
-		return errors.New("Paqet process could not start")
+		return errors.New("Native engine process could not start")
 	}
 	p := &process{cmd: cmd, done: make(chan struct{})}
 	e.proc = p
 	go func() { _ = cmd.Wait(); close(p.done) }()
 	select {
 	case <-p.done:
-		return errors.New("Paqet exited during startup; inspect redacted logs")
+		return errors.New("Native engine exited during startup; inspect redacted logs")
 	case <-time.After(300 * time.Millisecond):
 		return nil
 	}
@@ -235,43 +258,43 @@ func (m *Manager) Apply(id string, req Request) (Status, error) {
 	}
 	e := &entry{record: record{ID: id, Request: req, Hash: hash, Path: m.configPath(id, req.Revision)}, logs: &logBuffer{}}
 	if req.Enabled {
-		if err := validateNetwork(req); err != nil {
+		if err := m.validate(req); err != nil {
 			return Status{}, err
 		}
-		data, err := json.Marshal(req.Config)
+		var data []byte
+		var err error
+		if m.adapter != nil {
+			data, err = m.adapter.Encode(req)
+		} else {
+			data, err = json.Marshal(req.Config)
+		}
 		if err != nil {
 			return Status{}, errors.New("invalid config")
 		}
 		if err = atomicFile(e.Path, data); err != nil {
 			return Status{}, err
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
-		cmd := exec.CommandContext(ctx, m.binary, "check", "-c", e.Path)
-		cmd.Stdout = io.Discard
-		cmd.Stderr = io.Discard
-		err = cmd.Run()
-		cancel()
-		if err != nil {
-			return Status{}, errors.New("Paqet configuration check failed; verify node interfaces, addresses and settings")
+		if err := m.check(e); err != nil {
+			return Status{}, err
 		}
 	}
 	if old != nil {
 		stop(old)
-		if err := firewall(old, false); err != nil {
+		if err := m.firewall(old, false); err != nil {
 			_ = m.launch(old)
 			return Status{}, err
 		}
 	}
 	rollback := func() {
 		stop(e)
-		_ = firewall(e, false)
+		_ = m.firewall(e, false)
 		if old != nil && old.Request.Enabled {
-			_ = firewall(old, true)
+			_ = m.firewall(old, true)
 			_ = m.launch(old)
 		}
 	}
 	if req.Enabled {
-		if err := firewall(e, true); err != nil {
+		if err := m.firewall(e, true); err != nil {
 			rollback()
 			return Status{}, err
 		}
@@ -314,7 +337,7 @@ func (m *Manager) Close() {
 	close(m.done)
 	for _, e := range m.entries {
 		stop(e)
-		_ = firewall(e, false)
+		_ = m.firewall(e, false)
 	}
 }
 func (m *Manager) watch() {
@@ -329,12 +352,12 @@ func (m *Manager) watch() {
 			for _, e := range m.entries {
 				if e.Request.Enabled && !running(e) && time.Now().After(e.next) {
 					e.retries++
-					err := firewall(e, true)
+					err := m.firewall(e, true)
 					if err == nil {
 						err = m.launch(e)
 					}
 					if err != nil {
-						e.lastError = "Paqet restart failed; inspect logs and node network"
+						e.lastError = "Native engine restart failed; inspect logs and node network"
 					} else {
 						e.lastError = ""
 					}
@@ -355,6 +378,9 @@ func (m *Manager) Diagnostic(id string, rev int, action string) (string, error) 
 	}
 	if action == "logs" {
 		return redact(e.logs.String(), e.Request.Config), nil
+	}
+	if m.adapter != nil {
+		return "", errors.New("this engine supports logs and restart diagnostics")
 	}
 	if action != "version" && action != "ping" && action != "dump" {
 		return "", errors.New("unknown diagnostic")
@@ -409,7 +435,7 @@ func redact(s string, config map[string]any) string {
 		switch v := value.(type) {
 		case map[string]any:
 			for k, x := range v {
-				if k == "key" || k == "password" {
+				if k == "key" || k == "password" || k == "token" || k == "secret" {
 					if secret, ok := x.(string); ok && secret != "" {
 						s = string(bytes.ReplaceAll([]byte(s), []byte(secret), []byte("[redacted]")))
 					}
@@ -425,4 +451,39 @@ func redact(s string, config map[string]any) string {
 	}
 	walk(config)
 	return s
+}
+
+func (m *Manager) validate(req Request) error {
+	if m.adapter != nil {
+		if req.ManageFirewall {
+			return errors.New("this engine does not manage firewall rules")
+		}
+		_, err := m.adapter.Encode(req)
+		return err
+	}
+	return validateNetwork(req)
+}
+func (m *Manager) firewall(e *entry, enabled bool) error {
+	if m.adapter != nil {
+		return nil
+	}
+	return firewall(e, enabled)
+}
+func (m *Manager) check(e *entry) error {
+	binary, args := m.binary, []string{"check", "-c", e.Path}
+	if m.adapter != nil {
+		if m.adapter.Check == nil {
+			return nil
+		}
+		binary, args = m.adapter.Check(e.Path, e.Request)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, binary, args...)
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
+	if cmd.Run() != nil {
+		return errors.New("engine configuration check failed")
+	}
+	return nil
 }

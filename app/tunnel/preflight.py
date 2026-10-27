@@ -178,6 +178,51 @@ async def preflight(db, tunnel_id, expected_revision):
         await asyncio.gather(
             probe("source", row.source_node_id, row.exit_node_id), probe("exit", row.exit_node_id, row.source_node_id)
         )
+    from app.tunnel.engines import ENGINES
+
+    if row.transport in ENGINES:
+
+        async def inspect_engine(role, identity):
+            node = nodes.get(identity)
+            if not node:
+                return
+            definition = ENGINES[row.transport]
+            try:
+                async with asyncio.timeout(NODE_CHECK_TIMEOUT_SECONDS):
+                    capability = await request(node, "GET", "capabilities", namespace=row.transport)
+                    valid = (
+                        capability.get("contract") == 1
+                        and capability.get("engine") == row.transport
+                        and capability.get("version") == definition["version"]
+                        and capability.get("source_commit") == definition["commit"]
+                        and capability.get("installed") is True
+                    )
+                    add(
+                        f"{role}.engine",
+                        "pass" if valid else "fail",
+                        "Pinned native carrier capability" if valid else "Upgrade the fork node carrier adapter",
+                        apply=True,
+                        publish=True,
+                    )
+                    if valid and applied:
+                        runtime = await request(node, "GET", f"links/{row.engine_id}", namespace=row.transport)
+                        running = runtime.get("running") is True and runtime.get("revision") == row.revision
+                        add(
+                            f"{role}.runtime",
+                            "pass" if running else "fail",
+                            "Native engine runs at this revision" if running else "Native engine is down or stale",
+                            publish=True,
+                        )
+            except RuntimeError, ValueError, TimeoutError:
+                add(
+                    f"{role}.engine",
+                    "fail",
+                    "Native carrier API is unavailable; verify TLS, key and extension port",
+                    apply=True,
+                    publish=True,
+                )
+
+        await asyncio.gather(inspect_engine("source", row.source_node_id), inspect_engine("exit", row.exit_node_id))
     checks.sort(key=lambda item: item.code)
     return TunnelPreflight(
         tunnel_id=row.id,

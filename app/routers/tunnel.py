@@ -1,5 +1,6 @@
 """Native tunnel infrastructure is owner-only, like DNS infrastructure policies."""
 
+import asyncio
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -231,3 +232,132 @@ async def native_failover_remove(source_id: int, body: TunnelRevision, db: DB, a
 
     await remove(db, source_id, body.expected_revision, admin.username)
     return Response(status_code=204)
+
+
+@router.get("/engines")
+async def native_engine_catalog(admin: Owner):
+    from app.models.carrier import DEFAULT_PROFILE, PROFILES, CarrierOptions, stored_options
+    from app.tunnel.engines import ENGINES
+
+    return {
+        "primary": "paqet",
+        "selection": "operator_controlled",
+        "items": [
+            {
+                "id": "paqet",
+                "label": "Paqet",
+                "version": "v1.0.0-alpha.21",
+                "networks": ["tcp", "udp"],
+                "profiles": ["kcp-raw-tcp"],
+                "primary": True,
+            },
+            *[
+                {
+                    "id": name,
+                    "label": {"gost": "GOST", "frp": "FRP"}.get(name, name.title()),
+                    **definition,
+                    "networks": ["tcp", "udp"],
+                    "profiles": PROFILES[name],
+                    "default_profile": DEFAULT_PROFILE[name],
+                    "defaults": stored_options(name, None),
+                    "schema": CarrierOptions.model_json_schema(),
+                }
+                for name, definition in ENGINES.items()
+            ],
+            {"id": "shadowsocks-2022", "label": "SS2022", "networks": ["tcp", "udp"], "profiles": ["direct"]},
+        ],
+        "note": "Profiles are tested native adapters, not every protocol present in upstream source. No firewall invisibility or game readiness is inferred.",
+    }
+
+
+@router.get("/nodes/{node_id}/engines")
+async def native_node_engines(node_id: int, db: DB, admin: Owner):
+    import asyncio
+
+    from app.db.models import Node
+    from app.paqet.client import request
+    from app.tunnel.engines import ENGINES, MANAGED
+
+    node = await db.get(Node, node_id)
+    if not node:
+        raise HTTPException(404, "Node not found")
+
+    async def capability(name):
+        try:
+            async with asyncio.timeout(8):
+                value = await request(node, "GET", "capabilities", namespace=name)
+            definition = ENGINES.get(name)
+            compatible = isinstance(value, dict) and value.get("contract") == 1 and value.get("installed") is True
+            if definition:
+                compatible = (
+                    compatible
+                    and value.get("engine") == name
+                    and value.get("version") == definition["version"]
+                    and value.get("source_commit") == definition["commit"]
+                )
+            else:
+                compatible = (
+                    compatible
+                    and value.get("engine") == "v1.0.0-alpha.21"
+                    and value.get("source_commit") == "4b81ce0ab56b7cc9aec7501c87c4804676cdb1b4"
+                )
+            return {"id": name, "available": True, "compatible": compatible, "capability": value}
+        except RuntimeError, ValueError, TimeoutError:
+            return {"id": name, "available": False, "capability": None}
+
+    return {"node_id": node_id, "items": await asyncio.gather(*(capability(name) for name in MANAGED))}
+
+
+@router.get("/{tunnel_id}/engine/status")
+async def native_engine_status(tunnel_id: int, db: DB, admin: Owner):
+    import asyncio
+
+    from app.db.models import NativeTunnel, Node
+    from app.paqet.client import request
+    from app.tunnel.engines import MANAGED
+
+    row = await db.get(NativeTunnel, tunnel_id)
+    if not row or row.transport not in MANAGED:
+        raise HTTPException(404, "Managed native carrier not found")
+    nodes = [
+        (role, await db.get(Node, identity))
+        for role, identity in (("source", row.source_node_id), ("exit", row.exit_node_id))
+    ]
+
+    async def inspect(role, node):
+        try:
+            async with asyncio.timeout(8):
+                value = await request(node, "GET", f"links/{row.engine_id}", namespace=row.transport)
+            return role, {"available": True, "state": value}
+        except RuntimeError, ValueError, TimeoutError:
+            return role, {"available": False, "state": None}
+
+    return {
+        "engine": row.transport,
+        **dict(await asyncio.gather(*(inspect(role, node) for role, node in nodes))),
+        "traffic_readiness": "not_probed",
+    }
+
+
+@router.post("/{tunnel_id}/engine/action")
+async def native_engine_action(tunnel_id: int, action: str, side: str, body: TunnelRevision, db: DB, admin: Owner):
+    from app.db.models import Node
+    from app.paqet.client import request
+    from app.tunnel.engines import MANAGED
+
+    if action not in ("logs", "restart") or side not in ("source", "exit"):
+        raise HTTPException(422, "Use native logs/restart and a source/exit side")
+    row = await operation.get_locked(db, tunnel_id, body.expected_revision)
+    if row.transport not in MANAGED:
+        raise HTTPException(404, "Managed carrier not found")
+    node = await db.get(Node, row.source_node_id if side == "source" else row.exit_node_id)
+    engine, identity, revision = row.transport, row.engine_id, row.revision
+    await db.commit()
+    try:
+        async with asyncio.timeout(12):
+            result = await request(node, "POST", f"links/{identity}/{action}?revision={revision}", namespace=engine)
+    except RuntimeError, ValueError, TimeoutError:
+        raise HTTPException(503, "Native carrier action was not acknowledged") from None
+    operation.audit(db, admin.username, f"{engine}.{action}", tunnel_id, side=side, revision=revision)
+    await db.commit()
+    return result

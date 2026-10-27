@@ -14,6 +14,7 @@ from app.db.base import GetDB, begin_immediate_if_sqlite
 from app.db.models import CoreConfig, DNSPolicy, Node, ServiceAudit, SmartDNSNodeState, SmartDNSRoute
 from app.paqet.client import request
 from app.tunnel.compiler import occupied_port
+from app.tunnel.engines import forwarded, options as engine_options, owned_ports
 from app.tunnel.guards import lock_state
 from app.utils.helpers import fix_datetime_timezone
 from config import smartdns_settings
@@ -116,17 +117,8 @@ async def validate(db, route, *, allow_failover=False):
             raise HTTPException(422, "Gateway tunnel must start on this gateway node")
 
     for tunnel in (await db.scalars(select(NativeTunnel).where(NativeTunnel.enabled.is_(True)))).all():
-        if node.id == tunnel.exit_node_id and tunnel.port in route.tcp_ports + route.udp_ports:
-            raise HTTPException(422, "Gateway listener conflicts with a tunnel carrier")
-        if (
-            node.id == tunnel.source_node_id
-            and tunnel.transport == "paqet"
-            and any(
-                port in route.tcp_ports + route.udp_ports
-                for port in ((tunnel.paqet_options or {}).get("client_port", 11081),)
-            )
-        ):
-            raise HTTPException(422, "Gateway listener conflicts with a tunnel listener")
+        if owned_ports(tunnel).get(node.id, set()) & set(route.tcp_ports + route.udp_ports):
+            raise HTTPException(422, "Gateway listener conflicts with a native carrier")
 
 
 async def save(db, body, actor, route_id=None):
@@ -223,10 +215,8 @@ async def deploy(node_id, revision, actor, *, sessions=GetDB, allow_failover=Fal
                     raise HTTPException(409, "Apply the gateway's active native tunnel before deploying SmartDNS")
                 exit_node = await db.get(Node, tunnel.exit_node_id)
                 item["egress"] = {
-                    "address": "127.0.0.1" if tunnel.transport == "paqet" else exit_node.address,
-                    "port": (tunnel.paqet_options or {}).get("client_port", 11081)
-                    if tunnel.transport == "paqet"
-                    else tunnel.port,
+                    "address": "127.0.0.1" if forwarded(tunnel) else exit_node.address,
+                    "port": engine_options(tunnel).get("client_port", 11081) if forwarded(tunnel) else tunnel.port,
                     "password": tunnel.shared_key,
                 }
             compiled.append(item)
@@ -374,15 +364,7 @@ async def validate_dns_listener(db, node, config):
     from app.db.models import NativeTunnel
 
     for tunnel in (await db.scalars(select(NativeTunnel).where(NativeTunnel.enabled.is_(True)))).all():
-        options = tunnel.paqet_options or {}
-        reserved = []
-        if node.id == tunnel.exit_node_id:
-            reserved = [tunnel.port] + ([options.get("exit_port", 11082)] if tunnel.transport == "paqet" else [])
-        if node.id == tunnel.source_node_id and tunnel.transport == "paqet":
-            reserved = [options.get("client_port", 11081)] + [
-                int(row["listen"].rsplit(":", 1)[1]) for row in options.get("forwards", []) + options.get("socks5", [])
-            ]
-        if port in reserved:
+        if port in owned_ports(tunnel).get(node.id, set()):
             raise HTTPException(422, "DNS listener conflicts with a native tunnel")
 
 

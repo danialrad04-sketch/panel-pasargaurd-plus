@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_serializer, model_validator
 
 from app.dns.policy import DNSRule
+from app.models.carrier import CarrierOptions, stored_options
 from app.models.validators import AwareDatetime, OptionalAwareDatetime
 from app.paqet.models import PaqetOptions
 
@@ -17,8 +18,23 @@ class TunnelInput(BaseModel):
     port: int = Field(default=40900, ge=1024, le=65535)
     enabled: bool = False
     health_enabled: bool = False
-    transport: Literal["shadowsocks-2022", "paqet"] = "shadowsocks-2022"
+    transport: Literal["shadowsocks-2022", "paqet", "backhaul", "gost", "frp"] = "shadowsocks-2022"
     paqet_options: PaqetOptions | None = None
+    carrier_options: CarrierOptions | None = None
+    carrier_key: SecretStr | None = Field(None, json_schema_extra={"writeOnly": True})
+
+    @model_validator(mode="after")
+    def valid_engine_options(self):
+        if self.transport in ("backhaul", "gost", "frp"):
+            self.carrier_options = CarrierOptions.model_validate(stored_options(self.transport, self.carrier_options))
+            if self.port in (self.carrier_options.client_port, self.carrier_options.exit_port):
+                raise ValueError("Control and internal carrier ports must differ")
+            if self.carrier_key and not 32 <= len(self.carrier_key.get_secret_value().encode()) <= 256:
+                raise ValueError("Carrier key must have 32–256 UTF-8 bytes")
+        elif self.carrier_options is not None or self.carrier_key is not None:
+            raise ValueError("Carrier settings apply only to Backhaul, GOST and FRP")
+        return self
+
     paqet_key: SecretStr | None = Field(None, json_schema_extra={"writeOnly": True})
 
     @field_validator("name")
@@ -81,6 +97,10 @@ class TunnelPreflight(BaseModel):
 
 
 class TunnelView(TunnelInput):
+    @model_validator(mode="after")
+    def valid_engine_options(self):
+        return self
+
     engine_id: str
     id: int
     source_node_id: int
@@ -88,6 +108,8 @@ class TunnelView(TunnelInput):
     revision: int
     applied_revision: int
     paqet_options: dict | None = Field(None, repr=False)
+    carrier_options: dict | None = Field(None, repr=False)
+    carrier_key: SecretStr | None = Field(None, exclude=True, repr=False)
     paqet_key: SecretStr | None = Field(None, exclude=True, repr=False)
 
     @model_serializer(mode="wrap")

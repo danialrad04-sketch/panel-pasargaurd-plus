@@ -12,7 +12,7 @@ class PaqetNodeError(RuntimeError):
 
 
 async def request(node, method, path, body=None, *, namespace="paqet"):
-    if namespace not in ("paqet", "health", "smartdns"):
+    if namespace not in ("paqet", "health", "smartdns", "backhaul", "gost", "frp"):
         raise ValueError("Unknown native node namespace")
     try:
         ctx = ssl.create_default_context(cadata=node.server_ca)
@@ -39,13 +39,13 @@ async def request(node, method, path, body=None, *, namespace="paqet"):
         ):
             raw = await response.content.read(262145)
             if len(raw) > 262144 or response.status != 200:
-                raise PaqetNodeError("Native Paqet node did not acknowledge the request; inspect node capability/state")
+                raise PaqetNodeError("Native node extension did not acknowledge the request; inspect node capability/state")
             import json
 
             return json.loads(raw)
     except (aiohttp.ClientError, TimeoutError, ValueError) as error:
         raise PaqetNodeError(
-            "Native Paqet API unavailable or TLS validation failed; upgrade/configure the fork node"
+            "Native node extension API unavailable or TLS validation failed; upgrade/configure the fork node"
         ) from error
 
 

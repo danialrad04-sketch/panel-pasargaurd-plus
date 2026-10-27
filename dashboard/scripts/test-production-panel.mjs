@@ -21,6 +21,11 @@ try {
   }, process.env.PANEL_TEST_TOKEN)
   await page.goto(`${origin}/dashboard/#/tunnels`)
   await page.getByRole('heading', { name: 'تونل‌های بومی نودها' }).waitFor()
+  await page.locator('summary').filter({ hasText: 'هستهٔ تونل · Paqet و موتورهای مکمل' }).click()
+  await page.getByText('Backhaul', { exact: true }).waitFor()
+  await page.getByText('GOST', { exact: true }).waitFor()
+  await page.getByText('FRP', { exact: true }).waitFor()
+
   await page.locator('summary').filter({ hasText: 'پایش مسیر، بازیابی و سلامت سرویس‌ها' }).click()
   await page.goto(`${origin}/dashboard/#/smartdns`)
   await page.getByRole('heading', { name: 'دسترسی سرویس‌ها بدون VPN', exact: true }).waitFor()

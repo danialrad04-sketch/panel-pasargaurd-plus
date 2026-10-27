@@ -14,6 +14,7 @@ from app.db import GetDB
 from app.db.models import CoreConfig, CoreType, NativeTunnel, Node, NodeStatus, ServiceAudit, TunnelDeployment
 from app.models.tunnel import TunnelView
 from app.tunnel.compiler import USER_PROTOCOLS, compose
+from app.tunnel.engines import ENGINES, control_node, owned_ports
 from app.tunnel.guards import leased, lock_state
 
 
@@ -36,7 +37,7 @@ async def validate_topology(db, tunnels, *, core_overrides=None):
 
             PaqetOptions.model_validate(row.paqet_options)
     active = [row for row in tunnels if row.enabled]
-    raw_bindings = [(row.exit_node_id, row.port) for row in active]
+    raw_bindings = [(control_node(row), row.port) for row in active]
     if len(raw_bindings) != len(set(raw_bindings)):
         raise HTTPException(409, "Active exit carrier ports must be unique on each node")
     sources = [row.source_node_id for row in active]
@@ -66,20 +67,32 @@ async def validate_topology(db, tunnels, *, core_overrides=None):
     for state in (await db.scalars(select(SmartDNSNodeState))).all():
         if state.dns_config.get("enabled"):
             gateway_ports.setdefault(state.node_id, set()).add(state.dns_config["port"])
+    occupied = set()
     for tunnel in tunnels:
-        if not tunnel.enabled:
-            continue
-        options = tunnel.paqet_options or {}
-        if tunnel.port in gateway_ports.get(tunnel.exit_node_id, set()):
-            raise HTTPException(422, "Tunnel exit carrier conflicts with a native DNS/gateway listener")
-        if tunnel.transport == "paqet":
-            source_ports = [options.get("client_port", 11081)] + [
-                int(row["listen"].rsplit(":", 1)[1]) for row in options.get("forwards", []) + options.get("socks5", [])
-            ]
-            if set(source_ports) & gateway_ports.get(tunnel.source_node_id, set()) or options.get(
-                "exit_port", 11082
-            ) in gateway_ports.get(tunnel.exit_node_id, set()):
-                raise HTTPException(422, "Paqet proxy listener conflicts with native DNS/gateway")
+        if tunnel.transport in ENGINES:
+            from app.models.carrier import stored_options
+
+            try:
+                stored_options(tunnel.transport, tunnel.carrier_options)
+            except ValueError:
+                raise HTTPException(422, "Invalid native carrier settings") from None
+        for identity, ports in owned_ports(tunnel).items():
+            node = nodes[identity]
+            core = cores.get(node.core_config_id or 1)
+            if any(port in (node.port, node.api_port, node.tunnel_api_port, node.health_echo_port) for port in ports):
+                raise HTTPException(422, "Native carrier conflicts with node management or health listener")
+            if tunnel.transport in ENGINES and core:
+                from app.tunnel.compiler import occupied_port
+
+                if any(occupied_port(core.config, port) or core.config.get("listen_port") == port for port in ports):
+                    raise HTTPException(422, "Native carrier conflicts with a core listener")
+            if tunnel.enabled:
+                if ports & gateway_ports.get(identity, set()):
+                    raise HTTPException(422, "Native carrier conflicts with a DNS/gateway listener")
+                bindings = {(identity, port) for port in ports}
+                if occupied & bindings:
+                    raise HTTPException(409, "Enabled native carrier listeners overlap")
+                occupied.update(bindings)
     from app.paqet.compiler import node_request
 
     for row in tunnels:
@@ -217,12 +230,16 @@ async def create(db, body, actor):
         raise HTTPException(409, "Tunnel name already exists")
     from app.paqet.compiler import key as paqet_key, store_options
 
-    data = body.model_dump(exclude={"paqet_key", "paqet_options"})
+    data = body.model_dump(exclude={"paqet_key", "paqet_options", "carrier_key", "carrier_options"})
     row = NativeTunnel(
         **data,
         shared_key=key(),
         paqet_key=paqet_key(body.paqet_key) if body.transport == "paqet" else None,
         paqet_options=store_options(body.paqet_options) if body.transport == "paqet" else {},
+        carrier_options=body.carrier_options.model_dump() if body.transport in ENGINES else {},
+        carrier_key=(body.carrier_key.get_secret_value() if body.carrier_key else secrets.token_hex(32))
+        if body.transport in ENGINES
+        else None,
     )
     # A temporary id is unnecessary for topology; flushing does not deploy anything.
     db.add(row)
@@ -258,7 +275,13 @@ async def modify(db, tunnel_id, body, actor):
         row.paqet_options = store_options(body.paqet_options, row.paqet_options)
         if body.paqet_key:
             row.paqet_key = paqet_key(body.paqet_key)
-    for field, value in body.model_dump(exclude={"expected_revision", "paqet_options", "paqet_key"}).items():
+    if row.transport in ENGINES:
+        row.carrier_options = body.carrier_options.model_dump()
+        if body.carrier_key:
+            row.carrier_key = body.carrier_key.get_secret_value()
+    for field, value in body.model_dump(
+        exclude={"expected_revision", "paqet_options", "paqet_key", "carrier_options", "carrier_key"}
+    ).items():
         if field == "health_enabled" and value is None:
             continue
         setattr(row, field, value)
@@ -282,6 +305,8 @@ async def rotate(db, tunnel_id, revision, actor):
 
     await assert_edit_safe(db, tunnel_id)
     row.shared_key = key()
+    if row.transport in ENGINES:
+        row.carrier_key = secrets.token_hex(32)
     if row.transport == "paqet":
         from app.paqet.compiler import key as paqet_key
 

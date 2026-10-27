@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"github.com/pasarguard/node/smartdns"
+	"github.com/pasarguard/node/tunnel/carrier"
 	"github.com/pasarguard/node/tunnel/health"
 	"github.com/pasarguard/node/tunnel/paqet"
 	"log"
@@ -76,6 +77,14 @@ func main() {
 		}
 		mux := http.NewServeMux()
 		mux.Handle("/v1/paqet/", manager.Handler(cfg.ApiKey.String()))
+		for _, name := range []string{"backhaul", "gost", "frp"} {
+			engine, engineError := carrier.New(name, filepath.Join(filepath.Dir(cfg.PaqetStateDir), name), cfg.SslCertFile, cfg.SslKeyFile)
+			if engineError != nil {
+				log.Fatal("native carrier journal could not initialize: ", name)
+			}
+			defer engine.Close()
+			mux.Handle("/v1/"+name+"/", engine.Handler(cfg.ApiKey.String()))
+		}
 		if gateway != nil {
 			mux.Handle("/v1/smartdns/", gateway.Handler(cfg.ApiKey.String()))
 		}

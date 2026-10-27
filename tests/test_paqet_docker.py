@@ -58,7 +58,17 @@ def port():
         return sock.getsockname()[1]
 
 
-async def test_actual_native_paqet_nodes_tcp_udp_and_lifecycle(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "carrier_engine,carrier_profile", [("paqet", None), ("backhaul", "tcp"), ("gost", "tls"), ("frp", "quic")]
+)
+async def test_actual_native_paqet_nodes_tcp_udp_and_lifecycle(tmp_path, monkeypatch, carrier_engine, carrier_profile):
+    # Every parametrized test has its own asyncio loop. Never reuse a singleton
+    # RWLock/gRPC bridge bound to a previous test loop (production uses one loop).
+    fresh_manager = type(node_manager)()
+    for field in ("_nodes", "_node_signatures", "_keep_alives", "_user_sync_locks", "_user_sync_tasks", "_lock"):
+        monkeypatch.setattr(node_manager, field, getattr(fresh_manager, field))
+    carrier_path = "paqet" if carrier_engine == "paqet" else "engine"
+    option_field = "paqet_options" if carrier_engine == "paqet" else "carrier_options"
     name = "pg-paqet-test-" + uuid4().hex[:8]
     names = [name + "-source", name + "-exit"]
     await asyncio.to_thread(
@@ -101,6 +111,10 @@ async def test_actual_native_paqet_nodes_tcp_udp_and_lifecycle(tmp_path, monkeyp
     )
     # Let Docker select a free subnet rather than reusing a host or VPN range.
     docker("network", "create", name)
+    subnet = json.loads(docker("network", "inspect", name))[0]["IPAM"]["Config"][0]["Subnet"]
+    # Local test peers stay inside this disposable Docker subnet. Preserve the
+    # environment proxy for all other destinations and respect its NO_PROXY list.
+    local_no_proxy = ",".join(filter(None, [os.environ.get("NO_PROXY", ""), "127.0.0.1", "localhost", subnet]))
     manager_ports = [port(), port()]
     engine_ports = [port(), port()]
     source_port = port()
@@ -130,6 +144,8 @@ async def test_actual_native_paqet_nodes_tcp_udp_and_lifecycle(tmp_path, monkeyp
                 f"127.0.0.1:{engine_ports[index]}:62052",
                 "-e",
                 f"API_KEY={api_key}",
+                "-e",
+                f"NO_PROXY={local_no_proxy}",
                 "-e",
                 "SSL_CERT_FILE=/fixture/cert.pem",
                 "-e",
@@ -225,8 +241,23 @@ async def test_actual_native_paqet_nodes_tcp_udp_and_lifecycle(tmp_path, monkeyp
         monkeypatch.setattr("app.operation.node.notification.error_node", AsyncMock())
         original_deploy = operation.deploy
 
+        from app.operation import OperatorType
+        from app.operation.node import NodeOperation
+
+        native_operator = NodeOperation(operator_type=OperatorType.SYSTEM)
+
+        async def diagnostic_restart(db, identity, **kwargs):
+            try:
+                return await native_operator._connect_single_node_local(db, identity, **kwargs)
+            except Exception as error:
+                import traceback
+
+                print("Native test start error type:", type(error).__name__)
+                print([(frame.name, frame.lineno) for frame in traceback.extract_tb(error.__traceback__)][-6:])
+                raise
+
         async def deploy(actor):
-            return await original_deploy(actor, session_factory=sessions)
+            return await original_deploy(actor, session_factory=sessions, restart=diagnostic_restart)
 
         monkeypatch.setattr(operation, "deploy", deploy)
         app = FastAPI()
@@ -258,41 +289,59 @@ async def test_actual_native_paqet_nodes_tcp_udp_and_lifecycle(tmp_path, monkeyp
                             print("Native Paqet capability cause:", type(error).__name__, repr(error.__cause__))
                 assert result.status_code == 200, result.text
                 assert result.json()["installed"] and result.json()["contract"] == 1
-            create = await client.post(
-                "/api/tunnels",
-                json={
-                    "name": "Native actual Paqet",
-                    "transport": "paqet",
-                    "source_node_id": 1,
-                    "exit_node_id": 2,
-                    "inbound_tags": ["users"],
-                    "port": 40900,
-                    "enabled": True,
-                    "health_enabled": True,
-                    "paqet_options": {
-                        "log_level": "debug",
-                        "client_address": ips[0],
-                        "server_address": ips[1],
-                        "allow_unmetered": True,
-                        "socks5": [
-                            {"listen": "127.0.0.1:11091", "username": "fixture-user", "password": "fixture-password"}
-                        ],
-                    },
+            requested = {
+                "name": f"Native actual {carrier_engine}",
+                "transport": carrier_engine,
+                "source_node_id": 1,
+                "exit_node_id": 2,
+                "inbound_tags": ["users"],
+                "port": 40900,
+                "enabled": True,
+                "health_enabled": True,
+                "paqet_options": {
+                    "log_level": "debug",
+                    "client_address": ips[0],
+                    "server_address": ips[1],
+                    "allow_unmetered": True,
+                    "socks5": [
+                        {"listen": "127.0.0.1:11091", "username": "fixture-user", "password": "fixture-password"}
+                    ],
                 },
-            )
+            }
+            if carrier_engine != "paqet":
+                requested.pop("paqet_options")
+                requested["carrier_options"] = {
+                    "profile": carrier_profile,
+                    "control_address": ips[1] if carrier_engine == "gost" else ips[0],
+                }
+                for identity in (1, 2):
+                    capabilities = await client.get(f"/api/tunnels/nodes/{identity}/engines")
+                    assert capabilities.status_code == 200, capabilities.text
+                    assert next(value for value in capabilities.json()["items"] if value["id"] == carrier_engine)[
+                        "compatible"
+                    ]
+            create = await client.post("/api/tunnels", json=requested)
             assert create.status_code == 201, create.text
             item = create.json()
             link_id = item["id"]
             engine_id = item["engine_id"]
             applied = await client.post("/api/tunnels/apply")
             assert applied.status_code == 200 and applied.json()["ok"], applied.text
-            state = await client.get(f"/api/tunnels/{link_id}/paqet/status")
+            state = await client.get(f"/api/tunnels/{link_id}/{carrier_path}/status")
             assert state.json()["source"]["state"]["running"] and state.json()["exit"]["state"]["running"], state.text
             # Management ports are NAT-forwarded and differ from the internal echo
             # port. The measured sample traverses real Paqet + exit SS2022.
             from app.tunnel.health import probe
 
-            measured = await probe(link_id, item["revision"], sessions=sessions)
+            async def await_healthy(revision):
+                async with asyncio.timeout(90):
+                    while True:
+                        measured = await probe(link_id, revision, sessions=sessions)
+                        if measured["result"].get("healthy"):
+                            return measured
+                        await asyncio.sleep(2)
+
+            measured = await await_healthy(item["revision"])
             assert measured["result"]["healthy"], measured
             assert measured["result"]["udp_loss_percent"] == 0
             # Publish the actual Iran/source user address through the native host API.
@@ -357,7 +406,8 @@ async def test_actual_native_paqet_nodes_tcp_udp_and_lifecycle(tmp_path, monkeyp
                 for size in (32, 512, 1200):
                     payload = os.urandom(size)
                     assert await udp_query(client_port, payload) == payload
-                assert "passed" in docker("exec", names[0], "/fixture/echo", "socks")
+                if carrier_engine == "paqet":
+                    assert "passed" in docker("exec", names[0], "/fixture/echo", "socks")
                 from PasarGuardNodeBridge.common import service_pb2 as service
 
                 bridge = await node_manager.get_node(1)
@@ -366,19 +416,24 @@ async def test_actual_native_paqet_nodes_tcp_udp_and_lifecycle(tmp_path, monkeyp
                 # Reconfigure both live engine roles through the real native API.
                 edit = {
                     k: item[k]
-                    for k in ("name", "inbound_tags", "domains", "port", "enabled", "transport", "paqet_options")
+                    for k in ("name", "inbound_tags", "domains", "port", "enabled", "transport", option_field)
                 }
-                edit["paqet_options"]["socks5"][0].pop("authenticated")
-                edit["paqet_options"]["kcp"].update({"mode": "manual", "dshard": 10, "pshard": 3, "mtu": 1100})
+                if carrier_engine == "paqet":
+                    edit["paqet_options"]["socks5"][0].pop("authenticated")
+                    edit["paqet_options"]["kcp"].update({"mode": "manual", "dshard": 10, "pshard": 3, "mtu": 1100})
+                else:
+                    edit["carrier_options"]["pool"] = 4
                 edit["expected_revision"] = item["revision"]
                 changed = await client.put(f"/api/tunnels/{link_id}", json=edit)
                 assert changed.status_code == 200, changed.text
                 item = changed.json()
                 result = await client.post("/api/tunnels/apply")
                 assert result.json()["ok"], result.text
+                await await_healthy(item["revision"])
                 assert await tcp_query(client_port, b"fec-" * 1000) == b"fec-" * 1000
                 assert await udp_query(client_port, b"fec-datagram" * 40) == b"fec-datagram" * 40
-                assert "passed" in docker("exec", names[0], "/fixture/echo", "socks")
+                if carrier_engine == "paqet":
+                    assert "passed" in docker("exec", names[0], "/fixture/echo", "socks")
                 rotated = await client.post(
                     f"/api/tunnels/{link_id}/rotate", json={"expected_revision": item["revision"]}
                 )
@@ -386,6 +441,7 @@ async def test_actual_native_paqet_nodes_tcp_udp_and_lifecycle(tmp_path, monkeyp
                 item = rotated.json()
                 result = await client.post("/api/tunnels/apply")
                 assert result.json()["ok"], result.text
+                await await_healthy(item["revision"])
                 assert await tcp_query(client_port, b"rotated") == b"rotated"
                 assert await udp_query(client_port, b"rotated-udp") == b"rotated-udp"
                 # Native source user stats remain available through the existing bridge.
@@ -394,13 +450,15 @@ async def test_actual_native_paqet_nodes_tcp_udp_and_lifecycle(tmp_path, monkeyp
                 bridge = await node_manager.get_node(1)
                 stats = await bridge.get_stats(service.UserStat, reset=False, name="1")
                 assert sum(row.value for row in stats.stats) > 0
-            for container in names:
-                rules = docker("exec", container, "iptables-save")
-                assert f"pg-plus-paqet-{engine_id}" in rules
+            if carrier_engine == "paqet":
+                for container in names:
+                    rules = docker("exec", container, "iptables-save")
+                    assert f"pg-plus-paqet-{engine_id}" in rules
             edit = {
-                k: item[k] for k in ("name", "inbound_tags", "domains", "port", "enabled", "transport", "paqet_options")
+                k: item[k] for k in ("name", "inbound_tags", "domains", "port", "enabled", "transport", option_field)
             }
-            edit["paqet_options"]["socks5"][0].pop("authenticated")
+            if carrier_engine == "paqet":
+                edit["paqet_options"]["socks5"][0].pop("authenticated")
             edit.update(enabled=False, expected_revision=item["revision"])
             changed = await client.put(f"/api/tunnels/{link_id}", json=edit)
             assert changed.status_code == 200, changed.text
@@ -411,13 +469,13 @@ async def test_actual_native_paqet_nodes_tcp_udp_and_lifecycle(tmp_path, monkeyp
             assert await process_inbounds_and_tags(subscription_user, {}, StandardLinks(), {}) == ""
             for node_id in (1, 2):
                 assert (await client.get(f"/api/tunnels/nodes/{node_id}/paqet")).status_code == 200
-            state = await client.get(f"/api/tunnels/{link_id}/paqet/status")
+            state = await client.get(f"/api/tunnels/{link_id}/{carrier_path}/status")
             assert not state.json()["source"]["state"]["running"] and not state.json()["exit"]["state"]["running"]
     except Exception:
         if "app" in locals() and "link_id" in locals():
             try:
                 async with AsyncClient(transport=ASGITransport(app), base_url="http://native") as diagnostic_client:
-                    diagnostic = await diagnostic_client.get(f"/api/tunnels/{link_id}/paqet/status")
+                    diagnostic = await diagnostic_client.get(f"/api/tunnels/{link_id}/{carrier_path}/status")
                     (tmp_path / "paqet-state.json").write_text(diagnostic.text)
             except Exception:
                 pass

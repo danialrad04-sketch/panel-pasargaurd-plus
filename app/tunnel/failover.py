@@ -5,6 +5,7 @@ freedom fallback is introduced. Host bindings follow the selected path only afte
 its revision is acknowledged, and are hidden during transitions.
 """
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -157,10 +158,10 @@ async def run(source_id, *, sessions=GetDB, deploy=operation.deploy, health_prob
             for identity in identities:
                 row = await db.get(NativeTunnel, identity)
                 if identity != current_id and row and not row.enabled:
-                    candidates.append((row.id, row.revision))
+                    candidates.append((row.id, row.revision, row.transport))
             if not candidates:
                 return
-            candidate_id, candidate_revision = candidates[0]
+            candidate_id, candidate_revision, candidate_transport = candidates[0]
         original_hosts = []
 
         async def switch(db):
@@ -191,8 +192,9 @@ async def run(source_id, *, sessions=GetDB, deploy=operation.deploy, health_prob
         applied = await deploy("system:failover", session_factory=sessions, prepare=switch)
         confirmed = False
         if applied["ok"]:
-            after = await health_probe(candidate_id, candidate_revision + 1, sessions=sessions)
-            confirmed = after["result"].get("healthy", False)
+            confirmed = await verify_candidate(
+                candidate_id, candidate_revision + 1, candidate_transport, sessions, health_probe
+            )
         if confirmed:
             outcome = {"state": "switched", "previous": current_id, "active": candidate_id}
         else:
@@ -263,3 +265,25 @@ async def monitor(*, sessions=GetDB):
             await run(identity, sessions=sessions)
         except HTTPException, RuntimeError, ValueError:
             continue
+
+
+async def verify_candidate(identity, revision, transport, sessions, health_probe, *, pause=asyncio.sleep):
+    """Reverse/UDP sessions need bounded reconnection time after a fresh apply.
+
+    Process acknowledgement alone never authorizes success. Keep the deployment
+    pending and require a measured healthy sample; no direct fallback is added.
+    """
+    from app.tunnel.engines import ENGINES
+
+    attempts = 10 if transport in ENGINES else 1
+    try:
+        async with asyncio.timeout(60):
+            for attempt in range(attempts):
+                after = await health_probe(identity, revision, sessions=sessions)
+                if after["result"].get("healthy"):
+                    return True
+                if attempt + 1 < attempts:
+                    await pause(3)
+    except TimeoutError:
+        pass
+    return False

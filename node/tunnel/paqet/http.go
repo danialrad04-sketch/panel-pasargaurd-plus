@@ -13,6 +13,10 @@ import (
 )
 
 func (m *Manager) Handler(key string) http.Handler {
+	prefix := "/v1/paqet"
+	if m.adapter != nil {
+		prefix = "/v1/" + m.adapter.Name
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Content-Type", "application/json")
@@ -22,15 +26,30 @@ func (m *Manager) Handler(key string) http.Handler {
 		}
 		respond := func(value any) { _ = json.NewEncoder(w).Encode(value) }
 		switch r.URL.Path {
-		case "/v1/paqet/capabilities":
+		case prefix + "/capabilities":
 			if r.Method != "GET" {
 				w.WriteHeader(405)
 				return
 			}
 			_, err := os.Stat(m.binary)
+			if m.adapter != nil {
+				if m.adapter.Installed != nil {
+					if m.adapter.Installed() {
+						err = nil
+					} else {
+						err = os.ErrNotExist
+					}
+				}
+				respond(map[string]any{"contract": ContractVersion, "engine": m.adapter.Name, "version": m.adapter.Version, "installed": err == nil, "source_commit": m.adapter.SourceCommit, "networks": []string{"tcp", "udp"}})
+				return
+			}
 			respond(map[string]any{"contract": ContractVersion, "engine": EngineVersion, "installed": err == nil, "source_commit": "4b81ce0ab56b7cc9aec7501c87c4804676cdb1b4", "networks": []string{"tcp", "udp"}})
 			return
-		case "/v1/paqet/network":
+		case prefix + "/network":
+			if m.adapter != nil {
+				http.NotFound(w, r)
+				return
+			}
 			if r.Method != "GET" {
 				w.WriteHeader(405)
 				return
@@ -42,7 +61,7 @@ func (m *Manager) Handler(key string) http.Handler {
 			}
 			respond(value)
 			return
-		case "/v1/paqet/links":
+		case prefix + "/links":
 			if r.Method != "GET" {
 				w.WriteHeader(405)
 				return
@@ -50,7 +69,7 @@ func (m *Manager) Handler(key string) http.Handler {
 			respond(m.List())
 			return
 		}
-		path := strings.TrimPrefix(r.URL.Path, "/v1/paqet/links/")
+		path := strings.TrimPrefix(r.URL.Path, prefix+"/links/")
 		parts := strings.Split(path, "/")
 		if len(parts) > 2 || !validID(parts[0]) {
 			http.NotFound(w, r)

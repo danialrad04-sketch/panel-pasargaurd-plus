@@ -1153,6 +1153,8 @@ class NativeTunnel(Base, CreatedAtUTCMixin):
     paqet_options: Mapped[dict] = mapped_column(PostgresJSONB, default_factory=dict, repr=False)
     engine_id: Mapped[str] = mapped_column(String(32), default_factory=lambda: uuid4().hex, unique=True)
     paqet_key: Mapped[str | None] = mapped_column(String(512), default=None, repr=False)
+    carrier_options: Mapped[dict] = mapped_column(PostgresJSONB, default_factory=dict, repr=False)
+    carrier_key: Mapped[str | None] = mapped_column(String(512), default=None, repr=False)
     # Same protected database boundary as native core private keys; never returned by the API.
     inbound_tags: Mapped[list] = mapped_column(PostgresJSONB, default_factory=list)
     domains: Mapped[list] = mapped_column(PostgresJSONB, default_factory=list)

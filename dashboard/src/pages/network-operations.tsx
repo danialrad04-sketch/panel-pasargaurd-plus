@@ -37,7 +37,7 @@ export default function NetworkOperations({ items, nodes, fa }: { items: TunnelV
   const [error, setError] = useState('')
   const [recovery, setRecovery] = useState<{
     fingerprint: string
-    nodes: { node_id: number; name: string; available: boolean; required: boolean; paqet_links: { id: string; revision: number; orphan: boolean; enabled: boolean }[] }[]
+    nodes: { node_id: number; name: string; available: boolean; required: boolean; paqet_links: { id: string; revision: number; orphan: boolean; enabled: boolean; engine?: string }[] }[]
   } | null>(null)
   const [deleting, setDeleting] = useState<Policy | null>(null)
   const execute = async (run: () => Promise<unknown>) => {
@@ -342,8 +342,8 @@ export default function NetworkOperations({ items, nodes, fa }: { items: TunnelV
                 {node.paqet_links
                   .filter(link => link.orphan && link.enabled)
                   .map(link => (
-                    <p dir="ltr" className="mt-2 break-all" key={link.id}>
-                      {t('engine یتیم', 'Orphan engine')}: {link.id} · r{link.revision}
+                    <p dir="ltr" className="mt-2 break-all" key={`${link.engine || 'paqet'}-${link.id}`}>
+                      {t('engine یتیم', 'Orphan engine')}: {link.engine || 'paqet'} · {link.id} · r{link.revision}
                     </p>
                   ))}
               </div>

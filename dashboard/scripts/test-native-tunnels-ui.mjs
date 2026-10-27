@@ -54,6 +54,7 @@ try {
   await page.getByRole('heading', { name: 'تونل‌های بومی نودها', exact: true }).waitFor()
   await page.getByRole('button', { name: 'تونل جدید', exact: true }).click()
   let dialog = page.getByRole('dialog')
+  await dialog.locator('[name=transport]').selectOption('shadowsocks-2022')
   await dialog.locator('[name=name]').fill('Iran → Germany')
   await dialog.locator('[name=source]').selectOption('1')
   await dialog.locator('[name=exit]').selectOption('2')

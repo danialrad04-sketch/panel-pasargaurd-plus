@@ -117,6 +117,7 @@ async def test_production_install_bundle_and_persistent_database(tmp_path):
             token = await login()
             for path in (
                 "/api/tunnels",
+                "/api/tunnels/engines",
                 "/api/dns/runtime",
                 "/api/smartdns",
                 "/api/tunnels/health/state",

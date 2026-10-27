@@ -6,6 +6,8 @@ SS2022 inbound is only used for the encrypted inter-node hop (native TCP and UDP
 
 from copy import deepcopy
 
+from app.tunnel.engines import forwarded, options
+
 PREFIX = "pg-tunnel-"
 METHOD = "2022-blake3-aes-128-gcm"
 USER_PROTOCOLS = {"vmess", "vless", "trojan", "shadowsocks", "hysteria", "masque", "wireguard"}
@@ -32,9 +34,9 @@ def compose(config: dict, node_id: int, tunnels, nodes: dict, excluded=()):
         if not tunnel.enabled:
             continue
         tag = f"{PREFIX}{tunnel.id}"
-        paqet = getattr(tunnel, "transport", "shadowsocks-2022") == "paqet"
-        options = getattr(tunnel, "paqet_options", {}) or {}
-        exit_port = options.get("exit_port", 11082) if paqet else tunnel.port
+        local_carrier = forwarded(tunnel)
+        settings = options(tunnel)
+        exit_port = settings.get("exit_port", 11082) if local_carrier else tunnel.port
         if node_id == tunnel.source_node_id:
             available = {
                 row["tag"]
@@ -53,8 +55,8 @@ def compose(config: dict, node_id: int, tunnels, nodes: dict, excluded=()):
                     "settings": {
                         "servers": [
                             {
-                                "address": "127.0.0.1" if paqet else exit_node.address,
-                                "port": options.get("client_port", 11081) if paqet else tunnel.port,
+                                "address": "127.0.0.1" if local_carrier else exit_node.address,
+                                "port": settings.get("client_port", 11081) if local_carrier else tunnel.port,
                                 "method": METHOD,
                                 "password": tunnel.shared_key,
                             }
@@ -72,7 +74,7 @@ def compose(config: dict, node_id: int, tunnels, nodes: dict, excluded=()):
             result.setdefault("inbounds", []).append(
                 {
                     "tag": tag,
-                    "listen": "127.0.0.1" if paqet else "0.0.0.0",
+                    "listen": "127.0.0.1" if local_carrier else "0.0.0.0",
                     "port": exit_port,
                     "protocol": "shadowsocks",
                     "settings": {"method": METHOD, "password": tunnel.shared_key, "network": "tcp,udp"},

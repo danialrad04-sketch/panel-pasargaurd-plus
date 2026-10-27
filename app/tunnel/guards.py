@@ -59,14 +59,17 @@ async def assert_node_unreferenced(db, node_ids):
 
 
 async def assert_paqet_node_update_safe(db, node_id):
-    from app.db.models import SmartDNSRoute
+    from app.db.models import SmartDNSNodeState, SmartDNSRoute
+
+    if await db.get(SmartDNSNodeState, node_id):
+        raise HTTPException(409, "Native DNS nodes require the source-built fork image")
 
     if await db.scalar(select(SmartDNSRoute.id).where(SmartDNSRoute.node_id == node_id).limit(1)):
         raise HTTPException(409, "SmartDNS nodes require the source-built fork; update its image")
     if await db.scalar(
         select(NativeTunnel.id)
         .where(
-            or_(NativeTunnel.transport == "paqet", NativeTunnel.health_enabled.is_(True)),
+            or_(NativeTunnel.transport != "shadowsocks-2022", NativeTunnel.health_enabled.is_(True)),
             or_(NativeTunnel.source_node_id == node_id, NativeTunnel.exit_node_id == node_id),
         )
         .limit(1)

@@ -89,3 +89,6 @@ Unbound فقط روی loopback پورت 5335 گوش می‌دهد؛ آن را ع
 
 
 نتایج جدید پایش، DNS نود، gateway، NATS و بازیابی در [NATIVE-VALIDATION.fa.md](NATIVE-VALIDATION.fa.md) ثبت شده‌اند. اعداد بخش بالا مربوط به checkpoint قبلی هستند.
+
+
+برای هستهٔ تونل با Paqet اصلی و Backhaul/GOST/FRP، [راهنمای چندموتوره](NATIVE-ENGINE-CORE.fa.md) و [شواهد تست جدید](ENGINE-CORE-VALIDATION.fa.md) را ببینید. API قبلی و حساب کاربران حفظ شده‌اند.

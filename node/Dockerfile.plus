@@ -5,16 +5,16 @@ RUN --mount=type=secret,id=proxy_ca --mount=type=cache,target=/go/pkg/mod --moun
     apt-get update && apt-get install -y --no-install-recommends libpcap-dev ca-certificates curl unzip make && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY . .
+# One bounded source-build stage keeps all engine versions in the same image.
 RUN --mount=type=secret,id=proxy_ca --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-    if [ -f /run/secrets/proxy_ca ]; then export SSL_CERT_FILE=/run/secrets/proxy_ca; fi; \
-    CGO_ENABLED=0 go build -trimpath -o /out/pg-node ./cmd/node
-WORKDIR /src/paqet
-RUN --mount=type=secret,id=proxy_ca --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-    if [ -f /run/secrets/proxy_ca ]; then export SSL_CERT_FILE=/run/secrets/proxy_ca; fi; \
-    CGO_ENABLED=1 go build -trimpath -o /out/paqet ./cmd
-WORKDIR /src
-RUN --mount=type=secret,id=proxy_ca --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    set -eu; \
     if [ -f /run/secrets/proxy_ca ]; then export SSL_CERT_FILE=/run/secrets/proxy_ca CURL_CA_BUNDLE=/run/secrets/proxy_ca; fi; \
+    CGO_ENABLED=0 go build -trimpath -o /out/pg-node ./cmd/node; \
+    CGO_ENABLED=1 go -C paqet build -trimpath -o /out/paqet ./cmd; \
+    CGO_ENABLED=0 go -C engines/backhaul build -trimpath -o /out/backhaul .; \
+    CGO_ENABLED=0 go -C engines/gost build -trimpath -o /out/gost ./cmd/gost; \
+    CGO_ENABLED=0 go -C engines/frp build -tags frps,noweb -trimpath -o /out/frps ./cmd/frps; \
+    CGO_ENABLED=0 go -C engines/frp build -tags frpc,noweb -trimpath -o /out/frpc ./cmd/frpc; \
     case "$(go env GOARCH)" in \
       amd64) archive=Xray-linux-64.zip; checksum=0eec3ed4163c273d8c8bf821f7d219e257921cf584aa3fb970715e458e631978 ;; \
       arm64) archive=Xray-linux-arm64-v8a.zip; checksum=d1304946c486d98e6b886e9b931eaaaebb23835b30e217638037b7f2721d4e9c ;; \
@@ -28,6 +28,10 @@ RUN --mount=type=secret,id=proxy_ca \
     apt-get update && apt-get install -y --no-install-recommends libpcap0.8 ca-certificates iproute2 iptables iputils-ping wireguard-tools nftables && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /out/pg-node /usr/local/bin/pg-node
 COPY --from=builder /out/paqet /usr/local/bin/paqet
+COPY --from=builder /out/backhaul /usr/local/bin/backhaul
+COPY --from=builder /out/gost /usr/local/bin/gost
+COPY --from=builder /out/frps /usr/local/bin/frps
+COPY --from=builder /out/frpc /usr/local/bin/frpc
 COPY --from=builder /out/xray/xray /usr/local/bin/xray
 COPY --from=builder /out/assets /usr/local/share/xray
 ENV PG_NODE_PAQET_ENABLED=true

@@ -35,7 +35,7 @@ async def inventory(*, sessions=GetDB):
     needed = {row.node_id for row in gateways} | {
         identity
         for row in tunnels
-        if row.transport == "paqet" or row.health_enabled
+        if row.transport != "shadowsocks-2022" or row.health_enabled
         for identity in (row.source_node_id, row.exit_node_id)
     }
     known = {row.engine_id for row in tunnels}
@@ -53,27 +53,42 @@ async def inventory(*, sessions=GetDB):
         async with semaphore:
             try:
                 async with asyncio.timeout(8):
-                    links = await request(node, "GET", "links")
-                    if not isinstance(links, list) or len(links) > 256:
-                        raise ValueError("Invalid node inventory")
-                    for value in links:
-                        identity = value.get("id", "")
-                        revision = value.get("revision")
-                        if (
-                            not isinstance(identity, str)
-                            or not re.fullmatch(r"[0-9a-f]{32}|[1-9][0-9]{0,15}", identity)
-                            or type(revision) is not int
-                            or not 0 < revision < 2147483647
-                        ):
-                            raise ValueError("Invalid link identity")
-                        result["paqet_links"].append(
-                            {
-                                "id": identity,
-                                "revision": revision,
-                                "enabled": value.get("enabled") is True,
-                                "orphan": identity not in known,
-                            }
-                        )
+                    required_engines = {
+                        row.transport
+                        for row in tunnels
+                        if row.transport in ("backhaul", "gost", "frp")
+                        and node.id in (row.source_node_id, row.exit_node_id)
+                    }
+                    for namespace in ("paqet", "backhaul", "gost", "frp"):
+                        try:
+                            links = await request(
+                                node, "GET", "links", **({"namespace": namespace} if namespace != "paqet" else {})
+                            )
+                        except RuntimeError:
+                            if namespace in required_engines or namespace == "paqet":
+                                raise
+                            continue
+                        if not isinstance(links, list) or len(links) > 256:
+                            raise ValueError("Invalid node inventory")
+                        for value in links:
+                            identity = value.get("id", "")
+                            revision = value.get("revision")
+                            if (
+                                not isinstance(identity, str)
+                                or not re.fullmatch(r"[0-9a-f]{32}|[1-9][0-9]{0,15}", identity)
+                                or type(revision) is not int
+                                or not 0 < revision < 2147483647
+                            ):
+                                raise ValueError("Invalid engine journal identity")
+                            result["paqet_links"].append(
+                                {
+                                    "id": identity,
+                                    "revision": revision,
+                                    "enabled": value.get("enabled") is True,
+                                    "orphan": identity not in known,
+                                    "engine": namespace,
+                                }
+                            )
                     try:
                         gateway = await request(node, "GET", "status", namespace="smartdns")
                         revision = gateway.get("revision") if isinstance(gateway, dict) else None
@@ -150,6 +165,7 @@ async def reconcile(expected, disable_orphans, actor, *, sessions=GetDB):
                                 "peer": "",
                                 "manage_firewall": False,
                             },
+                            **({"namespace": link["engine"]} if link.get("engine", "paqet") != "paqet" else {}),
                         ),
                         timeout=8,
                     )

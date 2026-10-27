@@ -11,6 +11,7 @@ from sqlalchemy import select
 from app.db.base import GetDB, begin_immediate_if_sqlite
 from app.db.models import NativeTunnel, Node, TunnelHealthState
 from app.paqet.client import request
+from app.tunnel.engines import forwarded, options as engine_options
 from app.utils.helpers import fix_datetime_timezone
 
 
@@ -57,10 +58,10 @@ async def probe(tunnel_id, expected_revision, *, sessions=GetDB, minimum_age=0):
             raise HTTPException(409, "Tunnel node unavailable")
         revision = row.revision
         source_id, exit_id = source.id, exit_node.id
-        options = row.paqet_options or {}
+        options = engine_options(row)
         body = {
-            "address": "127.0.0.1" if row.transport == "paqet" else exit_node.address,
-            "port": options.get("client_port", 11081) if row.transport == "paqet" else row.port,
+            "address": "127.0.0.1" if forwarded(row) else exit_node.address,
+            "port": options.get("client_port", 11081) if forwarded(row) else row.port,
             "password": row.shared_key,
             "token": secrets.token_hex(32),
         }
@@ -101,6 +102,9 @@ async def probe(tunnel_id, expected_revision, *, sessions=GetDB, minimum_age=0):
                 if type(value) not in (int, float) or not 0 <= value <= maximum:
                     raise ValueError("Invalid carrier measurement")
                 result[field] = value
+    except asyncio.CancelledError:
+        cancelled = True
+        raise
     except TimeoutError, RuntimeError, ValueError, OSError:
         result = {"healthy": False, "status": "unavailable", "layer": "encrypted_carrier"}
     finally:

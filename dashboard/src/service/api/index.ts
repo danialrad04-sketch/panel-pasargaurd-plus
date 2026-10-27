@@ -1434,6 +1434,96 @@ export interface BulkUsersSetOwner {
   admin_username: string;
 }
 
+export type CarrierOptionsProfile = typeof CarrierOptionsProfile[keyof typeof CarrierOptionsProfile] | null;
+
+
+export const CarrierOptionsProfile = {
+  tcp: 'tcp',
+  ws: 'ws',
+  tls: 'tls',
+  wss: 'wss',
+  websocket: 'websocket',
+  kcp: 'kcp',
+  quic: 'quic',
+} as const;
+
+export interface CarrierOptions {
+  profile?: CarrierOptionsProfile;
+  /**
+     * @minimum 1024
+     * @maximum 65535
+     */
+  client_port?: number;
+  /**
+     * @minimum 1024
+     * @maximum 65535
+     */
+  exit_port?: number;
+  control_address?: string | null;
+  /**
+     * @minimum 1
+     * @maximum 64
+     */
+  pool?: number;
+  /**
+     * @minimum 5
+     * @maximum 300
+     */
+  keepalive?: number;
+  /**
+     * @minimum 1
+     * @maximum 60
+     */
+  retry?: number;
+  /**
+     * @minimum 1
+     * @maximum 60
+     */
+  dial_timeout?: number;
+  no_delay?: boolean;
+  mux?: boolean;
+  /**
+     * @minimum 1
+     * @maximum 64
+     */
+  mux_concurrency?: number;
+  /**
+     * @minimum 1
+     * @maximum 2
+     */
+  mux_version?: number;
+  /**
+     * @minimum 1024
+     * @maximum 65535
+     */
+  frame_size?: number;
+  /**
+     * @minimum 65536
+     * @maximum 16777216
+     */
+  receive_buffer?: number;
+  /**
+     * @minimum 4096
+     * @maximum 4194304
+     */
+  stream_buffer?: number;
+  /**
+     * @minimum 16
+     * @maximum 8192
+     */
+  channel_size?: number;
+  /**
+     * @minimum 5
+     * @maximum 300
+     */
+  heartbeat?: number;
+  /**
+     * @minimum 1500
+     * @maximum 65535
+     */
+  udp_buffer?: number;
+}
+
 export interface CatalogGroup {
   /**
      * @minLength 1
@@ -2954,6 +3044,9 @@ export type TunnelCreateTransport = typeof TunnelCreateTransport[keyof typeof Tu
 export const TunnelCreateTransport = {
   'shadowsocks-2022': 'shadowsocks-2022',
   paqet: 'paqet',
+  backhaul: 'backhaul',
+  gost: 'gost',
+  frp: 'frp',
 } as const;
 
 export interface TunnelCreate {
@@ -2978,6 +3071,8 @@ export interface TunnelCreate {
   health_enabled?: boolean;
   transport?: TunnelCreateTransport;
   paqet_options?: PaqetOptions | null;
+  carrier_options?: CarrierOptions | null;
+  carrier_key?: string | null;
   paqet_key?: string | null;
   /** @exclusiveMinimum 0 */
   source_node_id: number;
@@ -3024,6 +3119,9 @@ export type TunnelModifyTransport = typeof TunnelModifyTransport[keyof typeof Tu
 export const TunnelModifyTransport = {
   'shadowsocks-2022': 'shadowsocks-2022',
   paqet: 'paqet',
+  backhaul: 'backhaul',
+  gost: 'gost',
+  frp: 'frp',
 } as const;
 
 export interface TunnelModify {
@@ -3048,6 +3146,8 @@ export interface TunnelModify {
   health_enabled?: boolean | null;
   transport?: TunnelModifyTransport;
   paqet_options?: PaqetOptions | null;
+  carrier_options?: CarrierOptions | null;
+  carrier_key?: string | null;
   paqet_key?: string | null;
   /** @minimum 1 */
   expected_revision: number;
@@ -3099,9 +3199,14 @@ export type TunnelViewTransport = typeof TunnelViewTransport[keyof typeof Tunnel
 export const TunnelViewTransport = {
   'shadowsocks-2022': 'shadowsocks-2022',
   paqet: 'paqet',
+  backhaul: 'backhaul',
+  gost: 'gost',
+  frp: 'frp',
 } as const;
 
 export type TunnelViewPaqetOptions = { [key: string]: unknown } | null;
+
+export type TunnelViewCarrierOptions = { [key: string]: unknown } | null;
 
 export interface TunnelView {
   /**
@@ -3125,6 +3230,7 @@ export interface TunnelView {
   health_enabled?: boolean;
   transport?: TunnelViewTransport;
   paqet_options?: TunnelViewPaqetOptions;
+  carrier_options?: TunnelViewCarrierOptions;
   engine_id: string;
   id: number;
   source_node_id: number;
@@ -3604,6 +3710,11 @@ peer: string;
 };
 
 export type NativePaqetActionParams = {
+action: string;
+side: string;
+};
+
+export type NativeEngineActionParams = {
 action: string;
 side: string;
 };
@@ -13366,6 +13477,390 @@ export const useNativeFailoverRemove = <TError = ErrorType<HTTPValidationError>,
         TContext
       > => {
       return useMutation(getNativeFailoverRemoveMutationOptions(options), queryClient);
+    }
+
+export const getNativeEngineCatalogUrl = () => {
+
+
+
+
+  return `/api/tunnels/engines`
+}
+
+/**
+ * @summary Native Engine Catalog
+ */
+export const nativeEngineCatalog = async ( options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getNativeEngineCatalogUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getNativeEngineCatalogQueryKey = () => {
+    return [
+    `/api/tunnels/engines`
+    ] as const;
+    }
+
+
+export const getNativeEngineCatalogQueryOptions = <TData = Awaited<ReturnType<typeof nativeEngineCatalog>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeEngineCatalog>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getNativeEngineCatalogQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof nativeEngineCatalog>>> = ({ signal }) => nativeEngineCatalog({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof nativeEngineCatalog>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type NativeEngineCatalogQueryResult = NonNullable<Awaited<ReturnType<typeof nativeEngineCatalog>>>
+export type NativeEngineCatalogQueryError = ErrorType<unknown>
+
+
+export function useNativeEngineCatalog<TData = Awaited<ReturnType<typeof nativeEngineCatalog>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeEngineCatalog>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeEngineCatalog>>,
+          TError,
+          Awaited<ReturnType<typeof nativeEngineCatalog>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeEngineCatalog<TData = Awaited<ReturnType<typeof nativeEngineCatalog>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeEngineCatalog>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeEngineCatalog>>,
+          TError,
+          Awaited<ReturnType<typeof nativeEngineCatalog>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeEngineCatalog<TData = Awaited<ReturnType<typeof nativeEngineCatalog>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeEngineCatalog>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Native Engine Catalog
+ */
+
+export function useNativeEngineCatalog<TData = Awaited<ReturnType<typeof nativeEngineCatalog>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeEngineCatalog>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getNativeEngineCatalogQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getNativeNodeEnginesUrl = (nodeId: number,) => {
+
+
+
+
+  return `/api/tunnels/nodes/${nodeId}/engines`
+}
+
+/**
+ * @summary Native Node Engines
+ */
+export const nativeNodeEngines = async (nodeId: number, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getNativeNodeEnginesUrl(nodeId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getNativeNodeEnginesQueryKey = (nodeId: number,) => {
+    return [
+    `/api/tunnels/nodes/${nodeId}/engines`
+    ] as const;
+    }
+
+
+export const getNativeNodeEnginesQueryOptions = <TData = Awaited<ReturnType<typeof nativeNodeEngines>>, TError = ErrorType<HTTPValidationError>>(nodeId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeNodeEngines>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getNativeNodeEnginesQueryKey(nodeId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof nativeNodeEngines>>> = ({ signal }) => nativeNodeEngines(nodeId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: nodeId !== null && nodeId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof nativeNodeEngines>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type NativeNodeEnginesQueryResult = NonNullable<Awaited<ReturnType<typeof nativeNodeEngines>>>
+export type NativeNodeEnginesQueryError = ErrorType<HTTPValidationError>
+
+
+export function useNativeNodeEngines<TData = Awaited<ReturnType<typeof nativeNodeEngines>>, TError = ErrorType<HTTPValidationError>>(
+ nodeId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeNodeEngines>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeNodeEngines>>,
+          TError,
+          Awaited<ReturnType<typeof nativeNodeEngines>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeNodeEngines<TData = Awaited<ReturnType<typeof nativeNodeEngines>>, TError = ErrorType<HTTPValidationError>>(
+ nodeId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeNodeEngines>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeNodeEngines>>,
+          TError,
+          Awaited<ReturnType<typeof nativeNodeEngines>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeNodeEngines<TData = Awaited<ReturnType<typeof nativeNodeEngines>>, TError = ErrorType<HTTPValidationError>>(
+ nodeId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeNodeEngines>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Native Node Engines
+ */
+
+export function useNativeNodeEngines<TData = Awaited<ReturnType<typeof nativeNodeEngines>>, TError = ErrorType<HTTPValidationError>>(
+ nodeId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeNodeEngines>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getNativeNodeEnginesQueryOptions(nodeId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getNativeEngineStatusUrl = (tunnelId: number,) => {
+
+
+
+
+  return `/api/tunnels/${tunnelId}/engine/status`
+}
+
+/**
+ * @summary Native Engine Status
+ */
+export const nativeEngineStatus = async (tunnelId: number, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getNativeEngineStatusUrl(tunnelId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getNativeEngineStatusQueryKey = (tunnelId: number,) => {
+    return [
+    `/api/tunnels/${tunnelId}/engine/status`
+    ] as const;
+    }
+
+
+export const getNativeEngineStatusQueryOptions = <TData = Awaited<ReturnType<typeof nativeEngineStatus>>, TError = ErrorType<HTTPValidationError>>(tunnelId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeEngineStatus>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getNativeEngineStatusQueryKey(tunnelId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof nativeEngineStatus>>> = ({ signal }) => nativeEngineStatus(tunnelId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: tunnelId !== null && tunnelId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof nativeEngineStatus>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type NativeEngineStatusQueryResult = NonNullable<Awaited<ReturnType<typeof nativeEngineStatus>>>
+export type NativeEngineStatusQueryError = ErrorType<HTTPValidationError>
+
+
+export function useNativeEngineStatus<TData = Awaited<ReturnType<typeof nativeEngineStatus>>, TError = ErrorType<HTTPValidationError>>(
+ tunnelId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeEngineStatus>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeEngineStatus>>,
+          TError,
+          Awaited<ReturnType<typeof nativeEngineStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeEngineStatus<TData = Awaited<ReturnType<typeof nativeEngineStatus>>, TError = ErrorType<HTTPValidationError>>(
+ tunnelId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeEngineStatus>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeEngineStatus>>,
+          TError,
+          Awaited<ReturnType<typeof nativeEngineStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeEngineStatus<TData = Awaited<ReturnType<typeof nativeEngineStatus>>, TError = ErrorType<HTTPValidationError>>(
+ tunnelId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeEngineStatus>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Native Engine Status
+ */
+
+export function useNativeEngineStatus<TData = Awaited<ReturnType<typeof nativeEngineStatus>>, TError = ErrorType<HTTPValidationError>>(
+ tunnelId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeEngineStatus>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getNativeEngineStatusQueryOptions(tunnelId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getNativeEngineActionUrl = (tunnelId: number,
+    params: NativeEngineActionParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/tunnels/${tunnelId}/engine/action?${stringifiedParams}` : `/api/tunnels/${tunnelId}/engine/action`
+}
+
+/**
+ * @summary Native Engine Action
+ */
+export const nativeEngineAction = async (tunnelId: number,
+    tunnelRevision: TunnelRevision,
+    params: NativeEngineActionParams, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getNativeEngineActionUrl(tunnelId,params),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tunnelRevision)
+  }
+);}
+
+
+
+
+
+export const getNativeEngineActionMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nativeEngineAction>>, TError,{tunnelId: number;data: BodyType<TunnelRevision>;params: NativeEngineActionParams}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof nativeEngineAction>>, TError,{tunnelId: number;data: BodyType<TunnelRevision>;params: NativeEngineActionParams}, TContext> => {
+
+const mutationKey = ['nativeEngineAction'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof nativeEngineAction>>, {tunnelId: number;data: BodyType<TunnelRevision>;params: NativeEngineActionParams}> = (props) => {
+          const {tunnelId,data,params} = props ?? {};
+
+          return  nativeEngineAction(tunnelId,data,params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type NativeEngineActionMutationResult = NonNullable<Awaited<ReturnType<typeof nativeEngineAction>>>
+    export type NativeEngineActionMutationBody = BodyType<TunnelRevision>
+    export type NativeEngineActionMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Native Engine Action
+ */
+export const useNativeEngineAction = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nativeEngineAction>>, TError,{tunnelId: number;data: BodyType<TunnelRevision>;params: NativeEngineActionParams}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof nativeEngineAction>>,
+        TError,
+        {tunnelId: number;data: BodyType<TunnelRevision>;params: NativeEngineActionParams},
+        TContext
+      > => {
+      return useMutation(getNativeEngineActionMutationOptions(options), queryClient);
     }
 
 export const getGetSettingsUrl = () => {

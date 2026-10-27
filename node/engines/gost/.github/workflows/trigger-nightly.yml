@@ -1,0 +1,75 @@
+name: Trigger nightly build
+
+on:
+  schedule:
+    # * is a special character in YAML, so you have to quote this string
+    - cron:  '00 15 * * *'
+  workflow_dispatch:
+
+# Only one nightly run at a time; a new run cancels a stale one.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  check_date:
+    runs-on: ubuntu-latest
+    name: Check latest commit
+    outputs:
+      should_run: ${{ steps.should_run.outputs.should_run }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: print latest_commit
+        run: echo ${{ github.sha }}
+      - id: should_run
+        name: Skip if no commit in the last 24 hours
+        if: ${{ github.event_name == 'schedule' }}
+        run: |
+          if [ "$(git rev-list --count --after='24 hours' ${{ github.sha }})" -eq 0 ]; then
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          fi
+
+  trigger-nightly:
+    needs: check_date
+    if: ${{ needs.check_date.outputs.should_run != 'false' }}
+    name: Push tag for nightly build
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: 'Checkout'
+        uses: actions/checkout@v4
+        with:
+          # Fine-grained PAT: "Contents: Read and write" on go-gost/gost.
+          # Classic PAT equivalent: "repo" scope only (admin:org NOT required).
+          # Stored as repository secret NIGHTLY_BUILD_GH_TOKEN.
+          token: ${{ secrets.NIGHTLY_BUILD_GH_TOKEN }}
+          fetch-depth: 0
+      -
+        name: 'Push new tag'
+        run: |
+          git config user.name "${GITHUB_ACTOR}"
+          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+
+          # A previous release was created using a lightweight tag
+          # git describe by default includes only annotated tags
+          # git describe --tags includes lightweight tags as well
+          DESCRIBE=`git tag -l --sort=-v:refname | grep -v nightly | head -n 1`
+          MAJOR_VERSION=`echo $DESCRIBE | awk '{split($0,a,"."); print a[1]}'`
+          MINOR_VERSION=`echo $DESCRIBE | awk '{split($0,a,"."); print a[2]}'`
+          PATCH_VERSION=`echo $DESCRIBE | awk '{split($0,a,"."); print a[3]}'`
+          PATCH_VERSION="$((${PATCH_VERSION} + 1))"
+          TAG="${MAJOR_VERSION}.${MINOR_VERSION}.${PATCH_VERSION}-nightly.$(date +'%Y%m%d')"
+          git tag -a $TAG -m "$TAG: nightly build"
+          git push origin $TAG
+      - name: 'Clean up nightly releases'
+        env:
+          # Same fine-grained PAT as above (Contents: Read and write).
+          GH_TOKEN: ${{ secrets.NIGHTLY_BUILD_GH_TOKEN }}
+        run: |
+          # Keep the 2 most recent nightly releases; delete the rest and their tags.
+          # Replaces the archived dev-drprasad/delete-older-releases action.
+          gh release list --json tagName,createdAt --limit 100 \
+            --jq '[.[] | select(.tagName | test("nightly"))] | sort_by(.createdAt) | reverse | .[2:] | .[].tagName' \
+            | while read -r tag; do
+                gh release delete "$tag" --yes --cleanup-tag || true
+              done
