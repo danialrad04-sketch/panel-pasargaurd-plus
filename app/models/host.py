@@ -817,6 +817,7 @@ class SubscriptionTemplates(BaseModel):
 
 
 class BaseHost(BaseModel):
+    native_tunnel_id: int | None = Field(default=None, gt=0)
     id: int | None = Field(default=None)
     remark: str
     address: set[str] = Field(default_factory=set)

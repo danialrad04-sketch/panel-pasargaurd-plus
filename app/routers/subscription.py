@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Header, Request, Response
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 from app.db import AsyncSession, get_db
@@ -85,6 +86,16 @@ async def get_sub_user_usage(
 ):
     """Fetches the usage statistics for the user within a specified date range."""
     return await subscription_operator.get_user_usage(db, token=token, query=query)
+
+
+@router.get("/{token}/dns")
+async def user_dns_info(token: str, db: AsyncSession = Depends(get_db)):
+    """DNS service metadata is authorized by the same subscription identity."""
+    from app.operation.dns import portal_metadata
+
+    user = await subscription_operator.get_validated_sub(db, token)
+    result = await portal_metadata(db, user.id)
+    return JSONResponse(content=jsonable_encoder(result), headers={"Cache-Control": "no-store"})
 
 
 @router.get("/{token}/{client_type}")

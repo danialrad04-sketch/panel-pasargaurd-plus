@@ -923,7 +923,8 @@
       "nodes": "Узлы",
       "coreHosts": "Ядра и хосты",
       "groupsTemplates": "Группы и шаблоны",
-      "settings": "Настройки"
+      "settings": "Настройки",
+      "dns": "DNS services"
     },
     "actions": {
       "common": {
@@ -970,6 +971,9 @@
         "update_core": "Обновить ядро узла",
         "stats": "Просмотр статистики узлов",
         "logs": "Просмотр логов узлов"
+      },
+      "dns": {
+        "rotate_token": "Manage credentials"
       }
     },
     "resources": {
@@ -985,7 +989,8 @@
       "client_templates": "Шаблоны клиентов",
       "settings": "Настройки",
       "system": "Система",
-      "hwids": "HWID"
+      "hwids": "HWID",
+      "dns": "DNS"
     },
     "noAvailablePermissions": "Нет доступных разрешений.",
     "scopedBadge": "С областью",
@@ -2174,7 +2179,8 @@
     "updating": "Обновление...",
     "updateAvailable": "Доступно обновление",
     "prerelease": "Предварительная версия",
-    "loadingReleases": "Загрузка релизов..."
+    "loadingReleases": "Загрузка релизов...",
+    "tunnelApiPort": "Порт API туннеля / Paqet"
   },
   "theme": {
     "title": "Тема",
@@ -2289,7 +2295,8 @@
     "pink": "Розовый",
     "previewBadge": "Живой",
     "previewCard": "Дополнительная",
-    "previewMuted": "Использование"
+    "previewMuted": "Использование",
+    "toggle": "Change theme"
   },
   "coreConfigModal": {
     "addConfig": "Добавить конфигурацию ядра",
@@ -3935,6 +3942,13 @@
     "updateBannerMobile": "Обновление: {{latest}}",
     "updateCommandLabel": "Выполните через SSH:",
     "closeBanner": "Закрыть уведомление об обновлении",
-    "needsUpdate": "Требуется обновление"
+    "needsUpdate": "Требуется обновление",
+    "forkUpdateGuide": "Follow this fork’s upgrade guide on the release page."
+  },
+  "dns": {
+    "title": "DNS & domain policies"
+  },
+  "tunnels": {
+    "title": "Туннели узлов"
   }
 }

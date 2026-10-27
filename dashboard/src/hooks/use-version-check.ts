@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { REPO_URL } from '@/constants/Project'
 
 interface CachedRelease {
   version: string
@@ -18,8 +19,8 @@ interface UseVersionCheckOptions {
   enabled?: boolean
 }
 
-const GITHUB_API_URL = 'https://api.github.com/repos/PasarGuard/panel/releases/latest'
-const CACHE_KEY = 'pg_release'
+const GITHUB_API_URL = `https://api.github.com/repos/${REPO_URL.replace('https://github.com/', '')}/releases/latest`
+const CACHE_KEY = 'pg_plus_release'
 const CACHE_DURATION = 10 * 60 * 1000
 
 function compareVersions(current: string, latest: string): number {

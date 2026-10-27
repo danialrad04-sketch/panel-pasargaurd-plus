@@ -39,7 +39,7 @@ def make_sub_config_key(
     else:
         proxy_key = ""
     return (
-        _generation if config_format == "wireguard" else 0,
+        _generation,
         getattr(user, "id", None),
         config_format,
         bool(as_base64),

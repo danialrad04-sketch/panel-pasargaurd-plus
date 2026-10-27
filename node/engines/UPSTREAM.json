@@ -1,0 +1,30 @@
+{
+  "backhaul": {
+    "url": "https://github.com/Musixal/Backhaul",
+    "tag": "v0.7.2",
+    "commit": "df7966f8f725837a680ea7b90bd37ea52666c277",
+    "license": "AGPL-3.0",
+    "archive_sha256": "0a06947e6c61b80cfa9db81d2b86d77e678f298791ce038fb95003056a7b15bd",
+    "source_files": 46
+  },
+  "gost": {
+    "url": "https://github.com/go-gost/gost",
+    "tag": "v3.3.1",
+    "commit": "84dd70f9f65e6cb318268204887b2b8e78b93937",
+    "license": "MIT",
+    "archive_sha256": "d1e843b13ccc4197c8ed3e5851c39819855b6fc8b93178bd8b3aecc6e24c5393",
+    "source_files": 187
+  },
+  "frp": {
+    "url": "https://github.com/fatedier/frp",
+    "tag": "v0.71.1",
+    "commit": "d8cf1800dc1abd7fda1828cab105d7a6b5a50eb1",
+    "license": "Apache-2.0",
+    "archive_sha256": "2af4621eaac35941aed35d3aa3d5d3f07e77a1876dc4dc09948e0eacebd90b2e",
+    "source_files": 532,
+    "patches": [
+      "pkg/config/v1/client.go: honor standard environment proxy and NO_PROXY for native node connections",
+      "pkg/config/v1/client_test.go: regression coverage for NO_PROXY and explicit proxy override"
+    ]
+  }
+}

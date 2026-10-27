@@ -1,3 +1,7 @@
+# Building this fork
+
+Use the [native fork installation and testing guide (Persian)](docs/TESTING-START.fa.md) to build the panel and source-built Paqet nodes. The upstream installer does not install this fork's features.
+
 <p align="center">
   <a href="https://github.com/PasarGuard/panel" target="_blank" rel="noopener noreferrer">
     <picture>
@@ -237,3 +241,9 @@ If PasarGuard helps you, consider supporting its development:
   Made with ❤️ for Internet freedom
 </p>
 
+
+## PasarGuard Plus native upgrades
+
+Native DNS accounts, policy rules, per-user query budgets, DoH and an optional UDP/TCP/DoT worker use the existing PasarGuard users, database and RBAC. Includes a redesigned subscription page and native node tunnels: SS2022 TCP/UDP plus source-built Paqet with a complete Linux configuration editor, node supervisor and diagnostics. No standalone Donino panel or controller is required. See the [native upgrade guide](docs/DONINO-INTEGRATION.fa.md) [Paqet node build and setup](docs/NATIVE-PAQET.fa.md), [tunnel ingress subscription hosts](docs/TUNNEL-SUBSCRIPTION-HOSTS.fa.md), and [feature migration status](docs/NATIVE-UPGRADE-PLAN.fa.md).
+
+[Native node TCP/UDP tunnels / تونل بومی نودها](docs/NATIVE-TUNNELS.fa.md)

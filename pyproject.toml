@@ -42,6 +42,7 @@ dependencies = [
     "pasarguard-node-bridge>=0.9.4",
     "nats-py>=2.16.0",
     "webauthn>=3.0.1",
+    "dnspython==2.8.0",
 ]
 
 [tool.ruff]

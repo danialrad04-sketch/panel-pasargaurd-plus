@@ -1,3 +1,7 @@
+# نصب همین فورک
+
+برای ساخت پنل و نود بومی Paqet و آزمون سناریوی ایران ← آلمان، [راهنمای نصب و تست](docs/TESTING-START.fa.md) را ببینید. اسکریپت نصب upstream قابلیت‌های این فورک را نصب نمی‌کند.
+
 <p align="center">
   <a href="https://github.com/PasarGuard/panel" target="_blank" rel="noopener noreferrer">
     <picture>
@@ -241,3 +245,9 @@ pasarguard --help
 <p align="center">
   Made with ❤️ for Internet freedom
 </p>
+
+## افزونه‌های PasarGuard Plus
+
+خدمات DNS نیتیو با کاربران، سهمیه و مجوزهای پاسارگارد و طراحی جدید صفحه ساب: [راهنمای ادغام و محدوده امکانات](docs/DONINO-INTEGRATION.fa.md).
+
+[Native node TCP/UDP tunnels / تونل بومی نودها](docs/NATIVE-TUNNELS.fa.md)

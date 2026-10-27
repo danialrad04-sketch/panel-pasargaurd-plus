@@ -127,6 +127,7 @@ async def _prepare_subscription_inbound_data(
     host: BaseHost,
     down_settings: SubscriptionInboundData | None = None,
     omit_download_settings: bool = False,
+    inbound_config: dict | None = None,
 ) -> SubscriptionInboundData:
     """Merge host overrides with inbound defaults for subscription generation.
 
@@ -144,7 +145,8 @@ async def _prepare_subscription_inbound_data(
         ValueError: A port cannot be parsed or merged settings fail model validation.
     """
     # Get inbound configuration
-    inbound_config = await core_manager.get_inbound_by_tag(host.inbound_tag)
+    if inbound_config is None:
+        inbound_config = await core_manager.get_inbound_by_tag(host.inbound_tag)
     protocol = inbound_config["protocol"]
 
     ts = host.transport_settings
@@ -156,7 +158,9 @@ async def _prepare_subscription_inbound_data(
     masque_remote_dns = []
     if protocol == "masque":
         host_dns = ts.masque_settings.remote_dns if ts and ts.masque_settings else None
-        masque_remote_dns = [dns.strip() for dns in _string_list(host_dns or inbound_config.get("remote_dns")) if dns.strip()]
+        masque_remote_dns = [
+            dns.strip() for dns in _string_list(host_dns or inbound_config.get("remote_dns")) if dns.strip()
+        ]
 
     # The host FinalMask model only accepts client mask types; the inbound finalmask is the server's config
     final_mask_settings = (
@@ -550,11 +554,13 @@ class HostManager:
     # what unchanged hosts prepare to, so NATS installs rebuild instead of serving the old data.
     # v3: the inbound finalmask no longer carries server-only "filter" layers ("state_v2" is taken by PR #1020).
     # v4: a disabled, deleted or unserved xHTTP download host is no longer embedded in its parent.
-    STATE_CACHE_KEY = "state_v4"
+    # v5: native tunnel ingress hosts follow applied revisions and source-core settings.
+    STATE_CACHE_KEY = "state_v5"
     KV_BUCKET_NAME = "host_manager_state"
 
     def __init__(self):
         self._hosts = {}
+        self._event_lock = Lock()
         self._lock = Lock()
         self._nats_enabled = is_nats_enabled()
         self._multi_worker = is_multi_worker()
@@ -615,7 +621,7 @@ class HostManager:
                     else:
                         converted_state[host_id] = host_data
                 except ValueError, TypeError:
-                    self._logger.warning(f"Failed to convert host data for host ID {host_id_str}: {host_data}")
+                    self._logger.warning("Invalid cached host data for host ID %s", host_id_str)
                     continue
 
             async with self._lock:
@@ -635,9 +641,23 @@ class HostManager:
             self._logger.debug("HostManager state reloaded from JetStream KV cache")
 
     async def _handle_host_message(self, data: dict):
+        async with self._event_lock:
+            await self._handle_host_message_serial(data)
+
+    async def _handle_host_message_serial(self, data: dict):
         """Handle incoming host messages from router."""
         action = data.get("action")
-        if action == "remove":
+        if action == "reconnect_db":
+            async with GetDB() as db:
+                await self.setup_local(db)
+        elif action == "tunnel":
+            from app.tunnel.hosts import refresh_tunnel_hosts
+
+            ids = data.get("tunnel_ids", [])
+            if isinstance(ids, list) and ids and len(ids) <= 16 and all(type(i) is int and i > 0 for i in ids):
+                async with GetDB() as db:
+                    await refresh_tunnel_hosts(db, ids, local=True)
+        elif action == "remove":
             host_id = data.get("host_id")
             if host_id:
                 await self._remove_host_local(host_id)
@@ -664,14 +684,14 @@ class HostManager:
         if self._nats_enabled:
             self._nc, self._js, self._kv = await setup_nats_kv(self.KV_BUCKET_NAME)
 
-        if await self._load_state_from_cache():
-            return
-
-        db_hosts = await get_hosts(db)
-        await self.add_hosts(db, db_hosts)
+        # DB is authoritative at process startup, including after restoring a
+        # backup while a newer JetStream snapshot survived independently.
+        await self.setup_local(db)
 
     async def setup_local(self, db: AsyncSession):
         db_hosts = await get_hosts(db)
+        async with self._lock:
+            self._hosts = {}
         await self._add_hosts_local(db, db_hosts)
 
     async def _reset_cache(self):
@@ -683,6 +703,18 @@ class HostManager:
     ) -> tuple[int, SubscriptionInboundData] | None:
         if host.is_disabled or (host.inbound_tag not in inbounds_list):
             return None
+
+        bound_inbound = None
+        if host.native_tunnel_id:
+            from app.tunnel.hosts import resolve_bound_inbound
+
+            try:
+                bound_inbound = await resolve_bound_inbound(db, host)
+            except Exception:
+                self._logger.error(f'Skipping tunnel host "{host.id}": source configuration unavailable')
+                return None
+            if bound_inbound is None:
+                return None
 
         # Handle downstream for xhttp. Without a usable (existing, enabled, served) download host,
         # clients use this host both ways: the inbound's own downloadSettings only apply to hosts without one.
@@ -703,7 +735,16 @@ class HostManager:
             elif not downstream.is_disabled:
                 try:
                     downstream_base = BaseHost.model_validate(downstream)
-                    downstream_data = await _prepare_subscription_inbound_data(downstream_base)
+                    if downstream_base.native_tunnel_id:
+                        from app.tunnel.hosts import resolve_bound_inbound
+
+                        downstream_inbound = await resolve_bound_inbound(db, downstream_base)
+                        if downstream_inbound is not None:
+                            downstream_data = await _prepare_subscription_inbound_data(
+                                downstream_base, inbound_config=downstream_inbound
+                            )
+                    else:
+                        downstream_data = await _prepare_subscription_inbound_data(downstream_base)
                 except Exception as exc:
                     self._logger.warning(
                         f'Download host "{ds_host}" of host "{host.id}" is invalid, serving the host without it: {exc!r}'
@@ -711,7 +752,10 @@ class HostManager:
 
         try:
             subscription_data = await _prepare_subscription_inbound_data(
-                host, downstream_data, omit_download_settings=has_download_host and downstream_data is None
+                host,
+                downstream_data,
+                omit_download_settings=has_download_host and downstream_data is None,
+                **({"inbound_config": bound_inbound} if bound_inbound is not None else {}),
             )
         except Exception as exc:
             # One broken host must not abort a full refresh or the startup rebuild
@@ -759,6 +803,7 @@ class HostManager:
             for host_id in hosts_to_remove:
                 self._hosts.pop(host_id, None)
 
+        await self._reset_cache()
         await self._persist_state()
 
     async def _add_hosts_nats(self, db: AsyncSession, hosts: list[BaseHost]):

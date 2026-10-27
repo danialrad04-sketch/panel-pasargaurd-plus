@@ -35,6 +35,7 @@ class CoreManager:
     def __init__(self):
         self._cores: dict[int, AbstractCore] = {}
         self._lock = Lock()
+        self._event_lock = Lock()
         self._inbounds: list[str] = []
         self._inbounds_by_tag = {}
         self._nats_enabled = is_nats_enabled()
@@ -80,7 +81,7 @@ class CoreManager:
             # Deserialize state using JSON
             try:
                 cached_state = json.loads(entry.value.decode("utf-8"))
-            except (json.JSONDecodeError, UnicodeDecodeError):
+            except json.JSONDecodeError, UnicodeDecodeError:
                 self._logger.warning("Failed to decode CoreManager state as JSON, ignoring...")
                 return False
 
@@ -160,9 +161,16 @@ class CoreManager:
         await self._update_core_local(_PayloadCore(core_id, config, type, exclude_tags, fallback_tags))
 
     async def _handle_core_message(self, data: dict):
+        async with self._event_lock:
+            await self._handle_core_message_serial(data)
+
+    async def _handle_core_message_serial(self, data: dict):
         """Handle incoming core messages from router."""
         action = data.get("action")
-        if action == "remove":
+        if action == "reconnect_db":
+            async with GetDB() as db:
+                await self.reload_from_database(db)
+        elif action == "remove":
             core_id = data.get("core_id")
             if core_id:
                 await self._remove_core_local(int(core_id))
@@ -201,10 +209,10 @@ class CoreManager:
         if self._nats_enabled:
             self._nc, self._js, self._kv = await setup_nats_kv(self.KV_BUCKET_NAME)
 
-        cached_loaded = await self._load_state_from_cache()
-        if cached_loaded:
-            return
+        # A cache may belong to a newer DB snapshot after disaster recovery.
+        await self.reload_from_database(db)
 
+    async def reload_from_database(self, db):
         core_configs, _ = await get_core_configs(db, CoreListQuery())
         cores: dict[int, AbstractCore] = {}
         for config in core_configs:

@@ -1,0 +1,9 @@
+{
+  "original_repository": "https://github.com/mehdi047/doctor-dns",
+  "fork_repository": "https://github.com/danialrad04-sketch/doctor-dns",
+  "commit": "a2b2ff843cb1fc8f0a5712a88149f5c379198ff1",
+  "file": "domains/services.json",
+  "sha256": "7ce0cae493437ec23e0ff9a08f7a92a862c4a8ffffe2a3f8f890293179ca3917",
+  "license": "MIT",
+  "acceptance": "Catalog data only; game/ISP scenarios have not been accepted."
+}

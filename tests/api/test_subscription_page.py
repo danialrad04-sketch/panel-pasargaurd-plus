@@ -80,7 +80,8 @@ def test_stored_markup_address_is_left_out_of_subscriptions(access_token):
         assert page.status_code == status.HTTP_200_OK
         assert "good.example.com" in page.text
         assert "window.__xss" not in page.text
-        assert 'onclick="copyLink(this.dataset.link, this)"' in page.text
+        assert 'class="copy-button"' in page.text
+        assert 'data-link="' in page.text
         assert "copyLink('" not in page.text
 
         links = client.get(f"{user['subscription_url']}/links")

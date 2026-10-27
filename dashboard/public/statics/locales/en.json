@@ -937,7 +937,8 @@
       "nodes": "Nodes",
       "coreHosts": "Core and hosts",
       "groupsTemplates": "Groups and templates",
-      "settings": "Settings"
+      "settings": "Settings",
+      "dns": "DNS services"
     },
     "actions": {
       "common": {
@@ -984,6 +985,9 @@
         "update_core": "Update node core",
         "stats": "View node statistics",
         "logs": "View node logs"
+      },
+      "dns": {
+        "rotate_token": "Manage credentials"
       }
     },
     "resources": {
@@ -999,7 +1003,8 @@
       "client_templates": "Client templates",
       "settings": "Settings",
       "system": "System",
-      "hwids": "HWIDs"
+      "hwids": "HWIDs",
+      "dns": "DNS"
     },
     "noAvailablePermissions": "No permissions available.",
     "scopedBadge": "Scoped",
@@ -2289,7 +2294,14 @@
     "updating": "Updating...",
     "updateAvailable": "Update Available",
     "prerelease": "Pre-release",
-    "loadingReleases": "Loading releases..."
+    "loadingReleases": "Loading releases...",
+    "tunnelApiPort": "Native tunnel / Paqet API port",
+    "importRegistration": "Import native node registration",
+    "registrationHelp": "Select the private node-registration.json created on this node. Review all fields before saving.",
+    "registrationLoaded": "Connection loaded. Review the core and save to register the node.",
+    "registrationInvalid": "Invalid node registration file (maximum 64 KB).",
+    "healthEchoPort": "Internal carrier health port",
+    "healthEchoHelp": "Node loopback only. Match the node service setting; do not expose this port publicly."
   },
   "theme": {
     "title": "Theme",
@@ -2404,7 +2416,8 @@
     "pink": "Pink",
     "previewBadge": "Live",
     "previewCard": "Secondary",
-    "previewMuted": "Usage"
+    "previewMuted": "Usage",
+    "toggle": "Change theme"
   },
   "coreConfigModal": {
     "addConfig": "Create Core Configuration",
@@ -3981,6 +3994,16 @@
     "updateBannerMobile": "Update: {{latest}}",
     "updateCommandLabel": "Connect via SSH and run:",
     "closeBanner": "Close update notification",
-    "needsUpdate": "Needs update"
+    "needsUpdate": "Needs update",
+    "forkUpdateGuide": "Follow this fork’s upgrade guide on the release page."
+  },
+  "dns": {
+    "title": "DNS & domain policies"
+  },
+  "tunnels": {
+    "title": "Node tunnels"
+  },
+  "smartdns": {
+    "title": "SmartDNS gateways"
   }
 }

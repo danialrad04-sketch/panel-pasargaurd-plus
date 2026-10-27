@@ -1,0 +1,53 @@
+# Compiled Object files, Static and Dynamic libs (Shared Objects)
+*.o
+*.a
+*.so
+
+# Folders
+_obj
+_test
+release
+debian
+bin
+.vscode
+
+# Architecture specific extensions/prefixes
+*.[568vq]
+[568vq].out
+
+*.cgo1.go
+*.cgo2.c
+_cgo_defun.c
+_cgo_gotypes.go
+_cgo_export.*
+
+_testmain.go
+
+*.swp
+*.swo
+
+*.exe
+*.test
+
+*.bak
+
+cmd/gost/gost
+/gost
+snap
+
+*.pem
+/*.yaml
+*.txt
+dist/
+
+# Build artifacts
+.build/
+
+# Codegraph index (generated, multi-hundred-MB db)
+.codegraph/
+
+# Python cache
+__pycache__/
+
+# Claude session config
+.claude/

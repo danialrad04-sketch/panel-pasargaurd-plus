@@ -1,0 +1,146 @@
+<script>
+const $ = (id) => document.getElementById(id);
+let toastTimer;
+function notify(message) {
+  $("toast").textContent = message;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => ($("toast").textContent = ""), 3500);
+}
+const themeButton = $("theme-toggle");
+function syncTheme() {
+  themeButton.setAttribute(
+    "aria-pressed",
+    String(document.documentElement.dataset.theme === "dark"),
+  );
+}
+syncTheme();
+themeButton.addEventListener("click", () => {
+  const next =
+    document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  try {
+    localStorage.setItem("pasarguard-sub-theme", next);
+  } catch {}
+  syncTheme();
+});
+async function copy(value) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(value);
+    } else {
+      const input = document.createElement("textarea");
+      input.value = value;
+      input.style.position = "fixed";
+      input.style.opacity = "0";
+      document.body.append(input);
+      try {
+        input.select();
+        if (!document.execCommand("copy")) throw new Error("copy");
+      } finally {
+        input.remove();
+      }
+    }
+    notify("لینک با موفقیت کپی شد.");
+  } catch {
+    notify("کپی انجام نشد؛ لینک را انتخاب و دستی کپی کنید.");
+  }
+}
+document
+  .querySelectorAll(".copy-button")
+  .forEach((button) =>
+    button.addEventListener("click", () => copy(button.dataset.link)),
+  );
+$("copy-all")?.addEventListener("click", () =>
+  copy(
+    Array.from(document.querySelectorAll("#connections .link-input"))
+      .map((input) => input.value)
+      .join("\n"),
+  ),
+);
+document.querySelectorAll("#connections .connection").forEach((row) => {
+  const value = row.querySelector("input").value;
+  let name = value.split("#").slice(1).join("#");
+  try {
+    name = decodeURIComponent(name);
+  } catch {}
+  if (name) row.querySelector(".connection-name").textContent = name;
+});
+$("connection-search")?.addEventListener("input", (event) => {
+  const search = event.target.value.toLocaleLowerCase();
+  let visible = 0;
+  document.querySelectorAll("#connections .connection").forEach((row) => {
+    row.hidden = !(row.textContent + " " + row.querySelector("input").value)
+      .toLocaleLowerCase()
+      .includes(search);
+    if (!row.hidden) visible++;
+  });
+  $("no-results").hidden = visible > 0;
+});
+const dnsInput = $("dns-url");
+if (dnsInput) {
+  dnsInput.value = new URL(dnsInput.value, location.origin).href;
+  $("copy-dns").addEventListener("click", () => copy(dnsInput.value));
+}
+const dialog = $("qr-dialog");
+document.querySelectorAll(".qr-button").forEach((button) =>
+  button.addEventListener("click", () => {
+    const container = $("qrCodeContainer");
+    container.replaceChildren();
+    try {
+      new QRCode(container, {
+        text: button.dataset.link,
+        width: 240,
+        height: 240,
+        correctLevel: QRCode.CorrectLevel.L,
+      });
+      dialog.showModal();
+    } catch {
+      notify(
+        "این لینک برای نمایش QR بیش از حد طولانی است؛ از کپی لینک استفاده کنید.",
+      );
+    }
+  }),
+);
+dialog
+  .querySelector(".dialog-close")
+  .addEventListener("click", () => dialog.close());
+dialog.addEventListener("click", (event) => {
+  if (event.target === dialog) {
+    const r = dialog.getBoundingClientRect();
+    if (
+      event.clientX < r.left ||
+      event.clientX > r.right ||
+      event.clientY < r.top ||
+      event.clientY > r.bottom
+    )
+      dialog.close();
+  }
+});
+document.querySelectorAll(".import-button").forEach((button) =>
+  button.addEventListener("click", () => {
+    const url = button.dataset.url;
+    try {
+      const parsed = new URL(url);
+      if (
+        [
+          "javascript:",
+          "data:",
+          "vbscript:",
+          "file:",
+          "blob:",
+          "about:",
+          "filesystem:",
+          "view-source:",
+        ].includes(parsed.protocol) ||
+        !/^[a-z][a-z0-9+.-]*:$/.test(parsed.protocol)
+      )
+        throw new Error("scheme");
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch {
+      notify(
+        "این برنامه از افزودن مستقیم پشتیبانی نمی‌کند؛ لینک را دستی وارد کنید.",
+      );
+    }
+  }),
+);
+</script>

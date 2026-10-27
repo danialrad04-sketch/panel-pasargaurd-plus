@@ -172,3 +172,14 @@ deadlock-analysis.md
 # AI
 .AGENT
 graphify-out
+# Private native node identities and runtime journals
+node/.env
+node/node-registration*.json
+node/certs/
+**/link-*.state
+
+# Private native gateway journals and encrypted operator backups
+**/gateway.json
+**/.gateway-*
+*.pgb
+*.pgb.verified.json
