@@ -330,3 +330,11 @@ class NativeMaintenanceSettings(EnvSettings):
 
 
 native_maintenance_settings = NativeMaintenanceSettings()
+
+
+class NativeProvisionSettings(EnvSettings):
+    bundle_directory: str = Field(default="/code/native-bundles", validation_alias="NATIVE_BUNDLE_DIRECTORY")
+    key_file: str = Field(default="/var/lib/pasarguard/provisioning.key", validation_alias="NATIVE_PROVISION_KEY_FILE")
+
+
+native_provision_settings = NativeProvisionSettings()

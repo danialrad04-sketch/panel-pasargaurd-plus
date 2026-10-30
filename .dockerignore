@@ -48,7 +48,21 @@ graphify-out
 # Build dashboard assets from this fork; exclude local output and node sources.
 dashboard/node_modules
 dashboard/build
-node/
 *.db
 *.db-wal
 *.db-shm
+
+# Native source is required only by the bundle build stage. Never copy node identities.
+node/.env*
+node/certs/
+node/node-registration*.json
+node/**/*.pem
+node/**/*.key
+node/**/link-*.state
+node/**/gateway.json
+
+!node/LICENSE
+!node/paqet/LICENSE
+!node/engines/backhaul/LICENSE
+!node/engines/gost/LICENSE
+!node/engines/frp/LICENSE

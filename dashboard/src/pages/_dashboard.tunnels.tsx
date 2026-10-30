@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import CarrierEditor from './carrier-editor'
+import NativeProvisioning from './native-provisioning'
 import TunnelEngineCore from './tunnel-engine-core'
 import PaqetEditor, { editablePaqet } from './paqet-editor'
 import TunnelPreflight from './tunnel-preflight'
@@ -474,6 +475,7 @@ export default function NativeTunnels() {
           </pre>
         </DialogContent>
       </Dialog>
+      <NativeProvisioning nodes={nodes} fa={fa} />
       <TunnelEngineCore nodes={nodes} fa={fa} />
       <NetworkOperations items={items} nodes={nodes} fa={fa} />
       <Dialog
@@ -500,26 +502,35 @@ export default function NativeTunnels() {
             onSubmit={event => {
               event.preventDefault()
               const form = new FormData(event.currentTarget)
+              const automatic = ((event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null)?.value === 'automatic'
               mutate(async () => {
                 const body = {
                   name: String(form.get('name')),
                   inbound_tags: tags,
                   domains: domains.split(/[\s,]+/).filter(Boolean),
                   port: Number(form.get('port')),
-                  enabled: form.get('enabled') === 'on',
-                  health_enabled: form.get('health_enabled') === 'on',
+                  enabled: automatic || form.get('enabled') === 'on',
+                  health_enabled: automatic || form.get('health_enabled') === 'on',
                   transport,
                   paqet_options: transport === 'paqet' ? JSON.parse(paqetText) : null,
                   carrier_options: companion(transport) ? JSON.parse(carrierText) : null,
                   ...(form.get('carrier_key') ? { carrier_key: String(form.get('carrier_key')) } : {}),
                   ...(form.get('paqet_key') ? { paqet_key: String(form.get('paqet_key')) } : {}),
                 }
-                await fetcher(editing === 'new' ? '/api/tunnels' : `/api/tunnels/${editing?.id}`, {
+                const saved = await fetcher<TunnelView>(editing === 'new' ? '/api/tunnels' : `/api/tunnels/${editing?.id}`, {
                   method: editing === 'new' ? 'POST' : 'PUT',
                   body: JSON.stringify(editing === 'new' ? { ...body, source_node_id: Number(source), exit_node_id: Number(exit) } : { ...body, expected_revision: editing?.revision }),
                 })
+                if (automatic) {
+                  await fetcher(`/api/provision/activate/${saved.id}`, { method: 'POST', body: { expected_revision: saved.revision } })
+                  await client.invalidateQueries({ queryKey: ['native-provision'] })
+                }
                 setEditing(null)
-                setNotice(t('مسیر ذخیره شد؛ اعمال روی نودها را انجام دهید.', 'Path saved. Apply it to nodes.'))
+                setNotice(
+                  automatic
+                    ? t('راه‌اندازی خودکار در صف قرار گرفت؛ پیشرفت را در بخش نصب دنبال کنید.', 'Automatic activation queued. Follow its progress in setup.')
+                    : t('مسیر ذخیره شد؛ اعمال روی نودها را انجام دهید.', 'Path saved. Apply it to nodes.'),
+                )
               })
             }}
           >
@@ -700,7 +711,10 @@ export default function NativeTunnels() {
               </>
             )}
             <DialogFooter>
-              <Button type="submit" disabled={busy || !tags.length || !source || !exit || source === exit}>
+              <Button type="submit" name="action" value="automatic" disabled={busy || !tags.length || !source || !exit || source === exit}>
+                {t('ذخیره و راه‌اندازی خودکار', 'Save and activate automatically')}
+              </Button>
+              <Button type="submit" variant="outline" disabled={busy || !tags.length || !source || !exit || source === exit}>
                 {t('ذخیره مسیر', 'Save path')}
               </Button>
             </DialogFooter>

@@ -221,6 +221,7 @@ def restore(backup, output_dir, key_file):
                 "tunnel_failover_policies": "UPDATE tunnel_failover_policies SET suspended=1, lease=NULL, lease_until=NULL",
                 "native_maintenance_jobs": "UPDATE native_maintenance_jobs SET lease=NULL, lease_until=NULL",
                 "temp_keys": "DELETE FROM temp_keys",
+                "native_provision_jobs": "UPDATE native_provision_jobs SET state='interrupted', credential_cipher=NULL, active_target=NULL, lease=NULL, lease_until=NULL WHERE active_target IS NOT NULL",
             }.items():
                 if table in tables:
                     restored.execute(statement)

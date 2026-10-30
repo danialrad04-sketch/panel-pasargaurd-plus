@@ -14,6 +14,15 @@ ARG VITE_BASE_API=/
 ENV VITE_BASE_API=$VITE_BASE_API
 RUN bun run build && cp build/index.html build/404.html
 
+FROM golang:1.27.3-bookworm AS native-bundle
+COPY node/ /src/
+# Keep the large Go toolchain in fewer filesystem layers, including on vfs hosts.
+RUN --mount=type=secret,id=proxy_ca --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    set -eu; \
+    if [ -f /run/secrets/proxy_ca ]; then export SSL_CERT_FILE=/run/secrets/proxy_ca CURL_CA_BUNDLE=/run/secrets/proxy_ca; fi; \
+    apt-get update && apt-get install -y --no-install-recommends libpcap-dev ca-certificates curl unzip make python3 && rm -rf /var/lib/apt/lists/*; \
+    cd /src; sh build-native.sh /out && python3 pack_bundle.py --source /out --target /bundles --architecture "$(go env GOARCH)"
+
 FROM ghcr.io/astral-sh/uv:python$PYTHON_VERSION-bookworm-slim AS builder
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
@@ -36,7 +45,7 @@ ADD . /build
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=secret,id=proxy_ca \
     if [ -f /run/secrets/proxy_ca ]; then export SSL_CERT_FILE=/run/secrets/proxy_ca UV_NATIVE_TLS=true; fi; \
-    uv sync --frozen --no-dev && rm -rf /build/dashboard
+    uv sync --frozen --no-dev && rm -rf /build/dashboard /build/node
 
 
 FROM python:$PYTHON_VERSION-slim-bookworm
@@ -44,6 +53,7 @@ FROM python:$PYTHON_VERSION-slim-bookworm
 COPY --from=builder /build /code
 COPY dashboard/__init__.py /code/dashboard/__init__.py
 COPY --from=frontend /frontend/build /code/dashboard/build
+COPY --from=native-bundle /bundles /code/native-bundles
 WORKDIR /code
 
 ENV PATH="/code/.venv/bin:$PATH"

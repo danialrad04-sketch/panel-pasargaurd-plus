@@ -25,9 +25,9 @@ from app.operation import dns as operation
 from app.routers.authentication import get_current
 from app.routers.dns import router
 from app.routers.host import router as host_router
-from app.routers.tunnel import router as tunnel_router
-from app.routers.smartdns import router as smartdns_router
 from app.routers.maintenance import router as maintenance_router
+from app.routers.smartdns import router as smartdns_router
+from app.routers.tunnel import router as tunnel_router
 
 
 async def signing_key():
@@ -42,6 +42,26 @@ app.include_router(tunnel_router)
 app.include_router(host_router)
 app.include_router(smartdns_router)
 app.include_router(maintenance_router)
+from app.routers.provision import router as provision_router
+
+app.include_router(provision_router)
+
+if os.environ.get("TEST_NATIVE_PROVISION"):
+    # UI fixture only: real persistent queue/encryption/API, no remote install.
+    import asyncssh
+
+    from app.provisioning import bundles, secrets, service
+    key = asyncssh.generate_private_key("ssh-ed25519")
+    bundles.available = lambda: [{"architecture": "amd64", "engines": ["paqet", "backhaul", "gost", "frp"]}]
+    secrets.settings.key_file = str(path.parent / "provisioning.key")
+    async def fixture_scan(body):
+        return {"server_host_key": key.export_public_key().decode(), "fingerprint": key.get_fingerprint("sha256")}
+    service.scan = fixture_scan
+
+@app.get("/api/cores/simple")
+async def simple_cores():
+    return {"cores": [{"id": 1, "name": "Native browser fixture", "type": "xray"}], "total": 1}
+
 app.dependency_overrides[get_current] = lambda: owner
 
 

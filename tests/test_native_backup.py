@@ -48,7 +48,8 @@ def test_tampering_wrong_key_and_existing_restore_are_refused(tmp_path):
     with pytest.raises(InvalidTag):
         backup.restore(archive, tmp_path / "wrong-key", other_key)
     assert not (tmp_path / "wrong-key").exists()
-    wire = bytearray(archive.read_bytes()); wire[len(wire)//2] ^= 1
+    wire = bytearray(archive.read_bytes())
+    wire[len(wire) // 2] ^= 1
     archive.write_bytes(wire)
     with pytest.raises(InvalidTag):
         backup.restore(archive, tmp_path / "tampered", key)
@@ -73,6 +74,28 @@ def test_wal_snapshot_excludes_uncommitted_changes(tmp_path):
 def test_key_must_be_private_and_cannot_be_overwritten(tmp_path):
     key = tmp_path / "key"
     backup.keygen(key)
-    with pytest.raises(FileExistsError): backup.keygen(key)
+    with pytest.raises(FileExistsError):
+        backup.keygen(key)
     key.chmod(0o644)
-    with pytest.raises(ValueError): backup.read_key(key)
+    with pytest.raises(ValueError):
+        backup.read_key(key)
+
+
+def test_restore_never_replays_ssh_installation_or_keeps_queued_credentials(tmp_path):
+    source, key = database(tmp_path)
+    with sqlite3.connect(source) as db:
+        db.execute(
+            "CREATE TABLE native_provision_jobs (state TEXT, credential_cipher TEXT, active_target TEXT, lease TEXT, lease_until TEXT)"
+        )
+        db.execute(
+            "INSERT INTO native_provision_jobs VALUES ('installing_service', 'encrypted-secret', 'ssh:192.0.2.10:22', 'old-worker', '2099-01-01')"
+        )
+        db.commit()
+    archive = tmp_path / "snapshot.pgb"
+    backup.create(source, archive, key)
+    backup.restore(archive, tmp_path / "restored", key)
+    with sqlite3.connect(tmp_path / "restored/db.sqlite3") as db:
+        assert db.execute("SELECT * FROM native_provision_jobs").fetchone() == ("interrupted", None, None, None, None)
+    # A restore modifies only the new offline copy.
+    with sqlite3.connect(source) as db:
+        assert db.execute("SELECT state FROM native_provision_jobs").fetchone() == ("installing_service",)

@@ -1249,3 +1249,23 @@ class NativeMaintenanceJob(Base):
     lease_until: Mapped[dt | None] = mapped_column(DateTime(timezone=True), default=None)
     last_run: Mapped[dt | None] = mapped_column(DateTime(timezone=True), default=None)
     last_result: Mapped[dict] = mapped_column(PostgresJSONB, default_factory=dict)
+
+
+class NativeProvisionJob(Base, CreatedAtUTCMixin):
+    __tablename__ = "native_provision_jobs"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default_factory=lambda: uuid4().hex, init=False)
+    actor: Mapped[str] = mapped_column(String(64))
+    kind: Mapped[str] = mapped_column(String(16))
+    target: Mapped[str] = mapped_column(String(256))
+    active_target: Mapped[str | None] = mapped_column(String(256), unique=True)
+    payload: Mapped[dict] = mapped_column(PostgresJSONB, repr=False)
+    credential_cipher: Mapped[str | None] = mapped_column(Text, default=None, repr=False)
+    node_id: Mapped[int | None] = fk_id_column("nodes.id", ondelete="SET NULL", nullable=True, default=None)
+    state: Mapped[str] = mapped_column(String(32), default="queued")
+    progress: Mapped[int] = mapped_column(default=0)
+    result: Mapped[dict] = mapped_column(PostgresJSONB, default_factory=dict)
+    lease: Mapped[str | None] = mapped_column(String(36), default=None)
+    lease_until: Mapped[dt | None] = mapped_column(DateTime(timezone=True), default=None)
+    attempts: Mapped[int] = mapped_column(default=0)
+    cancel_requested: Mapped[bool] = mapped_column(default=False)
+    updated_at: Mapped[dt] = mapped_column(DateTime(timezone=True), default_factory=lambda: dt.now(UTC))

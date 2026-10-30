@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"github.com/pasarguard/node/smartdns"
 	"github.com/pasarguard/node/tunnel/carrier"
+	"github.com/pasarguard/node/tunnel/firewall"
 	"github.com/pasarguard/node/tunnel/health"
 	"github.com/pasarguard/node/tunnel/paqet"
 	"log"
@@ -76,9 +77,18 @@ func main() {
 			defer gateway.Close()
 		}
 		mux := http.NewServeMux()
+		if _, err := firewall.NewBootstrap(filepath.Join(filepath.Dir(cfg.PaqetStateDir), "bootstrap")); err != nil {
+			log.Printf("native management ingress could not be restored")
+		}
+		ingress, ingressError := firewall.New(filepath.Join(filepath.Dir(cfg.PaqetStateDir), "ingress"), cfg.SSHPort, cfg.ServicePort, cfg.PaqetPort, cfg.HealthPort)
+		if ingressError != nil {
+			log.Printf("native automatic ingress is unavailable")
+		} else {
+			mux.Handle("/v1/network/", ingress.Handler(cfg.ApiKey.String()))
+		}
 		mux.Handle("/v1/paqet/", manager.Handler(cfg.ApiKey.String()))
 		for _, name := range []string{"backhaul", "gost", "frp"} {
-			engine, engineError := carrier.New(name, filepath.Join(filepath.Dir(cfg.PaqetStateDir), name), cfg.SslCertFile, cfg.SslKeyFile)
+			engine, engineError := carrier.NewInDirectory(name, filepath.Join(filepath.Dir(cfg.PaqetStateDir), name), cfg.SslCertFile, cfg.SslKeyFile, cfg.EngineBinDir)
 			if engineError != nil {
 				log.Fatal("native carrier journal could not initialize: ", name)
 			}

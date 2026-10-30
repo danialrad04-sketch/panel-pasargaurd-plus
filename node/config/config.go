@@ -14,10 +14,12 @@ import (
 )
 
 type Config struct {
+	SSHPort                     int
 	HealthPort                  int
 	PaqetEnabled                bool
 	PaqetPort                   int
 	PaqetBinary                 string
+	EngineBinDir                string
 	PaqetStateDir               string
 	ServicePort                 int
 	NodeHost                    string
@@ -50,10 +52,12 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
+		SSHPort:                     GetEnvAsInt("PG_NODE_SSH_PORT", 22),
 		HealthPort:                  GetEnvAsInt("PG_NODE_HEALTH_PORT", 62053),
 		PaqetEnabled:                GetEnvAsBool("PG_NODE_PAQET_ENABLED", false),
 		PaqetPort:                   GetEnvAsInt("PG_NODE_PAQET_PORT", 62052),
 		PaqetBinary:                 GetEnv("PG_NODE_PAQET_BINARY", "/usr/local/bin/paqet"),
+		EngineBinDir:                GetEnv("PG_NODE_ENGINE_BIN_DIR", "/usr/local/bin"),
 		PaqetStateDir:               GetEnv("PG_NODE_PAQET_STATE_DIR", "/var/lib/pg-node/paqet"),
 		ServicePort:                 GetEnvAsInt("SERVICE_PORT", 62050),
 		XrayExecutablePath:          GetEnv("XRAY_EXECUTABLE_PATH", "/usr/local/bin/xray"),

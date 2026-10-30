@@ -12,7 +12,7 @@ class PaqetNodeError(RuntimeError):
 
 
 async def request(node, method, path, body=None, *, namespace="paqet"):
-    if namespace not in ("paqet", "health", "smartdns", "backhaul", "gost", "frp"):
+    if namespace not in ("paqet", "health", "smartdns", "backhaul", "gost", "frp", "network"):
         raise ValueError("Unknown native node namespace")
     try:
         ctx = ssl.create_default_context(cadata=node.server_ca)

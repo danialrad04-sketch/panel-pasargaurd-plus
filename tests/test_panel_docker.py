@@ -118,6 +118,7 @@ async def test_production_install_bundle_and_persistent_database(tmp_path):
             for path in (
                 "/api/tunnels",
                 "/api/tunnels/engines",
+                "/api/provision",
                 "/api/dns/runtime",
                 "/api/smartdns",
                 "/api/tunnels/health/state",
@@ -127,6 +128,9 @@ async def test_production_install_bundle_and_persistent_database(tmp_path):
             ):
                 response = await client.get(path, headers={"Authorization": f"Bearer {token}"})
                 assert response.status_code == 200, (path, response.text)
+            provisioning = (await client.get("/api/provision", headers={"Authorization": f"Bearer {token}"})).json()
+            assert provisioning["bundles"], "Production image must include offline native binaries"
+            assert set(provisioning["bundles"][0]["engines"]) == {"paqet", "backhaul", "gost", "frp"}
             html = await client.get("/dashboard/")
             assert html.status_code == 200 and "statics/" in html.text
             assert "no-store" in html.headers["cache-control"]

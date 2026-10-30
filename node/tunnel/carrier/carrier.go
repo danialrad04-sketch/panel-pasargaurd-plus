@@ -102,6 +102,12 @@ func writeCA(dir string, c Config) (string, error) {
 func New(name, dir, cert, key string) (*paqet.Manager, error) {
 	return newWithBinaries(name, dir, cert, key, "/usr/local/bin")
 }
+func NewInDirectory(name, dir, cert, key, binDir string) (*paqet.Manager, error) {
+	if !filepath.IsAbs(binDir) {
+		return nil, errors.New("engine binary directory must be absolute")
+	}
+	return newWithBinaries(name, dir, cert, key, binDir)
+}
 func newWithBinaries(name, dir, cert, key, binDir string) (*paqet.Manager, error) {
 	var definition Definition
 	for _, d := range Definitions {

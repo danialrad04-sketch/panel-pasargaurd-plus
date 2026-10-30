@@ -260,7 +260,7 @@ async def get_locked(db, tunnel_id, revision):
     return row
 
 
-async def modify(db, tunnel_id, body, actor):
+async def modify(db, tunnel_id, body, actor, *, before_commit=None):
     row = await get_locked(db, tunnel_id, body.expected_revision)
     from app.tunnel.failover import assert_edit_safe
 
@@ -292,6 +292,8 @@ async def modify(db, tunnel_id, body, actor):
 
     await touch_tunnel(db, row.id)
     audit(db, actor, "update", row.id, revision=row.revision)
+    if before_commit is not None:
+        await before_commit(db, row)
     await db.commit()
     from app.tunnel.hosts import refresh_tunnel_hosts
 

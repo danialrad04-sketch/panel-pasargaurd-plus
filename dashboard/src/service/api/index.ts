@@ -2111,6 +2111,59 @@ export interface InboundSummary {
   network?: string | null;
 }
 
+export type InstallInputEngine = typeof InstallInputEngine[keyof typeof InstallInputEngine];
+
+
+export const InstallInputEngine = {
+  paqet: 'paqet',
+  backhaul: 'backhaul',
+  gost: 'gost',
+  frp: 'frp',
+} as const;
+
+export interface InstallInput {
+  host: string;
+  /**
+     * @minimum 1
+     * @maximum 65535
+     */
+  ssh_port?: number;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  name: string;
+  node_id?: number | null;
+  /** @exclusiveMinimum 0 */
+  core_config_id?: number;
+  engine?: InstallInputEngine;
+  /** @pattern ^[a-z_][a-z0-9_-]{0,31}$ */
+  username?: string;
+  /**
+     * @minLength 20
+     * @maxLength 16384
+     */
+  server_host_key: string;
+  password?: string | null;
+  private_key?: string | null;
+  key_passphrase?: string | null;
+  /**
+     * @minimum 1024
+     * @maximum 65535
+     */
+  node_port?: number;
+  /**
+     * @minimum 1024
+     * @maximum 65535
+     */
+  tunnel_port?: number;
+  /**
+     * @minimum 1024
+     * @maximum 65535
+     */
+  health_port?: number;
+}
+
 export type KcpMode = typeof KcpMode[keyof typeof KcpMode];
 
 
@@ -3020,6 +3073,15 @@ export interface SystemUsersStats {
   limited_users: number;
   incoming_bandwidth: number;
   outgoing_bandwidth: number;
+}
+
+export interface Target {
+  host: string;
+  /**
+     * @minimum 1
+     * @maximum 65535
+     */
+  ssh_port?: number;
 }
 
 export interface Token {
@@ -13862,6 +13924,493 @@ export const useNativeEngineAction = <TError = ErrorType<HTTPValidationError>,
       > => {
       return useMutation(getNativeEngineActionMutationOptions(options), queryClient);
     }
+
+export const getNativeProvisionJobsUrl = () => {
+
+
+
+
+  return `/api/provision`
+}
+
+/**
+ * @summary Native Provision Jobs
+ */
+export const nativeProvisionJobs = async ( options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getNativeProvisionJobsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getNativeProvisionJobsQueryKey = () => {
+    return [
+    `/api/provision`
+    ] as const;
+    }
+
+
+export const getNativeProvisionJobsQueryOptions = <TData = Awaited<ReturnType<typeof nativeProvisionJobs>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeProvisionJobs>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getNativeProvisionJobsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof nativeProvisionJobs>>> = ({ signal }) => nativeProvisionJobs({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof nativeProvisionJobs>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type NativeProvisionJobsQueryResult = NonNullable<Awaited<ReturnType<typeof nativeProvisionJobs>>>
+export type NativeProvisionJobsQueryError = ErrorType<unknown>
+
+
+export function useNativeProvisionJobs<TData = Awaited<ReturnType<typeof nativeProvisionJobs>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeProvisionJobs>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeProvisionJobs>>,
+          TError,
+          Awaited<ReturnType<typeof nativeProvisionJobs>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeProvisionJobs<TData = Awaited<ReturnType<typeof nativeProvisionJobs>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeProvisionJobs>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeProvisionJobs>>,
+          TError,
+          Awaited<ReturnType<typeof nativeProvisionJobs>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeProvisionJobs<TData = Awaited<ReturnType<typeof nativeProvisionJobs>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeProvisionJobs>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Native Provision Jobs
+ */
+
+export function useNativeProvisionJobs<TData = Awaited<ReturnType<typeof nativeProvisionJobs>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeProvisionJobs>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getNativeProvisionJobsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getNativeProvisionInspectUrl = () => {
+
+
+
+
+  return `/api/provision/inspect`
+}
+
+/**
+ * @summary Native Provision Inspect
+ */
+export const nativeProvisionInspect = async (target: Target, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getNativeProvisionInspectUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(target)
+  }
+);}
+
+
+
+
+
+export const getNativeProvisionInspectMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nativeProvisionInspect>>, TError,{data: BodyType<Target>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof nativeProvisionInspect>>, TError,{data: BodyType<Target>}, TContext> => {
+
+const mutationKey = ['nativeProvisionInspect'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof nativeProvisionInspect>>, {data: BodyType<Target>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  nativeProvisionInspect(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type NativeProvisionInspectMutationResult = NonNullable<Awaited<ReturnType<typeof nativeProvisionInspect>>>
+    export type NativeProvisionInspectMutationBody = BodyType<Target>
+    export type NativeProvisionInspectMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Native Provision Inspect
+ */
+export const useNativeProvisionInspect = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nativeProvisionInspect>>, TError,{data: BodyType<Target>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof nativeProvisionInspect>>,
+        TError,
+        {data: BodyType<Target>},
+        TContext
+      > => {
+      return useMutation(getNativeProvisionInspectMutationOptions(options), queryClient);
+    }
+
+export const getNativeProvisionInstallUrl = () => {
+
+
+
+
+  return `/api/provision/install`
+}
+
+/**
+ * @summary Native Provision Install
+ */
+export const nativeProvisionInstall = async (installInput: InstallInput, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getNativeProvisionInstallUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(installInput)
+  }
+);}
+
+
+
+
+
+export const getNativeProvisionInstallMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nativeProvisionInstall>>, TError,{data: BodyType<InstallInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof nativeProvisionInstall>>, TError,{data: BodyType<InstallInput>}, TContext> => {
+
+const mutationKey = ['nativeProvisionInstall'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof nativeProvisionInstall>>, {data: BodyType<InstallInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  nativeProvisionInstall(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type NativeProvisionInstallMutationResult = NonNullable<Awaited<ReturnType<typeof nativeProvisionInstall>>>
+    export type NativeProvisionInstallMutationBody = BodyType<InstallInput>
+    export type NativeProvisionInstallMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Native Provision Install
+ */
+export const useNativeProvisionInstall = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nativeProvisionInstall>>, TError,{data: BodyType<InstallInput>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof nativeProvisionInstall>>,
+        TError,
+        {data: BodyType<InstallInput>},
+        TContext
+      > => {
+      return useMutation(getNativeProvisionInstallMutationOptions(options), queryClient);
+    }
+
+export const getNativeProvisionActivateUrl = (identity: number,) => {
+
+
+
+
+  return `/api/provision/activate/${identity}`
+}
+
+/**
+ * @summary Native Provision Activate
+ */
+export const nativeProvisionActivate = async (identity: number,
+    tunnelRevision: TunnelRevision, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getNativeProvisionActivateUrl(identity),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tunnelRevision)
+  }
+);}
+
+
+
+
+
+export const getNativeProvisionActivateMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nativeProvisionActivate>>, TError,{identity: number;data: BodyType<TunnelRevision>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof nativeProvisionActivate>>, TError,{identity: number;data: BodyType<TunnelRevision>}, TContext> => {
+
+const mutationKey = ['nativeProvisionActivate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof nativeProvisionActivate>>, {identity: number;data: BodyType<TunnelRevision>}> = (props) => {
+          const {identity,data} = props ?? {};
+
+          return  nativeProvisionActivate(identity,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type NativeProvisionActivateMutationResult = NonNullable<Awaited<ReturnType<typeof nativeProvisionActivate>>>
+    export type NativeProvisionActivateMutationBody = BodyType<TunnelRevision>
+    export type NativeProvisionActivateMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Native Provision Activate
+ */
+export const useNativeProvisionActivate = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nativeProvisionActivate>>, TError,{identity: number;data: BodyType<TunnelRevision>}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof nativeProvisionActivate>>,
+        TError,
+        {identity: number;data: BodyType<TunnelRevision>},
+        TContext
+      > => {
+      return useMutation(getNativeProvisionActivateMutationOptions(options), queryClient);
+    }
+
+export const getNativeProvisionCancelUrl = (identity: string,) => {
+
+
+
+
+  return `/api/provision/jobs/${identity}/cancel`
+}
+
+/**
+ * @summary Native Provision Cancel
+ */
+export const nativeProvisionCancel = async (identity: string, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getNativeProvisionCancelUrl(identity),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getNativeProvisionCancelMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nativeProvisionCancel>>, TError,{identity: string}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof nativeProvisionCancel>>, TError,{identity: string}, TContext> => {
+
+const mutationKey = ['nativeProvisionCancel'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof nativeProvisionCancel>>, {identity: string}> = (props) => {
+          const {identity} = props ?? {};
+
+          return  nativeProvisionCancel(identity,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type NativeProvisionCancelMutationResult = NonNullable<Awaited<ReturnType<typeof nativeProvisionCancel>>>
+
+    export type NativeProvisionCancelMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Native Provision Cancel
+ */
+export const useNativeProvisionCancel = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nativeProvisionCancel>>, TError,{identity: string}, TContext>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof nativeProvisionCancel>>,
+        TError,
+        {identity: string},
+        TContext
+      > => {
+      return useMutation(getNativeProvisionCancelMutationOptions(options), queryClient);
+    }
+
+export const getNativeProvisionStateUrl = (identity: string,) => {
+
+
+
+
+  return `/api/provision/jobs/${identity}`
+}
+
+/**
+ * @summary Native Provision State
+ */
+export const nativeProvisionState = async (identity: string, options?: RequestInit): Promise<unknown> => {
+
+  return orvalFetcher<unknown>(getNativeProvisionStateUrl(identity),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getNativeProvisionStateQueryKey = (identity: string,) => {
+    return [
+    `/api/provision/jobs/${identity}`
+    ] as const;
+    }
+
+
+export const getNativeProvisionStateQueryOptions = <TData = Awaited<ReturnType<typeof nativeProvisionState>>, TError = ErrorType<HTTPValidationError>>(identity: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeProvisionState>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getNativeProvisionStateQueryKey(identity);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof nativeProvisionState>>> = ({ signal }) => nativeProvisionState(identity, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: identity !== null && identity !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof nativeProvisionState>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type NativeProvisionStateQueryResult = NonNullable<Awaited<ReturnType<typeof nativeProvisionState>>>
+export type NativeProvisionStateQueryError = ErrorType<HTTPValidationError>
+
+
+export function useNativeProvisionState<TData = Awaited<ReturnType<typeof nativeProvisionState>>, TError = ErrorType<HTTPValidationError>>(
+ identity: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeProvisionState>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeProvisionState>>,
+          TError,
+          Awaited<ReturnType<typeof nativeProvisionState>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeProvisionState<TData = Awaited<ReturnType<typeof nativeProvisionState>>, TError = ErrorType<HTTPValidationError>>(
+ identity: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeProvisionState>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof nativeProvisionState>>,
+          TError,
+          Awaited<ReturnType<typeof nativeProvisionState>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNativeProvisionState<TData = Awaited<ReturnType<typeof nativeProvisionState>>, TError = ErrorType<HTTPValidationError>>(
+ identity: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeProvisionState>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Native Provision State
+ */
+
+export function useNativeProvisionState<TData = Awaited<ReturnType<typeof nativeProvisionState>>, TError = ErrorType<HTTPValidationError>>(
+ identity: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof nativeProvisionState>>, TError, TData>>, request?: SecondParameter<typeof orvalFetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getNativeProvisionStateQueryOptions(identity,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetSettingsUrl = () => {
 
