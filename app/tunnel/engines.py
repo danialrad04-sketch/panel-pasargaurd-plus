@@ -8,6 +8,37 @@ ENGINES = {
 MANAGED = ("paqet", *ENGINES)
 
 
+PAQET_ENGINE = "v1.0.0-alpha.21"
+PAQET_COMMIT = "4b81ce0ab56b7cc9aec7501c87c4804676cdb1b4"
+
+
+def compatible_capability(name, value):
+    """True only for the pinned native adapter contract; shared by the router and wizard."""
+    if not (isinstance(value, dict) and value.get("contract") == 1 and value.get("installed") is True):
+        return False
+    definition = ENGINES.get(name)
+    if definition:
+        return (
+            value.get("engine") == name
+            and value.get("version") == definition["version"]
+            and value.get("source_commit") == definition["commit"]
+        )
+    return value.get("engine") == PAQET_ENGINE and value.get("source_commit") == PAQET_COMMIT
+
+
+async def node_capability(node, name):
+    import asyncio
+
+    from app.paqet.client import request
+
+    try:
+        async with asyncio.timeout(8):
+            value = await request(node, "GET", "capabilities", namespace=name)
+        return {"id": name, "available": True, "compatible": compatible_capability(name, value), "capability": value}
+    except RuntimeError, ValueError, TimeoutError:
+        return {"id": name, "available": False, "capability": None}
+
+
 def forwarded(tunnel):
     return getattr(tunnel, "transport", "shadowsocks-2022") in MANAGED
 

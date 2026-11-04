@@ -36,11 +36,21 @@ async def claim(sessions):
         ).all()
         for job in expired:
             job.lease = job.lease_until = None
-            if job.attempts >= 3 or now - fix_datetime_timezone(job.created_at) > timedelta(minutes=45):
+            # A wizard mutates tunnel rows between measurements; resuming it from scratch could
+            # duplicate candidates, so an interrupted wizard is never re-queued.
+            if (
+                job.kind == "wizard"
+                or job.attempts >= 3
+                or now - fix_datetime_timezone(job.created_at) > timedelta(minutes=45)
+            ):
                 job.state = "interrupted"
                 job.credential_cipher = None
                 job.active_target = None
-                job.result = {"code": "worker_interrupted"}
+                job.result = (
+                    {**job.result, "code": "worker_interrupted"}
+                    if job.kind == "wizard"
+                    else {"code": "worker_interrupted"}
+                )
             else:
                 job.state = "queued"
         active = await db.scalar(
@@ -62,7 +72,7 @@ async def claim(sessions):
         row.lease = str(uuid4())
         row.lease_until = now + timedelta(seconds=90)
         row.attempts += 1
-        row.state = "connecting" if row.kind == "install" else "activating"
+        row.state = {"install": "connecting", "wizard": "preparing"}.get(row.kind, "activating")
         row.updated_at = now
         await db.commit()
         return row
@@ -277,10 +287,18 @@ async def drain(*, sessions=GetDB, bootstrap=ssh.bootstrap):
 
     pulse = asyncio.create_task(heartbeat())
     try:
-        result = await (
-            installed(job, sessions, advance, bootstrap) if job.kind == "install" else activated(job, sessions, advance)
-        )
-        await finish(sessions, job, "ready", result)
+        if job.kind == "wizard":
+            from app.tunnel import wizard
+
+            state, result = await wizard.run(job, sessions=sessions, advance=advance)
+            await finish(sessions, job, state, result)
+        else:
+            result = await (
+                installed(job, sessions, advance, bootstrap)
+                if job.kind == "install"
+                else activated(job, sessions, advance)
+            )
+            await finish(sessions, job, "ready", result)
     except asyncio.CancelledError:
         # SSH may have completed a remote write. Preserve the durable claim until
         # expiry; the next owner resumes the same idempotent job, never a new one.
