@@ -22,6 +22,7 @@ from app.models.tunnel import (
     TunnelState,
     TunnelView,
 )
+from app.models.tunnel_wizard import WizardPlanInput, WizardStartInput
 from app.nats.node_rpc import node_nats_client
 from app.operation import tunnel as operation
 from app.routers.authentication import require_owner
@@ -35,6 +36,22 @@ Owner = Annotated[AdminDetails, Depends(require_owner)]
 @router.get("", response_model=TunnelState)
 async def native_tunnel_state(db: DB, admin: Owner):
     return await operation.state_view(db)
+
+
+@router.post("/wizard/plan")
+async def native_tunnel_wizard_plan(body: WizardPlanInput, db: DB, admin: Owner):
+    """Read-only: reports blockers, compatible carriers and node impact; changes nothing."""
+    from app.tunnel.wizard import plan
+
+    return await plan(db, body)
+
+
+@router.post("/wizard", status_code=202)
+async def native_tunnel_wizard_start(body: WizardStartInput, db: DB, admin: Owner):
+    """Queues a measured carrier selection; follow it with GET /api/provision/jobs/{id}."""
+    from app.tunnel.wizard import enqueue
+
+    return await enqueue(db, body, admin.username)
 
 
 @router.post("", response_model=TunnelView, status_code=201)
@@ -275,37 +292,12 @@ async def native_node_engines(node_id: int, db: DB, admin: Owner):
     import asyncio
 
     from app.db.models import Node
-    from app.paqet.client import request
-    from app.tunnel.engines import ENGINES, MANAGED
+    from app.tunnel.engines import MANAGED, node_capability
 
     node = await db.get(Node, node_id)
     if not node:
         raise HTTPException(404, "Node not found")
-
-    async def capability(name):
-        try:
-            async with asyncio.timeout(8):
-                value = await request(node, "GET", "capabilities", namespace=name)
-            definition = ENGINES.get(name)
-            compatible = isinstance(value, dict) and value.get("contract") == 1 and value.get("installed") is True
-            if definition:
-                compatible = (
-                    compatible
-                    and value.get("engine") == name
-                    and value.get("version") == definition["version"]
-                    and value.get("source_commit") == definition["commit"]
-                )
-            else:
-                compatible = (
-                    compatible
-                    and value.get("engine") == "v1.0.0-alpha.21"
-                    and value.get("source_commit") == "4b81ce0ab56b7cc9aec7501c87c4804676cdb1b4"
-                )
-            return {"id": name, "available": True, "compatible": compatible, "capability": value}
-        except RuntimeError, ValueError, TimeoutError:
-            return {"id": name, "available": False, "capability": None}
-
-    return {"node_id": node_id, "items": await asyncio.gather(*(capability(name) for name in MANAGED))}
+    return {"node_id": node_id, "items": await asyncio.gather(*(node_capability(node, name) for name in MANAGED))}
 
 
 @router.get("/{tunnel_id}/engine/status")

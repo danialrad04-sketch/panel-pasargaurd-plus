@@ -142,6 +142,14 @@ async def cancel(db, identity, actor):
     row = await db.get(NativeProvisionJob, identity, with_for_update=True)
     if not row:
         raise HTTPException(404, "Install job not found")
+    if row.kind == "wizard" and row.lease:
+        # A running wizard stops testing at the next safe boundary, keeps the best measured
+        # carrier (or removes every candidate) and reports the outcome itself.
+        row.cancel_requested = True
+        row.updated_at = datetime.now(UTC)
+        db.add(ServiceAudit(actor=actor, action="provision.wizard.cancel_requested", target_id=row.id, details={}))
+        await db.commit()
+        return view(row)
     if row.state != "queued" or row.lease:
         raise HTTPException(409, "A running installation must reach a safe outcome first")
     row.state = "cancelled"

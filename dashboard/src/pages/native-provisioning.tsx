@@ -19,6 +19,9 @@ const labels: Record<string, [string, string]> = {
   checking_configuration: ['بررسی تنظیمات مسیر', 'Checking configuration'],
   configuring_ingress: ['تنظیم پورت‌های انتخاب‌شده', 'Configuring selected ports'],
   probing_tcp_udp: ['سنجش واقعی TCP/UDP', 'Probing TCP/UDP'],
+  preparing: ['آماده‌سازی تونل سریع', 'Preparing quick tunnel'],
+  testing: ['تونل سریع: آزمون حامل‌ها', 'Quick tunnel: testing carriers'],
+  selecting: ['تونل سریع: انتخاب بهترین مسیر', 'Quick tunnel: selecting best path'],
   ready: ['تأیید شد', 'Verified'],
   failed: ['نیاز به بررسی', 'Needs attention'],
   interrupted: ['اجرای ناتمام', 'Interrupted'],
@@ -39,6 +42,9 @@ const errors: Record<string, string> = {
   node_core_start_failed: 'موتورها نصب شدند، ولی هستهٔ نود تأیید نشد؛ تنظیمات هسته را بررسی کنید.',
   tunnel_apply_failed: 'اعمال مسیر یا پورت‌ها تأیید نشد؛ نود را به نسخهٔ جدید مجهز کنید.',
   carrier_health_failed: 'سنجش واقعی مسیر موفق نبود؛ مسیر آماده اعلام نشد.',
+  no_healthy_carrier: 'هیچ حاملی TCP/UDP را سالم عبور نداد؛ مسیرهای آزمایشی حذف شدند.',
+  wizard_error: 'تونل سریع با خطا متوقف شد؛ مسیرهای باقی‌مانده را بررسی کنید.',
+  worker_interrupted: 'اجرا قطع شد و برای جلوگیری از مسیر تکراری دوباره اجرا نمی‌شود؛ مسیرهای wizard-* را بررسی کنید.',
   tunnel_revision_changed: 'مسیر هنگام انتظار تغییر کرده؛ دوباره راه‌اندازی را انتخاب کنید.',
 }
 export default function NativeProvisioning({ nodes, fa }: { nodes: { id: number; name: string }[]; fa: boolean }) {
