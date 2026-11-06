@@ -1,0 +1,38 @@
+#!/usr/bin/python3
+"""Test-only process supervisor; this fixture does not verify real systemd."""
+import os
+import signal
+import subprocess
+import sys
+import time
+from pathlib import Path
+pidfile = Path('/run/fixture-pg-node.pid')
+command = sys.argv[1]
+def alive():
+    try:
+        os.kill(int(pidfile.read_text()), 0)
+        return True
+    except (OSError, ValueError):
+        return False
+if command == 'is-system-running':
+    print('running')
+elif command in ('daemon-reload', 'enable'):
+    pass
+elif command == 'is-active':
+    sys.exit(0 if alive() else 3)
+elif command in ('restart', 'stop', 'start'):
+    if command != 'start' and alive():
+        os.kill(int(pidfile.read_text()), signal.SIGTERM)
+        time.sleep(0.5)
+    if command != 'stop':
+        env = dict(os.environ)
+        for line in Path('/var/lib/pg-node/native.env').read_text().splitlines():
+            k, v = line.split('=', 1)
+            env[k] = v
+        with open('/var/log/fixture-node.log', 'ab') as log:
+            child = subprocess.Popen(['/opt/pasarguard-native/current/bin/pg-node'], env=env, cwd='/var/lib/pg-node', stdout=log, stderr=log, start_new_session=True)
+        pidfile.write_text(str(child.pid))
+        time.sleep(0.5)
+        sys.exit(0 if child.poll() is None else 1)
+else:
+    sys.exit(1)

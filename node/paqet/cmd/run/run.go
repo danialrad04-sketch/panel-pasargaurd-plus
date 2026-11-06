@@ -1,0 +1,44 @@
+package run
+
+import (
+	"log"
+
+	"github.com/spf13/cobra"
+
+	"paqet/internal/conf"
+	"paqet/internal/flog"
+)
+
+var confPath string
+
+func init() {
+	Cmd.Flags().StringVarP(&confPath, "config", "c", "config.yaml", "Path to the configuration file")
+}
+
+var Cmd = &cobra.Command{
+	Use:   "run",
+	Short: "Runs the client or server based on the config file",
+	Long:  `The 'run' command reads the specified YAML configuration file.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		cfg, err := conf.LoadFromFile(confPath)
+		if err != nil {
+			log.Fatalf("failed to parse configuration: %v", err)
+		}
+		initialize(cfg)
+
+		switch cfg.Role {
+		case "client":
+			startClient(cfg)
+			return
+		case "server":
+			startServer(cfg)
+			return
+		}
+
+		log.Fatalf("failed to load configuration")
+	},
+}
+
+func initialize(cfg *conf.Conf) {
+	flog.SetLevel(cfg.Log.Level)
+}

@@ -930,7 +930,8 @@
       "nodes": "节点",
       "coreHosts": "核心和主机",
       "groupsTemplates": "组和模板",
-      "settings": "设置"
+      "settings": "设置",
+      "dns": "DNS services"
     },
     "actions": {
       "common": {
@@ -977,6 +978,9 @@
         "update_core": "更新节点核心",
         "stats": "查看节点统计",
         "logs": "查看节点日志"
+      },
+      "dns": {
+        "rotate_token": "Manage credentials"
       }
     },
     "resources": {
@@ -992,7 +996,8 @@
       "client_templates": "客户端模板",
       "settings": "设置",
       "system": "系统",
-      "hwids": "HWID"
+      "hwids": "HWID",
+      "dns": "DNS"
     },
     "noAvailablePermissions": "没有可用权限。",
     "scopedBadge": "带范围",
@@ -2242,7 +2247,8 @@
     "updating": "更新中...",
     "updateAvailable": "有更新可用",
     "prerelease": "预发布版本",
-    "loadingReleases": "正在加载版本..."
+    "loadingReleases": "正在加载版本...",
+    "tunnelApiPort": "原生隧道 / Paqet API 端口"
   },
   "theme": {
     "title": "主题",
@@ -2357,7 +2363,8 @@
     "pink": "粉色",
     "previewBadge": "实时",
     "previewCard": "次要",
-    "previewMuted": "用量"
+    "previewMuted": "用量",
+    "toggle": "Change theme"
   },
   "coreConfigModal": {
     "addConfig": "添加核心配置",
@@ -3988,6 +3995,13 @@
     "updateBannerMobile": "更新: {{latest}}",
     "updateCommandLabel": "通过 SSH 连接并运行:",
     "closeBanner": "关闭更新通知",
-    "needsUpdate": "需要更新"
+    "needsUpdate": "需要更新",
+    "forkUpdateGuide": "Follow this fork’s upgrade guide on the release page."
+  },
+  "dns": {
+    "title": "DNS & domain policies"
+  },
+  "tunnels": {
+    "title": "节点隧道"
   }
 }

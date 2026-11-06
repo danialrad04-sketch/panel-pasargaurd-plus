@@ -780,7 +780,8 @@
       "nodes": "گره‌ها",
       "coreHosts": "هسته و هاست‌ها",
       "groupsTemplates": "گروه‌ها و قالب‌ها",
-      "settings": "تنظیمات"
+      "settings": "تنظیمات",
+      "dns": "خدمات DNS"
     },
     "actions": {
       "common": {
@@ -827,6 +828,9 @@
         "update_core": "به‌روزرسانی هسته گره",
         "stats": "مشاهده آمار گره‌ها",
         "logs": "مشاهده لاگ گره‌ها"
+      },
+      "dns": {
+        "rotate_token": "مدیریت اعتبارنامه"
       }
     },
     "resources": {
@@ -842,7 +846,8 @@
       "client_templates": "قالب‌های کلاینت",
       "settings": "تنظیمات",
       "system": "سیستم",
-      "hwids": "HWID"
+      "hwids": "HWID",
+      "dns": "DNS"
     },
     "noAvailablePermissions": "هیچ مجوزی در دسترس نیست.",
     "scopedBadge": "محدوده‌دار",
@@ -2077,7 +2082,14 @@
     "updating": "در حال به‌روزرسانی...",
     "updateAvailable": "به‌روزرسانی موجود است",
     "prerelease": "نسخه پیش‌انتشار",
-    "loadingReleases": "در حال بارگذاری نسخه‌ها..."
+    "loadingReleases": "در حال بارگذاری نسخه‌ها...",
+    "tunnelApiPort": "پورت API بومی تونل / Paqet",
+    "importRegistration": "واردکردن فایل ثبت نود بومی",
+    "registrationHelp": "فایل خصوصی node-registration.json ساخته‌شده روی همین نود را انتخاب کنید. پیش از ذخیره، تنظیمات و هسته را بررسی کنید.",
+    "registrationLoaded": "اطلاعات اتصال وارد شد؛ هسته را بررسی کنید و برای ثبت نود ذخیره کنید.",
+    "registrationInvalid": "فایل ثبت نود معتبر نیست؛ حداکثر حجم ۶۴ کیلوبایت است.",
+    "healthEchoPort": "پورت داخلی پایش حامل",
+    "healthEchoHelp": "فقط loopback نود؛ باید با تنظیم سرویس نود یکسان باشد و نیازی به انتشار در اینترنت ندارد."
   },
   "nodes": {
     "title": "گره‌ها",
@@ -2314,7 +2326,8 @@
     "pink": "صورتی",
     "previewBadge": "زنده",
     "previewCard": "ثانویه",
-    "previewMuted": "مصرف"
+    "previewMuted": "مصرف",
+    "toggle": "تغییر پوسته"
   },
   "coreConfigModal": {
     "addConfig": "افزودن پیکربندی هسته",
@@ -3950,6 +3963,16 @@
     "updateBannerMobile": "به‌روزرسانی: {{latest}}",
     "updateCommandLabel": "از طریق SSH متصل شوید و اجرا کنید:",
     "closeBanner": "بستن اعلان به‌روزرسانی",
-    "needsUpdate": "نیاز به به‌روزرسانی"
+    "needsUpdate": "نیاز به به‌روزرسانی",
+    "forkUpdateGuide": "راهنمای ارتقای همین فورک را در صفحه نسخه بخوانید."
+  },
+  "dns": {
+    "title": "DNS و سیاست دامنه"
+  },
+  "tunnels": {
+    "title": "تونل‌های نودها"
+  },
+  "smartdns": {
+    "title": "SmartDNS و دسترسی سرویس‌ها"
   }
 }

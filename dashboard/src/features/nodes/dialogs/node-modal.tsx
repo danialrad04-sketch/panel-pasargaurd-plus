@@ -21,6 +21,7 @@ import { toast } from 'sonner'
 import { v4 as uuidv4 } from 'uuid'
 import { LoaderButton } from '@/components/ui/loader-button'
 import type { NodeFormValues } from '@/features/nodes/forms/node-form'
+import { nodeFormSchema } from '@/features/nodes/forms/node-form'
 import type { CoreSimple } from '@/service/api'
 
 // A node without a core runs the default core (id 1, which cannot be deleted).
@@ -52,6 +53,39 @@ export default function NodeModal({ isDialogOpen, onOpenChange, form, editingNod
   const [showErrorDetails, setShowErrorDetails] = useState(false)
   const [debouncedValues, setDebouncedValues] = useState<NodeFormValues | null>(null)
   const [isFetchingNodeData, setIsFetchingNodeData] = useState(false)
+  const registrationImported = useRef(false)
+  const importRegistration = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    try {
+      if (file.size > 65536) throw new Error('Registration file exceeds 64 KB')
+      const input = JSON.parse(await file.text())
+      // Only connection fields are imported. Saving remains an explicit form action.
+      const registration = nodeFormSchema
+        .pick({
+          name: true,
+          address: true,
+          port: true,
+          api_port: true,
+          tunnel_api_port: true,
+          health_echo_port: true,
+          connection_type: true,
+          server_ca: true,
+          api_key: true,
+          core_config_id: true,
+          keep_alive: true,
+        })
+        .parse(input)
+      setAutoCheck(false)
+      setDebouncedValues(null)
+      registrationImported.current = true
+      form.reset({ ...form.getValues(), ...registration, keep_alive_unit: 'seconds' })
+      toast.success(t('nodeModal.registrationLoaded', { defaultValue: 'Connection loaded. Review the core and save to register the node.' }))
+    } catch {
+      toast.error(t('nodeModal.registrationInvalid', { defaultValue: 'Invalid node registration file (maximum 64 KB).' }))
+    }
+  }
 
   const { data: node, refetch: refetchNode } = useGetNode(
     editingNodeId || 0,
@@ -74,6 +108,7 @@ export default function NodeModal({ isDialogOpen, onOpenChange, form, editingNod
 
   useEffect(() => {
     if (isDialogOpen) {
+      registrationImported.current = false
       setErrorDetails(null)
       setAutoCheck(true)
       setIsFetchingNodeData(false)
@@ -117,6 +152,8 @@ export default function NodeModal({ isDialogOpen, onOpenChange, form, editingNod
         address: node.address,
         port: node.port,
         api_port: node.api_port ?? null,
+        tunnel_api_port: node.tunnel_api_port ?? null,
+        health_echo_port: node.health_echo_port ?? 62053,
         usage_coefficient: node.usage_coefficient,
         connection_type: node.connection_type,
         server_ca: node.server_ca,
@@ -173,6 +210,8 @@ export default function NodeModal({ isDialogOpen, onOpenChange, form, editingNod
           address: nodeData.address,
           port: nodeData.port,
           api_port: nodeData.api_port ?? null,
+          tunnel_api_port: nodeData.tunnel_api_port ?? null,
+          health_echo_port: nodeData.health_echo_port ?? 62053,
           usage_coefficient: nodeData.usage_coefficient,
           connection_type: nodeData.connection_type,
           server_ca: nodeData.server_ca,
@@ -203,6 +242,8 @@ export default function NodeModal({ isDialogOpen, onOpenChange, form, editingNod
               address: nodeData.address,
               port: nodeData.port,
               api_port: nodeData.api_port ?? null,
+              tunnel_api_port: nodeData.tunnel_api_port ?? null,
+              health_echo_port: nodeData.health_echo_port ?? 62053,
               usage_coefficient: nodeData.usage_coefficient,
               connection_type: nodeData.connection_type,
               server_ca: nodeData.server_ca,
@@ -228,12 +269,14 @@ export default function NodeModal({ isDialogOpen, onOpenChange, form, editingNod
 
         fetchNodeData()
       }
-    } else {
+    } else if (!registrationImported.current) {
       form.reset({
         name: '',
         address: '',
         port: 62050,
         api_port: 62051,
+        tunnel_api_port: 62052,
+        health_echo_port: 62053,
         usage_coefficient: 1,
         connection_type: NodeConnectionType.grpc,
         server_ca: '',
@@ -312,6 +355,8 @@ export default function NodeModal({ isDialogOpen, onOpenChange, form, editingNod
         data_limit: gbToBytes(values.data_limit),
         reset_time: values.reset_time !== null && values.reset_time !== undefined ? values.reset_time : -1,
         api_port: values.api_port ?? undefined,
+        tunnel_api_port: values.tunnel_api_port ?? undefined,
+        health_echo_port: values.health_echo_port ?? undefined,
         proxy_url: values.proxy_url?.trim() || null,
       }
 
@@ -376,6 +421,18 @@ export default function NodeModal({ isDialogOpen, onOpenChange, form, editingNod
           </DialogTitle>
           <DialogDescription className="sr-only">{t('nodeModal.description', { defaultValue: 'Configure node settings and connection details.' })}</DialogDescription>
         </DialogHeader>
+
+        {!editingNode && (
+          <div className="rounded-lg border p-3 text-sm">
+            <label htmlFor="native-node-registration" className="mb-2 block font-medium">
+              {t('nodeModal.importRegistration', { defaultValue: 'Import native node registration' })}
+            </label>
+            <Input id="native-node-registration" type="file" accept="application/json,.json" onChange={importRegistration} />
+            <p className="text-muted-foreground mt-2">
+              {t('nodeModal.registrationHelp', { defaultValue: 'Select the private node-registration.json created on this node. Review all fields before saving.' })}
+            </p>
+          </div>
+        )}
 
         {/* Status Check Results - Positioned at the top of the modal */}
         <div className="flex flex-col gap-4">
@@ -626,6 +683,49 @@ export default function NodeModal({ isDialogOpen, onOpenChange, form, editingNod
                             />
                           </div>
 
+                          <FormField
+                            control={form.control}
+                            name="tunnel_api_port"
+                            render={({ field }) => (
+                              <FormItem className="w-full">
+                                <FormLabel>{t('nodeModal.tunnelApiPort')}</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    max={65535}
+                                    placeholder="62052"
+                                    {...field}
+                                    value={field.value ?? ''}
+                                    onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="health_echo_port"
+                            render={({ field }) => (
+                              <FormItem className="w-full">
+                                <FormLabel>{t('nodeModal.healthEchoPort')}</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min={1024}
+                                    max={65535}
+                                    placeholder="62053"
+                                    {...field}
+                                    value={field.value ?? ''}
+                                    onChange={event => field.onChange(event.target.value === '' ? null : Number(event.target.value))}
+                                  />
+                                </FormControl>
+                                <p className="text-muted-foreground text-xs">{t('nodeModal.healthEchoHelp')}</p>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                           <FormField
                             control={form.control}
                             name="connection_type"

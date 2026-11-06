@@ -7,13 +7,12 @@ import { useVersionCheck } from '@/hooks/use-version-check'
 import { useTheme } from '@/app/providers/theme-provider'
 import { getGradientByColorTheme, getIndicatorColorByTheme } from '@/constants/ThemeGradients'
 import useDirDetection from '@/hooks/use-dir-detection'
-import { useClipboard } from '@/hooks/use-clipboard'
-import { toast } from 'sonner'
 import { useSystemVersion } from '@/hooks/use-system-version'
 import { useAdmin } from '@/hooks/use-admin'
 import { isOwner } from '@/utils/rbac'
+import { REPO_URL } from '@/constants/Project'
 
-const VERSION_BANNER_STORAGE_KEY = 'version_update_banner_closed'
+const VERSION_BANNER_STORAGE_KEY = 'pg_plus_version_update_banner_closed'
 const HOURS_TO_HIDE = 24
 
 interface BannerStorage {
@@ -26,7 +25,6 @@ export function VersionUpdateBanner() {
   const isRTL = useDirDetection() === 'rtl'
   const { resolvedTheme, colorTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
-  const { copy } = useClipboard()
   const { admin } = useAdmin()
   const isOwnerAdmin = isOwner(admin)
   const { currentVersion } = useSystemVersion({ enabled: isOwnerAdmin })
@@ -111,16 +109,9 @@ export function VersionUpdateBanner() {
     }, 300)
   }
 
-  const handleCopyCommand = async (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    await copy('pasarguard update')
-    toast.success(t('usersTable.copied'))
-  }
-
   if (!isOwnerAdmin || isLoading || !hasUpdate || !isVisible || !latestVersion || !normalizedVersion) return null
 
-  const releaseLink = releaseUrl || 'https://github.com/PasarGuard/panel/releases/latest'
+  const releaseLink = releaseUrl || `${REPO_URL}/releases/latest`
 
   return (
     <div
@@ -152,16 +143,7 @@ export function VersionUpdateBanner() {
             <p className={cn('text-foreground/70 mt-0.5 text-[11px] leading-relaxed break-words sm:mt-1 sm:text-xs', isRTL ? 'text-right' : 'text-left')}>
               {t('version.updateBanner', { current: `v${normalizedVersion}`, latest: `v${latestVersion}` })}
             </p>
-            <div className="mt-1.5 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-1.5">
-              <span className="text-foreground/60 text-[11px] leading-relaxed break-words sm:text-xs sm:whitespace-nowrap">{t('version.updateCommandLabel')}</span>
-              <code
-                className="bg-muted/50 hover:bg-muted text-foreground/60 shrink-0 cursor-pointer rounded-sm px-1.5 py-0.5 font-mono text-[10px] break-all transition-colors sm:text-[11px] sm:break-normal"
-                onClick={handleCopyCommand}
-                title={t('copy')}
-              >
-                pasarguard update
-              </code>
-            </div>
+            <p className="text-foreground/60 mt-2 text-xs">{t('version.forkUpdateGuide')}</p>
           </div>
         </div>
       </a>

@@ -1,0 +1,25 @@
+# Example only: match the panel's service user, paths and EnvironmentFile.
+# DNS_PORT defaults to 5353; port 53/853 additionally needs bind permission.
+[Unit]
+Description=PasarGuard native DNS worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pasarguard
+Group=pasarguard
+WorkingDirectory=/opt/pasarguard
+EnvironmentFile=/opt/pasarguard/.env
+ExecStart=/opt/pasarguard/.venv/bin/python -m app.dns.worker
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+# For configured privileged DNS ports, uncomment:
+# AmbientCapabilities=CAP_NET_BIND_SERVICE
+# CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target

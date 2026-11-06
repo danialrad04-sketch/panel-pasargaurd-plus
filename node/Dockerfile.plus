@@ -1,0 +1,27 @@
+# syntax=docker/dockerfile:1
+FROM golang:1.27.3-bookworm AS builder
+RUN --mount=type=secret,id=proxy_ca --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    if [ -f /run/secrets/proxy_ca ]; then export SSL_CERT_FILE=/run/secrets/proxy_ca; fi; \
+    apt-get update && apt-get install -y --no-install-recommends libpcap-dev ca-certificates curl unzip make && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY . .
+# One bounded source-build stage keeps all engine versions in the same image.
+RUN --mount=type=secret,id=proxy_ca --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    set -eu; \
+    if [ -f /run/secrets/proxy_ca ]; then export SSL_CERT_FILE=/run/secrets/proxy_ca CURL_CA_BUNDLE=/run/secrets/proxy_ca; fi; \
+    sh build-native.sh /out
+
+FROM debian:bookworm-slim
+RUN --mount=type=secret,id=proxy_ca \
+    apt-get update && apt-get install -y --no-install-recommends libpcap0.8 ca-certificates iproute2 iptables iputils-ping wireguard-tools nftables && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /out/pg-node /usr/local/bin/pg-node
+COPY --from=builder /out/paqet /usr/local/bin/paqet
+COPY --from=builder /out/backhaul /usr/local/bin/backhaul
+COPY --from=builder /out/gost /usr/local/bin/gost
+COPY --from=builder /out/frps /usr/local/bin/frps
+COPY --from=builder /out/frpc /usr/local/bin/frpc
+COPY --from=builder /out/xray/xray /usr/local/bin/xray
+COPY --from=builder /out/assets /usr/local/share/xray
+ENV PG_NODE_PAQET_ENABLED=true
+VOLUME ["/var/lib/pg-node"]
+ENTRYPOINT ["/usr/local/bin/pg-node"]

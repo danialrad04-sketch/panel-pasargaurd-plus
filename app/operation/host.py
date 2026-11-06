@@ -81,6 +81,13 @@ class HostOperation(BaseOperation):
                 await self.raise_error("download host cannot have a download host", 400, db=db)
 
     async def create_host(self, db: AsyncSession, new_host: CreateHost, admin: AdminDetails) -> BaseHost:
+        if new_host.native_tunnel_id:
+            from app.tunnel.guards import lock_state
+
+            await lock_state(db)
+        from app.tunnel.hosts import validate_host_binding
+
+        await validate_host_binding(db, new_host, admin)
         await self.validate_subscription_templates(db, new_host)
         await self.validate_ds_host(db, new_host)
 
@@ -107,6 +114,17 @@ class HostOperation(BaseOperation):
             await self.check_host_inbound_tags([modified_host.inbound_tag])
 
         db_host = await self.get_validated_host(db, host_id)
+        if (
+            "native_tunnel_id" in modified_host.model_fields_set
+            and modified_host.native_tunnel_id != db_host.native_tunnel_id
+        ):
+            from app.tunnel.guards import lock_state
+
+            await lock_state(db)
+            await db.refresh(db_host)
+        from app.tunnel.hosts import validate_host_binding
+
+        await validate_host_binding(db, modified_host, admin, db_host)
 
         db_host = await modify_host(db=db, db_host=db_host, modified_host=modified_host)
 
@@ -142,6 +160,11 @@ class HostOperation(BaseOperation):
     ) -> list[BaseHost]:
         try:
             db_hosts = await get_hosts(db=db)
+            if any(h.native_tunnel_id for h in db_hosts) or any(h.native_tunnel_id for h in modified_hosts):
+                from app.tunnel.guards import lock_state
+
+                await lock_state(db)
+                db_hosts = await get_hosts(db=db)
             hosts_by_id = {host.id: host for host in db_hosts}
             host_ids = [host.id for host in modified_hosts if host.id is not None]
             modified_ids = set(host_ids)
@@ -149,6 +172,9 @@ class HostOperation(BaseOperation):
                 await self.raise_error("Duplicate host IDs", 400, db=db)
             final_hosts = hosts_by_id | {host.id: host for host in modified_hosts if host.id in hosts_by_id}
             for host in modified_hosts:
+                from app.tunnel.hosts import validate_host_binding
+
+                await validate_host_binding(db, host, admin, hosts_by_id.get(host.id))
                 await self.validate_subscription_templates(db, host)
                 await self.validate_ds_host(db, host, host.id, hosts_by_id=final_hosts)
             # Updating a download host must not introduce a chain for an unchanged parent.

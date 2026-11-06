@@ -471,6 +471,10 @@ async def remove_node(db: AsyncSession, db_node: Node) -> None:
         db_node (Node): The Node object to be removed.
     """
     node_id = db_node.id
+    from app.tunnel.guards import assert_node_unreferenced, lock_state
+
+    await lock_state(db)
+    await assert_node_unreferenced(db, [node_id])
 
     # Remove dependent rows explicitly to avoid ORM cascading overhead on large tables.
     await db.execute(delete(NodeUserUsage).where(NodeUserUsage.node_id == node_id))
@@ -882,6 +886,11 @@ async def remove_nodes(db: AsyncSession, node_ids: list[int]) -> None:
     """
     if not node_ids:
         return
+
+    from app.tunnel.guards import assert_node_unreferenced, lock_state
+
+    await lock_state(db)
+    await assert_node_unreferenced(db, node_ids)
 
     await db.execute(delete(NodeUserUsage).where(NodeUserUsage.node_id.in_(node_ids)))
     await db.execute(delete(NodeUsage).where(NodeUsage.node_id.in_(node_ids)))

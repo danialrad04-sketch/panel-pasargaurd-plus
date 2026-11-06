@@ -52,6 +52,7 @@ class NodeWorkerService(BaseRpcService):
         self.register_command_handler("disconnect_node", self._disconnect_node)
         self.register_command_handler("sync_node_users", self._sync_node_users)
 
+        self.register_rpc_handler("apply_native_tunnels", self._apply_native_tunnels)
         self.register_rpc_handler("get_node_system_stats", self._get_node_system_stats)
         self.register_rpc_handler("get_nodes_system_stats", self._get_nodes_system_stats)
         self.register_rpc_handler("get_outbounds_latency", self._get_outbounds_latency)
@@ -171,9 +172,7 @@ class NodeWorkerService(BaseRpcService):
         # Refresh from KV before connecting to avoid stale core cache races.
         await core_manager._reload_from_cache()
         async with GetDB() as db:
-            await self._node_operator.connect_single_node(
-                db, node_id, force_start=bool(data.get("force_start"))
-            )
+            await self._node_operator.connect_single_node(db, node_id, force_start=bool(data.get("force_start")))
 
     async def _connect_nodes_bulk(self, data: dict):
         node_ids = data.get("node_ids")
@@ -215,6 +214,12 @@ class NodeWorkerService(BaseRpcService):
         await core_manager._reload_from_cache()
         async with GetDB() as db:
             await self._node_operator.sync_node_users(db, node_id=node_id, flush_users=flush_users)
+
+    async def _apply_native_tunnels(self, data: dict) -> dict:
+        from app.operation.tunnel import deploy
+
+        await core_manager._reload_from_cache()
+        return await deploy(data.get("actor", "node-worker"))
 
     async def _get_node_system_stats(self, data: dict) -> dict:
         node_id = data.get("node_id")

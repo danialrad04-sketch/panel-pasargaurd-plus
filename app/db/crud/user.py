@@ -16,6 +16,9 @@ from app.db.models import (
     Admin,
     AdminStatus,
     DataLimitResetStrategy,
+    DNSAccount,
+    DNSIPLease,
+    DNSUsagePeriod,
     Group,
     NextPlan,
     Node,
@@ -1208,6 +1211,19 @@ async def _delete_user_dependencies(db: AsyncSession, user_ids: list[int]):
     """Remove all rows that reference the given user IDs."""
     if not user_ids:
         return
+
+    # Bulk user deletion bypasses ORM cascades. Explicit service cleanup also
+    # covers SQLite deployments that do not enable FK enforcement.
+    await db.execute(
+        select(DNSAccount.id)
+        .where(_explicit_ids(DNSAccount.user_id, user_ids))
+        .order_by(DNSAccount.id)
+        .with_for_update()
+    )
+    account_ids = select(DNSAccount.id).where(_explicit_ids(DNSAccount.user_id, user_ids))
+    await db.execute(delete(DNSIPLease).where(DNSIPLease.account_id.in_(account_ids)))
+    await db.execute(delete(DNSUsagePeriod).where(DNSUsagePeriod.account_id.in_(account_ids)))
+    await db.execute(delete(DNSAccount).where(_explicit_ids(DNSAccount.user_id, user_ids)))
 
     await db.execute(
         users_groups_association.delete().where(_explicit_ids(users_groups_association.c.user_id, user_ids))

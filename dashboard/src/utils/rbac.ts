@@ -55,6 +55,7 @@ export const firstAllowedRoute = (admin: AdminDetails | null | undefined) => {
   if (!admin) return '/login'
   if (hasPermission(admin, 'system', 'read')) return '/'
   if (hasPermission(admin, 'users', 'read')) return '/users'
+  if (hasPermission(admin, 'dns', 'read')) return '/dns'
   if (hasPermission(admin, 'nodes', 'stats')) return '/statistics'
   if (canReadResourcePage(admin, 'hosts')) return '/hosts'
   if (canReadResourcePage(admin, 'groups')) return '/groups'
@@ -85,6 +86,9 @@ export const canAccessRoute = (admin: AdminDetails | null | undefined, pathname:
   if (pathname === '/nodes/cores') return canReadResourcePage(admin, 'cores')
   if (pathname === '/nodes/cores/new') return hasPermission(admin, 'cores', 'create')
   if (pathname.startsWith('/nodes/cores/')) return hasPermission(admin, 'cores', 'update')
+  if (pathname.startsWith('/smartdns')) return isOwner(admin)
+  if (pathname.startsWith('/tunnels')) return isOwner(admin)
+  if (pathname.startsWith('/dns')) return hasPermission(admin, 'dns', 'read')
   if (pathname.startsWith('/nodes/wireguard')) return canReadResourcePage(admin, 'cores')
   if (pathname.startsWith('/nodes/logs')) return hasPermission(admin, 'nodes', 'logs')
   if (pathname === '/nodes') return canReadResourcePage(admin, 'nodes')

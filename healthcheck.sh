@@ -17,7 +17,7 @@ check_http_health() {
     local protocol=$1
     local host=$2
     local port=$3
-    local curl_flags="-sf"
+    local curl_flags="-sf --connect-timeout 2 --max-time 5"
 
     # Add --insecure for HTTPS self-signed certs
     if [ "$protocol" = "https" ]; then
@@ -37,7 +37,7 @@ check_uds_health() {
     fi
 
     # Use curl with unix socket
-    curl -sf --unix-socket "$socket_path" "http://localhost/health" 2>/dev/null
+    curl -sf --connect-timeout 2 --max-time 5 --unix-socket "$socket_path" "http://localhost/health" 2>/dev/null
     return $?
 }
 

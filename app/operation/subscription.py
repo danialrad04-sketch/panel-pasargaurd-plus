@@ -500,14 +500,13 @@ class SubscriptionOperation(BaseOperation):
             format_variables = await self.get_format_variables(user)
             formatted_announce = self._format_announce(sub_settings, format_variables)
 
-            return HTMLResponse(
-                render_template(
-                    template,
-                    self._build_subscription_body_payload(
-                        user, links, formatted_announce, sub_settings, format_variables, is_hwid_enabled
-                    ),
-                )
+            from app.operation.dns import portal_metadata
+
+            page_payload = self._build_subscription_body_payload(
+                user, links, formatted_announce, sub_settings, format_variables, is_hwid_enabled
             )
+            page_payload["dns_info"] = await portal_metadata(db, db_user.id)
+            return HTMLResponse(render_template(template, page_payload))
         else:
             # Reject unsupported clients before registering the HWID, so they never use up a device slot
             client_type = matched_rule.target if matched_rule else None

@@ -16,6 +16,11 @@ interface Tab {
   url: string
 }
 
+export interface NodesOutletContext {
+  createNodeRequest: number
+  consumeCreateNodeRequest: () => void
+}
+
 const tabs: Tab[] = [
   { id: 'nodes.title', label: 'nodes.title', icon: Share2, url: '/nodes' },
   { id: 'core', label: 'core', icon: Cpu, url: '/nodes/cores' },
@@ -41,12 +46,15 @@ const Settings = () => {
     return false
   })
   const [activeTab, setActiveTab] = useState<string>(tabs[0].id)
+  const [createNodeRequest, setCreateNodeRequest] = useState(0)
+  const consumeCreateNodeRequest = useCallback(() => setCreateNodeRequest(0), [])
   const isCoreEditorPage = /^\/nodes\/cores\/[^/]+$/.test(location.pathname)
 
   const handleCreateNode = useCallback(() => {
     if (!canCreateNodes) return
-    window.dispatchEvent(new CustomEvent('openNodeDialog'))
-  }, [canCreateNodes])
+    setCreateNodeRequest(request => request + 1)
+    if (location.pathname !== '/nodes') navigate('/nodes')
+  }, [canCreateNodes, location.pathname, navigate])
 
   const handleCreateCore = useCallback(() => {
     if (!canCreateCores) return
@@ -112,12 +120,7 @@ const Settings = () => {
       description: 'manageNodes',
       buttonIcon: canCreateNodes ? Plus : undefined,
       buttonText: canCreateNodes ? 'nodes.addNode' : undefined,
-      onButtonClick: canCreateNodes
-        ? () => {
-            const event = new CustomEvent('openNodeDialog')
-            window.dispatchEvent(event)
-          }
-        : undefined,
+      onButtonClick: canCreateNodes ? handleCreateNode : undefined,
     }
   }
 
@@ -155,7 +158,7 @@ const Settings = () => {
           </div>
         )}
         <PageTransition isContentTransition={true} className="flex min-h-0 flex-1 flex-col">
-          <Outlet />
+          <Outlet context={{ createNodeRequest, consumeCreateNodeRequest } satisfies NodesOutletContext} />
         </PageTransition>
       </div>
     </div>

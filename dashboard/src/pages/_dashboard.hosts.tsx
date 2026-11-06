@@ -1,3 +1,4 @@
+import TunnelHostModal from '@/features/hosts/dialogs/tunnel-host-modal'
 import MainSection from '@/features/hosts/components/hosts-list'
 import { mapHostTransportSettingsForApi, type HostFormValues } from '@/features/hosts/forms/host-form'
 import PageHeader from '@/components/layout/page-header'
@@ -100,6 +101,7 @@ export default function HostsPage() {
       // Convert HostFormValues to CreateHost type
       const hostData: CreateHost = {
         ...hostFields,
+        native_tunnel_id: editingHost?.native_tunnel_id ?? null,
         priority,
         alpn: formData.alpn as ProxyHostALPN[] | undefined,
         fingerprint: formData.fingerprint as ProxyHostFingerprint | undefined,
@@ -252,6 +254,24 @@ export default function HostsPage() {
       </div>
 
       <div className="w-full p-4">
+        {admin?.role?.is_owner && (
+          <div className="mb-4">
+            <TunnelHostModal
+              hosts={data || []}
+              onPublished={() => {
+                void refetch()
+              }}
+            />
+          </div>
+        )}
+        {editingHost?.native_tunnel_id && (
+          <p className="text-muted-foreground mb-3 text-sm">
+            {t('hosts.tunnelBinding', {
+              defaultValue: 'This ingress host is bound to tunnel #{{id}}; it appears in subscriptions only while that path is enabled and applied.',
+              id: editingHost.native_tunnel_id,
+            })}
+          </p>
+        )}
         <MainSection
           data={data}
           isDialogOpen={isDialogOpen}

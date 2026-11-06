@@ -1,0 +1,137 @@
+package socks
+
+import (
+	"context"
+	"io"
+	"net"
+
+	"paqet/internal/flog"
+	"paqet/internal/pkg/buffer"
+	"paqet/internal/tnet"
+)
+
+type associate struct {
+	conn  *net.UDPConn
+	cAddr *net.UDPAddr
+}
+
+func (a *associate) accept(cAddr *net.UDPAddr) bool {
+	if !cAddr.IP.Equal(a.cAddr.IP) {
+		return false
+	}
+	if a.cAddr.Port == 0 {
+		a.cAddr.Port = cAddr.Port
+	}
+	return cAddr.Port == a.cAddr.Port
+}
+
+func (s *Server) handleAssociate(ctx context.Context, tConn net.Conn, req *request) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	lAddr := tConn.LocalAddr().(*net.TCPAddr)
+	conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: lAddr.IP, Port: 0})
+	if err != nil {
+		flog.Errorf("SOCKS5 failed to open UDP relay socket: %v", err)
+		s.write(tConn, repFailure)
+		return
+	}
+	defer conn.Close()
+
+	bAddr := conn.LocalAddr().(*net.UDPAddr)
+	if _, err := tConn.Write(append([]byte{ver, repSuccess, 0x00}, putAddr(nil, bAddr.IP, bAddr.Port)...)); err != nil {
+		return
+	}
+
+	a := &associate{conn: conn, cAddr: &net.UDPAddr{}}
+	if req.atyp == atypDomain || net.IP(req.addr).IsUnspecified() {
+		a.cAddr.IP = tConn.RemoteAddr().(*net.TCPAddr).IP
+	} else {
+		a.cAddr.IP = net.IP(req.addr)
+		a.cAddr.Port = int(req.port[0])<<8 | int(req.port[1])
+	}
+	flog.Debugf("SOCKS5 UDP_ASSOCIATE from %s relay=%s expect=%s", tConn.RemoteAddr(), bAddr, a.cAddr.IP)
+
+	go func() {
+		io.Copy(io.Discard, tConn)
+		conn.Close()
+	}()
+	context.AfterFunc(ctx, func() {
+		conn.Close()
+		tConn.Close()
+	})
+
+	s.serveUDP(ctx, a)
+	flog.Debugf("SOCKS5 UDP_ASSOCIATE control connection %s closed", tConn.RemoteAddr())
+}
+
+func (s *Server) serveUDP(ctx context.Context, a *associate) {
+	buf := make([]byte, 4+1+255+2+buffer.UDPSize+1)
+	for {
+		n, cAddr, err := a.conn.ReadFromUDP(buf)
+		if err != nil {
+			return
+		}
+		if n == len(buf) {
+			flog.Debugf("SOCKS5 UDP %s: datagram too large, at least %d bytes", cAddr, n)
+			continue
+		}
+		if !a.accept(cAddr) {
+			flog.Debugf("SOCKS5 UDP %s: unexpected source (want %s)", cAddr, a.cAddr.IP)
+			continue
+		}
+		d, err := decodeDatagram(buf[:n])
+		if err != nil {
+			flog.Debugf("SOCKS5 UDP %s: malformed datagram: %v", cAddr, err)
+			continue
+		}
+		s.udpToStrm(ctx, a, d)
+	}
+}
+
+func (s *Server) udpToStrm(ctx context.Context, a *associate, d *datagram) {
+	if len(d.data) > buffer.UDPSize {
+		flog.Debugf("SOCKS5 UDP %s -> %s: payload too large, %d bytes", a.cAddr, d.address(), len(d.data))
+		return
+	}
+
+	strm, new, k, err := s.client.UDP(ctx, a.cAddr.String(), d.address())
+	if err != nil {
+		flog.Errorf("SOCKS5 failed to establish UDP stream for %s -> %s: %v", a.cAddr, d.address(), err)
+		return
+	}
+
+	_, err = strm.Write(d.data)
+	if err != nil {
+		s.client.CloseUDP(k, strm)
+		return
+	}
+	s.client.Touch(k)
+
+	if new {
+		flog.Infof("SOCKS5 accepted UDP connection %s -> %s", a.cAddr, d.address())
+		hdr := (&datagram{atyp: d.atyp, addr: d.addr, port: d.port}).bytes()
+		go func() {
+			defer s.client.CloseUDP(k, strm)
+			s.strmToUDP(ctx, strm, a, hdr, k)
+		}()
+	}
+}
+
+func (s *Server) strmToUDP(ctx context.Context, strm tnet.Strm, a *associate, hdr []byte, k uint64) {
+	stop := context.AfterFunc(ctx, func() { strm.Close() })
+	defer stop()
+
+	buf := make([]byte, len(hdr)+buffer.UDPSize)
+	hlen := copy(buf, hdr)
+	for {
+		n, err := strm.Read(buf[hlen:])
+		if err != nil {
+			return
+		}
+		s.client.Touch(k)
+		if _, err := a.conn.WriteToUDP(buf[:hlen+n], a.cAddr); err != nil {
+			return
+		}
+	}
+}

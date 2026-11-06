@@ -1,0 +1,34 @@
+services:
+  node:
+    image: pasarguard-plus-node:local
+    build:
+      context: .
+      dockerfile: Dockerfile.plus
+    restart: always
+    env_file: .env
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    # WireGuard in this image uses the Linux kernel interface.
+    # The host must have WireGuard kernel support available (for example: modprobe wireguard).
+
+    environment:
+      SERVICE_PORT: ${SERVICE_PORT:-62050}
+      SERVICE_PROTOCOL: "grpc"
+      # Linux: enable runtime IPv4 forwarding and install scoped nftables NAT/forwarding rules.
+      # NAT egress is auto-detected (ip route / /proc/net/route); set PG_NODE_WG_NAT_OUTPUT_INTERFACE to override (e.g. eth0, ens192).
+      # For Xray TUN egress (no NAT) set PG_NODE_WG_NAT_DISABLE=1 and PG_NODE_WG_ROUTE_TABLE / PG_NODE_WG_ROUTE_OUT_INTERFACE (e.g. xray0). See .env.example.
+      PG_NODE_WG_HOST_ROUTING: "1"
+
+      SSL_CERT_FILE: "/var/lib/pg-node/certs/ssl_cert.pem"
+      SSL_KEY_FILE: "/var/lib/pg-node/certs/ssl_key.pem"
+      # api key must be a valid uuid (you can use any version you want)
+      # API_KEY: xxxxxxxx-yyyy-zzzz-mmmm-aaaaaaaaaaa
+
+      GENERATED_CONFIG_PATH: "/var/lib/pg-node/generated"
+
+    volumes:
+      - type: bind
+        source: ${PG_NODE_DATA_DIR:-/var/lib/pg-node}
+        target: /var/lib/pg-node

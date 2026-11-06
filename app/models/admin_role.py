@@ -71,6 +71,11 @@ class NodesPermissions(CRUDPermissions):
     stats: RoleActionValue | None = None
 
 
+class DNSPermissions(CRUDPermissions):
+    reset_usage: RoleActionValue | None = None
+    rotate_token: RoleActionValue | None = None
+
+
 class APIKeysPermissions(CRUDPermissions):
     create: bool | None = None
 
@@ -131,6 +136,7 @@ class RolePermissions(BaseModel):
     Each action value is True (allowed), {"scope": N} (scoped), or None (denied).
     """
 
+    dns: DNSPermissions | None = None
     users: UsersPermissions | None = None
     admins: AdminsPermissions | None = None
     nodes: NodesPermissions | None = None

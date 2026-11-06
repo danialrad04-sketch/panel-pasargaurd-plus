@@ -29,8 +29,19 @@ class NatsMessageRouter:
     async def _get_client(self) -> nats.NATS | None:
         """Get or create NATS client."""
         if not self._nc:
-            self._nc = await create_nats_client()
+            self._nc = await create_nats_client(reconnected_cb=self._reconnected)
         return self._nc
+
+    async def _reconnected(self):
+        # Core NATS delivery is at-most-once. Updates published during a disconnect
+        # can be lost; recover authoritative DB state before trusting cached hosts.
+        for topic in (MessageTopic.CORE, MessageTopic.HOST):
+            handler = self._handlers.get(topic)
+            if handler:
+                try:
+                    await handler({"action": "reconnect_db"})
+                except Exception:
+                    logger.error("Database resynchronization after messaging reconnect failed for %s", topic.value)
 
     def register_handler(self, topic: MessageTopic, handler: Callable[[dict], Awaitable[None]]):
         """Register a handler function for a specific topic."""

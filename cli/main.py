@@ -5,6 +5,7 @@ import typer
 
 from cli import console
 from cli.admin import generate_temp_key
+from cli.backup import app as backup_app
 
 app = typer.Typer(
     name="PasarGuard",
@@ -12,6 +13,9 @@ app = typer.Typer(
     add_completion=False,
     rich_markup_mode="rich",
 )
+
+
+app.add_typer(backup_app, name="backup")
 
 
 @app.command("generate-temp-key")
