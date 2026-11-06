@@ -16,9 +16,10 @@ from app.models.smartdns import (
     RouteModify,
     SettleInput,
 )
+from app.models.smartdns_gaming import GamingApplyInput, GamingAttachInput, GamingPlanInput
 from app.models.tunnel import TunnelRevision
 from app.routers.authentication import require_owner
-from app.smartdns import control, service
+from app.smartdns import control, gaming, service
 
 router = APIRouter(prefix="/api/smartdns", tags=["Native SmartDNS"])
 DB = Annotated[AsyncSession, Depends(get_db)]
@@ -45,6 +46,26 @@ async def state(db: DB, admin: Owner):
         ],
         "revocation_bound_ms": 2000,
     }
+
+
+@router.post("/gaming/plan")
+async def gaming_plan(body: GamingPlanInput, db: DB, admin: Owner):
+    return await gaming.plan(db, body)
+
+
+@router.post("/gaming", status_code=201)
+async def gaming_apply(body: GamingApplyInput, db: DB, admin: Owner):
+    return await gaming.apply(db, body, admin.username)
+
+
+@router.get("/gaming/profiles")
+async def gaming_profiles(db: DB, admin: Owner):
+    return {"items": await gaming.profiles(db)}
+
+
+@router.post("/gaming/{policy_id}/attach")
+async def gaming_attach(policy_id: int, body: GamingAttachInput, db: DB, admin: Owner):
+    return await gaming.attach(db, policy_id, body, admin)
 
 
 @router.post("/routes", status_code=201)
