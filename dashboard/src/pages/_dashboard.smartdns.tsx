@@ -1,5 +1,6 @@
 import { useDeferredValue, useState } from 'react'
 import NodeDNSSettings from './node-dns-settings'
+import GamingDNSWizard from './gaming-dns-wizard'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
@@ -121,6 +122,7 @@ export default function SmartDNS() {
           </div>
         ))}
       </div>
+      <GamingDNSWizard nodes={topology.data?.nodes || []} tunnels={topology.data?.items || []} fa={fa} />
       <NodeDNSSettings nodes={topology.data?.nodes || []} states={state.data?.nodes || []} fa={fa} onSaved={() => client.invalidateQueries({ queryKey: ['smartdns'] })} />
       <section className="space-y-3">
         <h2 className="font-medium">{t('اعمال تنظیمات gateway روی نود', 'Apply gateway configuration')}</h2>

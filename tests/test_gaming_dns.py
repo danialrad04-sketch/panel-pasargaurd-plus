@@ -21,8 +21,8 @@ from app.db.models import (
     TunnelDeployment,
     User,
 )
-from app.models.dns import DNSAccountCreate
 from app.models.admin import AdminDetails, AdminRoleData
+from app.models.dns import DNSAccountCreate
 from app.models.smartdns_gaming import GamingApplyInput, GamingAttachInput, GamingPlanInput
 from app.operation import dns as dns_operation
 from app.smartdns import control, gaming
