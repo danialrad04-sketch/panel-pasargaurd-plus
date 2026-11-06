@@ -11,6 +11,7 @@ from app.jobs import node_checker
 from app.node import manager_sync
 from app.operation import node as node_operation
 from app.operation.node import NodeOperation
+from app.tunnel import runtime as tunnel_runtime
 
 
 class FakeDB:
@@ -19,6 +20,16 @@ class FakeDB:
 
     async def __aexit__(self, *args):
         return False
+
+
+def no_native_overlay(monkeypatch):
+    """These tests use fake nodes without a database: no native tunnel is configured for them."""
+
+    async def payload(node_id, core):
+        return core.to_str(), set(getattr(core, "exclude_inbound_tags", ()))
+
+    monkeypatch.setattr(tunnel_runtime, "node_payload", payload)
+    monkeypatch.setattr(tunnel_runtime, "apply_node_engines", AsyncMock())
 
 
 def setup_node(monkeypatch, *, health=Health.HEALTHY, state=None):
@@ -32,6 +43,7 @@ def setup_node(monkeypatch, *, health=Health.HEALTHY, state=None):
         get_versions=AsyncMock(return_value=(info.node_version, info.core_version)),
         get_lifecycle_state=AsyncMock(return_value=state),
         info=AsyncMock(return_value=info),
+        set_reported_versions=AsyncMock(),
         connect=AsyncMock(),
         _work_available=asyncio.Event(),
         _ensure_sync_worker_running=AsyncMock(),
@@ -51,6 +63,7 @@ def setup_node(monkeypatch, *, health=Health.HEALTHY, state=None):
     monkeypatch.setattr(node_operation, "bulk_update_node_status", AsyncMock())
     monkeypatch.setattr(node_operation.notification, "connect_node", AsyncMock())
     monkeypatch.setattr(node_operation.notification, "error_node", AsyncMock())
+    no_native_overlay(monkeypatch)
     return db_node, node, reads
 
 

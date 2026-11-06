@@ -37,13 +37,16 @@ def test_subscription_page_escapes_links():
     assert "<img src=x" not in html
     assert "copyLink('" not in html
     assert 'data-link="vless://id@host:443#a&#39;, alert(1), &#39;&#34;&gt;&lt;img src=x onerror=1&gt;"' in html
-    assert 'onclick="copyLink(this.dataset.link, this)"' in html
+    # The Persian page wires its buttons from script listeners, so no inline handler carries the link.
+    assert 'class="copy-button" type="button" data-link="vless://id@host:443#a&#39;' in html
+    assert "onclick=" not in html.split('id="connections"', 1)[1].split("</section>", 1)[0]
 
 
 def test_subscription_page_escapes_announce_but_keeps_line_breaks():
     html = _render_subscription_page(announce="first line\n<script>alert(1)</script>")
 
-    assert "first line<br>&lt;script&gt;alert(1)&lt;/script&gt;" in html
+    assert "<script>alert(1)</script>" not in html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
 
 
 def test_subscription_page_escapes_app_import_url():
@@ -59,7 +62,7 @@ def test_subscription_page_escapes_app_import_url():
     html = _render_subscription_page(apps=[app])
 
     assert "importConfig('" not in html
-    assert 'data-url="app://import/&#39;);alert(1);//" onclick="importConfig(this.dataset.url)"' in html
+    assert 'class="import-button" data-url="app://import/&#39;);alert(1);//"' in html
 
 
 @pytest.mark.parametrize("value", ["a'b", 'a"b', "a<b", "a>b", "a`b", "a\\b", "a b", "a\tb", "a\nb", "a\x00b"])

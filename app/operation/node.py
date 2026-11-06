@@ -20,6 +20,7 @@ from app.db.crud.node import (
     get_node_by_id,
     get_node_stats,
     get_nodes,
+    get_nodes_outbound_usage,
     get_nodes_simple,
     get_nodes_usage,
     modify_node,
@@ -43,6 +44,7 @@ from app.models.node import (
     NodeListQuery,
     NodeModify,
     NodeNotification,
+    NodeOutboundUsageQuery,
     NodeResponse,
     NodeSimple,
     NodeSimpleListQuery,
@@ -56,7 +58,9 @@ from app.models.node import (
     UserIPListAll,
 )
 from app.models.stats import (
+    USAGE_RECORD_GRANULARITY,
     NodeOutboundsLatencyResponse,
+    NodeOutboundUsageStatsList,
     NodeRealtimeStats,
     NodeStatsList,
     NodeUsageStatsList,
@@ -787,7 +791,9 @@ class NodeOperation(BaseOperation):
         db: AsyncSession,
         query: NodeUsageQuery,
     ) -> NodeUsageStatsList:
-        start, end = await self.validate_dates(query.start, query.end, True)
+        start, end = await self.validate_dates(
+            query.start, query.end, True, period=query.period, granularity=USAGE_RECORD_GRANULARITY
+        )
         return await get_nodes_usage(
             db,
             start,
@@ -797,13 +803,26 @@ class NodeOperation(BaseOperation):
             group_by_node=query.group_by_node,
         )
 
+    async def get_outbound_usage(
+        self,
+        db: AsyncSession,
+        query: NodeOutboundUsageQuery,
+    ) -> NodeOutboundUsageStatsList:
+        # Outbound rows share the 10 minute bucket of node usage history
+        start, end = await self.validate_dates(
+            query.start, query.end, True, period=query.period, granularity=USAGE_RECORD_GRANULARITY
+        )
+        return await get_nodes_outbound_usage(db, start, end, period=query.period, node_id=query.node_id)
+
     async def get_user_count_metric(
         self,
         db: AsyncSession,
         metric: UserCountMetric,
         query: NodeUsageQuery,
     ) -> UserCountMetricStatsList:
-        start, end = await self.validate_dates(query.start, query.end, True)
+        start, end = await self.validate_dates(
+            query.start, query.end, True, period=query.period, granularity=USAGE_RECORD_GRANULARITY
+        )
         try:
             validate_user_count_metric_scope(metric, node_id=query.node_id, group_by_node=query.group_by_node)
         except ValueError as exc:
@@ -826,7 +845,7 @@ class NodeOperation(BaseOperation):
     async def get_node_stats_periodic(
         self, db: AsyncSession, node_id: int, query: NodeStatsPeriodQuery
     ) -> NodeStatsList:
-        start, end = await self.validate_dates(query.start, query.end, True)
+        start, end = await self.validate_dates(query.start, query.end, True, period=query.period)
 
         return await get_node_stats(db, node_id, start, end, period=query.period)
 
@@ -893,15 +912,15 @@ class NodeOperation(BaseOperation):
         from app.tunnel.guards import assert_paqet_node_update_safe
 
         await assert_paqet_node_update_safe(db, node_id)
-        return await self._update_node_api_impl(node_id)
+        return await self._update_node_api_impl(db, node_id)
 
     async def update_core(self, db: AsyncSession, node_id: int, node_core_update: NodeCoreUpdate) -> dict:
         await self.get_validated_node(db, node_id, load_usage_logs=False)
-        return await self._update_core_impl(node_id, node_core_update)
+        return await self._update_core_impl(db, node_id, node_core_update)
 
     async def update_geofiles(self, db: AsyncSession, node_id: int, node_geofiles_update: NodeGeoFilesUpdate) -> dict:
         await self.get_validated_node(db, node_id, load_usage_logs=False)
-        return await self._update_geofiles_impl(node_id, node_geofiles_update)
+        return await self._update_geofiles_impl(db, node_id, node_geofiles_update)
 
     async def _update_node_local(self, db_node: Node) -> None:
         await node_manager.update_node(db_node)
@@ -1372,7 +1391,53 @@ class NodeOperation(BaseOperation):
         )
         return NodeResponse.model_validate(await self.get_validated_node(db, node_id))
 
-    async def _update_node_api_local(self, node_id: int) -> dict:
+    @staticmethod
+    async def refresh_node_versions(
+        db: AsyncSession,
+        node_id: int,
+        node: PasarGuardNode,
+        timeout: int | None = None,
+        *,
+        persist: bool = True,
+    ) -> bool:
+        """Read live versions and persist them only for the current connected node."""
+        info = await node.info(timeout=timeout)
+        if info is None or not info.started or not info.node_version or not info.core_version:
+            return False
+        if await node_manager.get_node(node_id) is not node:
+            return False
+
+        if not persist:
+            await node.set_reported_versions(info.node_version, info.core_version)
+            return True
+
+        db_node = await get_node_by_id(db, node_id, load_usage_logs=False)
+        if db_node is None or db_node.status != NodeStatus.connected:
+            return False
+        if db_node.node_version != info.node_version or db_node.xray_version != info.core_version:
+            db_node.node_version = info.node_version
+            db_node.xray_version = info.core_version
+            await db.commit()
+        await node.set_reported_versions(info.node_version, info.core_version)
+        return True
+
+    @staticmethod
+    async def _mark_node_reconnecting_after_update(db: AsyncSession, node_id: int, node: PasarGuardNode) -> None:
+        """Leave a restarted node for the health job to attach or start."""
+        db_node = await get_node_by_id(db, node_id, load_usage_logs=False)
+        if db_node is None or db_node.status in (NodeStatus.disabled, NodeStatus.limited):
+            return
+        await update_node_status(
+            db,
+            db_node,
+            NodeStatus.connecting,
+            message="",
+            xray_version="",
+            node_version="",
+        )
+        await node.set_health(Health.NOT_CONNECTED)
+
+    async def _update_node_api_local(self, db: AsyncSession, node_id: int) -> dict:
         node = await node_manager.get_node(node_id)
         if node is None:
             await self.raise_error(message="Node not found", code=404)
@@ -1380,9 +1445,10 @@ class NodeOperation(BaseOperation):
             response = await node.update_node()
         except NodeAPIError as e:
             await self.raise_error(message=e.detail, code=e.code)
+        await self._mark_node_reconnecting_after_update(db, node_id, node)
         return response.json()
 
-    async def _update_node_api_remote(self, node_id: int) -> dict:
+    async def _update_node_api_remote(self, db: AsyncSession, node_id: int) -> dict:
         try:
             return await node_nats_client.request(
                 "update_node_api", {"node_id": node_id}, timeout=_MAINTENANCE_RPC_TIMEOUT
@@ -1390,7 +1456,7 @@ class NodeOperation(BaseOperation):
         except RuntimeError as exc:
             await self.handle_rpc_error(exc)
 
-    async def _update_core_local(self, node_id: int, node_core_update: NodeCoreUpdate) -> dict:
+    async def _update_core_local(self, db: AsyncSession, node_id: int, node_core_update: NodeCoreUpdate) -> dict:
         node = await node_manager.get_node(node_id)
         if node is None:
             await self.raise_error(message="Node not found", code=404)
@@ -1398,16 +1464,19 @@ class NodeOperation(BaseOperation):
             response = await node.update_core(node_core_update.model_dump(mode="json"))
         except NodeAPIError as e:
             await self.raise_error(message=e.detail, code=e.code)
+        await self._mark_node_reconnecting_after_update(db, node_id, node)
         return response.json()
 
-    async def _update_core_remote(self, node_id: int, node_core_update: NodeCoreUpdate) -> dict:
+    async def _update_core_remote(self, db: AsyncSession, node_id: int, node_core_update: NodeCoreUpdate) -> dict:
         return await node_nats_client.request(
             "update_core",
             {"node_id": node_id, "core_update": node_core_update.model_dump(mode="json")},
             timeout=_MAINTENANCE_RPC_TIMEOUT,
         )
 
-    async def _update_geofiles_local(self, node_id: int, node_geofiles_update: NodeGeoFilesUpdate) -> dict:
+    async def _update_geofiles_local(
+        self, db: AsyncSession, node_id: int, node_geofiles_update: NodeGeoFilesUpdate
+    ) -> dict:
         node = await node_manager.get_node(node_id)
         if node is None:
             await self.raise_error(message="Node not found", code=404)
@@ -1415,9 +1484,12 @@ class NodeOperation(BaseOperation):
             response = await node.update_geofiles(node_geofiles_update.model_dump(mode="json"))
         except NodeAPIError as e:
             await self.raise_error(message=e.detail, code=e.code)
+        await self._mark_node_reconnecting_after_update(db, node_id, node)
         return response.json()
 
-    async def _update_geofiles_remote(self, node_id: int, node_geofiles_update: NodeGeoFilesUpdate) -> dict:
+    async def _update_geofiles_remote(
+        self, db: AsyncSession, node_id: int, node_geofiles_update: NodeGeoFilesUpdate
+    ) -> dict:
         return await node_nats_client.request(
             "update_geofiles",
             {"node_id": node_id, "geofiles_update": node_geofiles_update.model_dump(mode="json")},

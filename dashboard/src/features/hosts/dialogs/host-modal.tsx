@@ -16,7 +16,7 @@ import { CustomVariablesPopover, VariablesList, VariablesPopover } from '@/compo
 import useDirDetection from '@/hooks/use-dir-detection'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
-import { ClientTemplateType, UserStatus, getGetHostsQueryKey, getHosts, useGetClientTemplatesSimple } from '@/service/api'
+import { ClientTemplateType, type InboundSummary, UserStatus, getGetHostsQueryKey, getHosts, useGetClientTemplatesSimple } from '@/service/api'
 import { queryClient } from '@/utils/query-client'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, Cable, ChevronsLeftRightEllipsis, Copy, Pencil, GlobeLock, Info, Loader2, Lock, Network, Plus, Route, Trash2, X, ListTodo } from 'lucide-react'
@@ -26,6 +26,7 @@ import { useTranslation } from 'react-i18next'
 import { hostFormDefaultValues, type HostFormValues } from '@/features/hosts/forms/host-form'
 import { LoaderButton } from '@/components/ui/loader-button'
 import { XrayStreamFinalmaskFields } from '@/features/core-editor/components/shared/xray-stream-finalmask-editor'
+import { FormRealityFingerprintWarning as RealityFingerprintWarning } from '@/components/common/reality-fingerprint-warning'
 
 // Predefined sessionIDTable aliases recognized by Xray 26.6.22+.
 const SESSION_ID_TABLE_PRESETS = ['ALPHABET', 'Alphabet', 'BASE36', 'Base62', 'HEX', 'alphabet', 'base36', 'hex', 'number']
@@ -104,7 +105,7 @@ interface HostModalProps {
   onSubmit: (data: HostFormValues) => Promise<{ status: number }>
   editingHost?: boolean
   form: UseFormReturn<HostFormValues>
-  inboundDetails?: Array<{ tag: string; protocol: string }>
+  inboundDetails?: InboundSummary[]
   isLoadingInbounds?: boolean
 }
 
@@ -324,6 +325,7 @@ const HostModal: React.FC<HostModalProps> = ({ isDialogOpen, onOpenChange, onSub
   const selectedFragmentSettings = form.watch('fragment_settings.xray')
   const xPaddingObfsEnabled = form.watch('transport_settings.xhttp_settings.x_padding_obfs_mode') === true
   const selectedFingerprint = form.watch('fingerprint')
+  const selectedSecurity = form.watch('security')
   const infoPopoverSide = isMobile ? 'bottom' : dir === 'rtl' ? 'left' : 'right'
   const infoPopoverAlign = isMobile ? 'center' : 'start'
   const hasFragmentPopulated = Boolean(
@@ -354,7 +356,7 @@ const HostModal: React.FC<HostModalProps> = ({ isDialogOpen, onOpenChange, onSub
                     <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                     <AlertDescription className="text-xs sm:text-sm">
                       {t('hostsDialog.fragmentNoiseDeprecated', {
-                        defaultValue: '`noise` and `fragment` are being removed in newer versions — use `finalMask` instead.',
+                        defaultValue: '`noise` and `fragment` are being removed in newer versions â€” use `finalMask` instead.',
                       })}
                     </AlertDescription>
                   </Alert>
@@ -703,6 +705,8 @@ const HostModal: React.FC<HostModalProps> = ({ isDialogOpen, onOpenChange, onSub
 
   const inbounds = useMemo(() => inboundDetails?.map(inbound => inbound.tag) || [], [inboundDetails])
   const selectedInbound = useMemo(() => inboundDetails?.find(inbound => inbound.tag === selectedInboundTag), [inboundDetails, selectedInboundTag])
+  const usesReality = selectedSecurity === 'inbound_default' && selectedInbound?.security === 'reality'
+  const effectiveFingerprint = selectedFingerprint && selectedFingerprint !== 'none' ? selectedFingerprint : selectedInbound?.fingerprint || 'chrome'
   const isWireGuardInbound = selectedInbound?.protocol === 'wireguard'
   const isInboundModeResolved = !isDialogOpen || !selectedInboundTag || !!selectedInbound || !isLoadingInbounds
   const shouldRenderWireGuardLayout = resolvedHostMode === 'wireguard'
@@ -1058,7 +1062,7 @@ const HostModal: React.FC<HostModalProps> = ({ isDialogOpen, onOpenChange, onSub
                                     field.onChange(field.value.filter(s => s !== status))
                                   }}
                                 >
-                                  ×
+                                  <X className="h-4 w-4"/>
                                 </button>
                               </span>
                             )
@@ -1585,7 +1589,7 @@ const HostModal: React.FC<HostModalProps> = ({ isDialogOpen, onOpenChange, onSub
                                 <FormLabel>{t('hostsDialog.fingerprint')}</FormLabel>
                                 <Select onValueChange={value => field.onChange(value === 'default' ? '' : value)} value={field.value || 'default'}>
                                   <FormControl>
-                                    <SelectTrigger>
+                                    <SelectTrigger ref={field.ref}>
                                       <SelectValue placeholder={t('hostsDialog.fingerprint')} />
                                     </SelectTrigger>
                                   </FormControl>
@@ -1605,6 +1609,14 @@ const HostModal: React.FC<HostModalProps> = ({ isDialogOpen, onOpenChange, onSub
                                     <SelectItem value="unsafe">{t('unsafe')}</SelectItem>
                                   </SelectContent>
                                 </Select>
+                                {usesReality && (
+                                  <RealityFingerprintWarning
+                                    fingerprint={effectiveFingerprint}
+                                    onUseChrome={() => {
+                                      form.setValue('fingerprint', 'chrome', { shouldDirty: true, shouldTouch: true, shouldValidate: true })
+                                    }}
+                                  />
+                                )}
                                 <FormMessage />
                               </FormItem>
                             )}
@@ -1944,6 +1956,9 @@ const HostModal: React.FC<HostModalProps> = ({ isDialogOpen, onOpenChange, onSub
                               <TabsTrigger className="flex-1 px-1 text-xs sm:flex-none sm:px-2 sm:text-sm" value="masque">
                                 MASQUE
                               </TabsTrigger>
+                              <TabsTrigger className="flex-1 px-1 text-xs sm:flex-none sm:px-2 sm:text-sm" value="xdrive">
+                                XDrive
+                              </TabsTrigger>
                             </TabsList>
                           </div>
 
@@ -2019,6 +2034,99 @@ const HostModal: React.FC<HostModalProps> = ({ isDialogOpen, onOpenChange, onSub
                                 <FormField
                                   control={form.control}
                                   name="transport_settings.masque_settings.xmux.h_keep_alive_period"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>{t('hostsDialog.xhttp.hKeepAlivePeriod')}</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          {...field}
+                                          value={field.value ?? ''}
+                                          onChange={event => field.onChange(event.target.value === '' ? null : Number(event.target.value))}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                            </div>
+                          </TabsContent>
+
+                          {/* XDrive Settings */}
+                          <TabsContent dir={dir} value="xdrive" className="space-y-4 p-2">
+                            <div className="space-y-3">
+                              <h4 className="text-sm font-medium">{t('hostsDialog.xhttp.xmux')}</h4>
+                              <p className="text-muted-foreground text-xs">{t('hostsDialog.xdrive.xmuxHint', { defaultValue: 'Connection reuse limits for XDrive. Set maxConnections or maxConcurrency, not both.' })}</p>
+                              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                <FormField
+                                  control={form.control}
+                                  name="transport_settings.xdrive_settings.xmux.max_connections"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>{t('hostsDialog.xhttp.maxConnections')}</FormLabel>
+                                      <FormControl>
+                                        <Input {...field} value={field.value ?? ''} placeholder="1 or 1-3" />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name="transport_settings.xdrive_settings.xmux.max_concurrency"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>{t('hostsDialog.xhttp.maxConcurrency')}</FormLabel>
+                                      <FormControl>
+                                        <Input {...field} value={field.value ?? ''} placeholder="8 or 8-16" />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name="transport_settings.xdrive_settings.xmux.c_max_reuse_times"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>{t('hostsDialog.xhttp.cMaxReuseTimes')}</FormLabel>
+                                      <FormControl>
+                                        <Input {...field} value={field.value ?? ''} placeholder="1 or 1-3" />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name="transport_settings.xdrive_settings.xmux.h_max_reusable_secs"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>{t('hostsDialog.xhttp.hMaxReusableSecs')}</FormLabel>
+                                      <FormControl>
+                                        <Input {...field} value={field.value ?? ''} placeholder="1800-3000" />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name="transport_settings.xdrive_settings.xmux.h_max_request_times"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>{t('hostsDialog.xhttp.hMaxRequestTimes')}</FormLabel>
+                                      <FormControl>
+                                        <Input {...field} value={field.value ?? ''} placeholder="300-600" />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name="transport_settings.xdrive_settings.xmux.h_keep_alive_period"
                                   render={({ field }) => (
                                     <FormItem>
                                       <FormLabel>{t('hostsDialog.xhttp.hKeepAlivePeriod')}</FormLabel>

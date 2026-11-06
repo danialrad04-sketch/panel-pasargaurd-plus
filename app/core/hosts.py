@@ -158,9 +158,9 @@ async def _prepare_subscription_inbound_data(
     masque_remote_dns = []
     if protocol == "masque":
         host_dns = ts.masque_settings.remote_dns if ts and ts.masque_settings else None
-        masque_remote_dns = [
-            dns.strip() for dns in _string_list(host_dns or inbound_config.get("remote_dns")) if dns.strip()
-        ]
+        masque_remote_dns = [dns.strip() for dns in _string_list(host_dns) if dns.strip()]
+        if not masque_remote_dns:
+            masque_remote_dns = [dns.strip() for dns in _string_list(inbound_config.get("remote_dns")) if dns.strip()]
 
     # The host FinalMask model only accepts client mask types; the inbound finalmask is the server's config
     final_mask_settings = (
@@ -458,6 +458,7 @@ async def _prepare_subscription_inbound_data(
             header_type=qs.header if qs else inbound_header_type,
         )
     elif network == "xdrive":
+        xs = ts.xdrive_settings if ts else None
         transport_config = XDriveTransportConfig(
             remote_folder=inbound_config.get("xdrive_remote_folder"),
             service=inbound_config.get("xdrive_service"),
@@ -471,6 +472,8 @@ async def _prepare_subscription_inbound_data(
             eager_window_ms=inbound_config.get("xdrive_eager_window_ms"),
             hole_timeout_ms=inbound_config.get("xdrive_hole_timeout_ms"),
             template=inbound_config.get("xdrive_template"),
+            s3=inbound_config.get("xdrive_s3"),
+            xmux=xs.xmux.model_dump(by_alias=True, exclude_none=True) if xs and xs.xmux else inbound_config.get("xdrive_xmux"),
         )
     elif network in ("ws", "websocket", "httpupgrade"):
         ws = ts.websocket_settings if ts else None
@@ -554,8 +557,10 @@ class HostManager:
     # what unchanged hosts prepare to, so NATS installs rebuild instead of serving the old data.
     # v3: the inbound finalmask no longer carries server-only "filter" layers ("state_v2" is taken by PR #1020).
     # v4: a disabled, deleted or unserved xHTTP download host is no longer embedded in its parent.
-    # v5: native tunnel ingress hosts follow applied revisions and source-core settings.
-    STATE_CACHE_KEY = "state_v5"
+    # v5: a disabled xHTTP download host can still supply settings to its parent.
+    # v6: rebuild shared inbound metadata using stable core ID precedence.
+    # v7: native tunnel ingress hosts follow applied revisions and source-core settings.
+    STATE_CACHE_KEY = "state_v7"
     KV_BUCKET_NAME = "host_manager_state"
 
     def __init__(self):
@@ -716,7 +721,8 @@ class HostManager:
             if bound_inbound is None:
                 return None
 
-        # Handle downstream for xhttp. Without a usable (existing, enabled, served) download host,
+        # Handle downstream for xhttp. A disabled host can still supply download settings,
+        # although it is not served as a standalone host. Without an existing, served download host,
         # clients use this host both ways: the inbound's own downloadSettings only apply to hosts without one.
         downstream_data = None
         has_download_host = False
@@ -732,7 +738,7 @@ class HostManager:
                     f'Download host "{ds_host}" of host "{host.id}" is missing or its inbound is gone, '
                     "serving the host without it"
                 )
-            elif not downstream.is_disabled:
+            else:
                 try:
                     downstream_base = BaseHost.model_validate(downstream)
                     if downstream_base.native_tunnel_id:

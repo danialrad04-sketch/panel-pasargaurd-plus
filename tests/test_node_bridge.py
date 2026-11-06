@@ -889,6 +889,14 @@ async def test_failed_current_state_read_requeues_the_batch_and_never_acknowledg
 @pytest.mark.asyncio
 async def test_start_snapshot_and_start_rpc_run_inside_the_fence(monkeypatch):
     from app.operation.node import NodeOperation
+    from app.tunnel import runtime as tunnel_runtime
+
+    async def payload(node_id, core):
+        return core.to_str(), set()
+
+    # No database here: the node has no native tunnel overlay.
+    monkeypatch.setattr(tunnel_runtime, "node_payload", payload)
+    monkeypatch.setattr(tunnel_runtime, "apply_node_engines", AsyncMock())
 
     store = NatsUserSyncStore(MemoryCasKv())
     node = make_node("grpc", store)
