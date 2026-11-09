@@ -248,7 +248,15 @@ async def attach(db, policy_id, body, admin):
         await operation.create_lease(db, account_id, DNSLeaseInput(ip=ip, ttl=body.ttl), admin)
         for ip in body.client_ips
     ]
-    return {"account_id": account_id, "policy_id": policy_id, "leases": leases, "byte_limit": body.byte_limit}
+    # The user's own page: it lists their IPs and lets them register the one they play from.
+    credential = (await operation.account_credentials(db, account_id, admin))["token"]
+    return {
+        "account_id": account_id,
+        "policy_id": policy_id,
+        "leases": leases,
+        "byte_limit": body.byte_limit,
+        "portal_path": f"/dns-sub/{credential}",
+    }
 
 
 async def profiles(db):

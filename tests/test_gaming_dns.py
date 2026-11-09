@@ -259,6 +259,7 @@ async def test_attach_user_enables_relay_with_explicit_limit_and_leases(world):
     async with world.sessions() as db:
         done = await gaming.attach(db, result["policy_id"], body, OWNER)
     async with world.sessions() as db:
+        assert done["portal_path"].startswith("/dns-sub/") and len(done["portal_path"]) > 40
         account = await db.get(DNSAccount, done["account_id"])
         assert account.policy_id == result["policy_id"]
         assert account.relay_enabled and account.relay_byte_limit == 5_000_000

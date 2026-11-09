@@ -107,7 +107,6 @@ def view_from_rows(account, user, policy, usage):
         "relay_bytes": usage.relay_bytes,
         "relay_reserved": usage.relay_reserved,
         "relay_uncertain_bytes": usage.relay_uncertain_bytes,
-
         "period": account.period,
         "queries": usage.queries,
         "request_bytes": usage.request_bytes,
@@ -228,13 +227,18 @@ async def account_credentials(db, account_id, admin):
 
 async def create_lease(db, account_id, body, admin):
     account, _ = await account_by_id(db, account_id, admin, "update", lock=True)
+    return await grant_lease(db, account, body.ip, body.ttl, admin.username)
+
+
+async def grant_lease(db, account, ip, ttl, actor):
+    """Lease a source IP to an account. The caller has already authorized the account and holds its row lock."""
     now = datetime.now(UTC)
     await db.execute(
         delete(DNSIPLease).where(
-            DNSIPLease.expires_at <= now, or_(DNSIPLease.account_id == account.id, DNSIPLease.ip == body.ip)
+            DNSIPLease.expires_at <= now, or_(DNSIPLease.account_id == account.id, DNSIPLease.ip == ip)
         )
     )
-    old = await db.get(DNSIPLease, body.ip)
+    old = await db.get(DNSIPLease, ip)
     if old and old.account_id != account.id:
         raise HTTPException(409, "This source IP is leased to another account")
     count = (
@@ -242,18 +246,22 @@ async def create_lease(db, account_id, body, admin):
     ).scalar_one()
     if old is None and count >= 3:
         raise HTTPException(409, "At most three active source IP leases are allowed")
-    expires = now + timedelta(seconds=body.ttl)
+    expires = now + timedelta(seconds=ttl)
     if old:
         old.expires_at = expires
     else:
-        db.add(DNSIPLease(ip=body.ip, account_id=account.id, expires_at=expires))
-    audit(db, admin, "lease", account.id, expires_at=expires.isoformat())
+        db.add(DNSIPLease(ip=ip, account_id=account.id, expires_at=expires))
+    db.add(
+        ServiceAudit(
+            actor=actor, action="dns.lease", target_id=str(account.id), details={"expires_at": expires.isoformat()}
+        )
+    )
     try:
         await db.commit()
     except IntegrityError:
         await db.rollback()
         raise HTTPException(409, "Source IP was concurrently leased to another account") from None
-    return {"ip": body.ip, "expires_at": expires}
+    return {"ip": ip, "expires_at": expires}
 
 
 async def portal_metadata(db, user_id):

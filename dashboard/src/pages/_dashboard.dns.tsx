@@ -353,6 +353,18 @@ export default function NativeDNS() {
                 <div className="space-y-3 border-t pt-4">
                   <div className="flex flex-wrap gap-2">
                     <Button
+                      disabled={busy}
+                      onClick={() =>
+                        void mutate(async () => {
+                          const result = await fetcher<{ url: string }>(`/api/dns/accounts/${account.id}/portal`)
+                          await copy(result.url)
+                        })
+                      }
+                    >
+                      <Copy className="me-2 h-4 w-4" />
+                      {t('کپی لینک ساب DNS کاربر', 'Copy the user DNS link')}
+                    </Button>
+                    <Button
                       variant="outline"
                       disabled={busy}
                       onClick={() =>

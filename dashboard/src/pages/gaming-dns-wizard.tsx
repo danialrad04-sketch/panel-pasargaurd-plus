@@ -68,6 +68,7 @@ export default function GamingDNSWizard({ nodes, tunnels, fa }: { nodes: TunnelN
   const [ips, setIps] = useState('')
   const [limitGb, setLimitGb] = useState('')
   const [attached, setAttached] = useState('')
+  const [portal, setPortal] = useState('')
 
   const catalog = useQuery({ queryKey: ['dns-catalog'], queryFn: () => fetcher<Catalog>('/api/dns/catalog'), enabled: open })
   const profiles = useQuery({ queryKey: ['gaming-profiles'], queryFn: () => fetcher<{ items: Profile[] }>('/api/smartdns/gaming/profiles') })
@@ -150,11 +151,12 @@ export default function GamingDNSWizard({ nodes, tunnels, fa }: { nodes: TunnelN
     setError('')
     try {
       const addresses = ips.split(/[\s,]+/).filter(Boolean)
-      await fetcher(`/api/smartdns/gaming/${applied.policy_id}/attach`, {
+      const done = await fetcher<{ portal_path: string }>(`/api/smartdns/gaming/${applied.policy_id}/attach`, {
         method: 'POST',
         body: { user_id: Number(userId), client_ips: addresses, byte_limit: Math.round(Number(limitGb || 0) * 1024 ** 3) },
       })
       setAttached(users.data?.users.find(user => String(user.id) === userId)?.username ?? userId)
+      setPortal(window.location.origin + done.portal_path)
       setUserId('')
       setIps('')
       await client.invalidateQueries({ queryKey: ['gaming-profiles'] })
@@ -169,6 +171,7 @@ export default function GamingDNSWizard({ nodes, tunnels, fa }: { nodes: TunnelN
     setOpen(false)
     setApplied(null)
     setAttached('')
+    setPortal('')
     reset()
   }
   const toggle = (key: string) => {
@@ -408,9 +411,20 @@ export default function GamingDNSWizard({ nodes, tunnels, fa }: { nodes: TunnelN
                   </label>
                 </div>
                 {attached && (
-                  <p className="text-xs">
-                    {t('کاربر متصل شد:', 'User attached:')} <bdi>{attached}</bdi>
-                  </p>
+                  <div className="space-y-2 text-xs">
+                    <p>
+                      {t('کاربر متصل شد:', 'User attached:')} <bdi>{attached}</bdi>
+                    </p>
+                    <p className="text-muted-foreground leading-6">
+                      {t('این لینک ساب DNS اختصاصی کاربر است؛ خودش IP فعلی‌اش را در آن ثبت می‌کند.', 'This is the user’s own DNS link. They register their current IP on it.')}
+                    </p>
+                    <div className="flex gap-2">
+                      <Input dir="ltr" readOnly aria-label="DNS link" value={portal} className="min-w-0 flex-1" />
+                      <Button variant="outline" onClick={() => void navigator.clipboard.writeText(portal)}>
+                        {t('کپی', 'Copy')}
+                      </Button>
+                    </div>
+                  </div>
                 )}
                 <Button disabled={!userId || !ips.trim() || busy} onClick={attach}>
                   {t('اتصال کاربر', 'Attach user')}

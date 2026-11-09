@@ -4,8 +4,10 @@ import base64
 import binascii
 from datetime import UTC, datetime
 from typing import Annotated
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
@@ -194,6 +196,22 @@ async def rotate(
     return Response(
         content=__import__("json").dumps(result), media_type="application/json", headers={"Cache-Control": "no-store"}
     )
+
+
+@router.get("/api/dns/accounts/{account_id}/portal")
+async def portal_link(
+    account_id: int,
+    request: Request,
+    db: DB,
+    admin: Annotated[AdminDetails, Depends(require_permission("dns", "rotate_token"))],
+):
+    """The user's own DNS page. It is a bearer link: anyone holding it can manage this account's source IPs."""
+    token = (await operation.account_credentials(db, account_id, admin))["token"]
+    origin = str(request.base_url).rstrip("/")
+    if dns_settings.public_url and dns_settings.public_url.startswith(("http://", "https://")):
+        parts = urlsplit(dns_settings.public_url)
+        origin = f"{parts.scheme}://{parts.netloc}"
+    return JSONResponse({"url": f"{origin}/dns-sub/{token}"}, headers={"Cache-Control": "no-store"})
 
 
 @router.post("/api/dns/accounts/{account_id}/credentials", response_model=DNSCredential)

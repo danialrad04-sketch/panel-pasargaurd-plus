@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="dark light">
+<title>DNS گیمینگ · {{ data.username }}</title>
+<style>
+@font-face{font-family:Vazirmatn;font-weight:100 900;font-display:swap;src:url({{ dashboard_path }}statics/fonts/google/Dxxo8j6PP2D_kU2muijlGMWWMmk.woff2) format("woff2");unicode-range:U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+FB50-FDFF,U+FE70-FEFC}
+@font-face{font-family:Vazirmatn;font-weight:100 900;font-display:swap;src:url({{ dashboard_path }}statics/fonts/google/Dxxo8j6PP2D_kU2muijlE8WWMmk.woff2) format("woff2");unicode-range:U+0000-00FF,U+0100-02BA,U+2000-206F,U+20A0-20C0}
+:root{--bg:#f6f4ff;--card:#fff;--ink:#1b1536;--mute:#6b6488;--line:#e6e1f7;--p:#7c3aed;--p2:#06b6d4;--p3:#ec4899;--ok:#0f9d73;--bad:#d1334d;--warn:#b7791f;--tint:#f0ebff;--shadow:0 18px 50px -24px #4c1d9566;--aurora:radial-gradient(60rem 28rem at 85% -10%,#c4b5fd66,transparent 60%),radial-gradient(44rem 24rem at 0% 0%,#67e8f933,transparent 60%)}
+:root[data-theme=dark]{--bg:#0b0817;--card:#130f26;--ink:#f1edff;--mute:#a59ec4;--line:#2a2347;--p:#a78bfa;--p2:#22d3ee;--p3:#f472b6;--ok:#34d399;--bad:#fb7185;--warn:#fbbf24;--tint:#1c1636;--shadow:0 18px 60px -28px #000;--aurora:radial-gradient(60rem 28rem at 85% -10%,#7c3aed44,transparent 60%),radial-gradient(44rem 24rem at 0% 0%,#06b6d426,transparent 60%)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0b0817;--card:#130f26;--ink:#f1edff;--mute:#a59ec4;--line:#2a2347;--p:#a78bfa;--p2:#22d3ee;--p3:#f472b6;--ok:#34d399;--bad:#fb7185;--warn:#fbbf24;--tint:#1c1636;--shadow:0 18px 60px -28px #000;--aurora:radial-gradient(60rem 28rem at 85% -10%,#7c3aed44,transparent 60%),radial-gradient(44rem 24rem at 0% 0%,#06b6d426,transparent 60%)}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100dvh;background:var(--aurora),var(--bg);color:var(--ink);font:15px/1.9 Vazirmatn,Tahoma,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:760px;margin:0 auto;padding:20px 16px 56px;display:grid;gap:16px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 2px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.2px}
+.mark{width:34px;height:34px;border-radius:11px;background:linear-gradient(135deg,var(--p2),var(--p) 55%,var(--p3));display:grid;place-items:center;box-shadow:0 8px 24px -8px var(--p)}
+.mark svg{width:19px;height:19px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+button{font:inherit;color:inherit}
+.ghost{background:transparent;border:1px solid var(--line);border-radius:10px;padding:5px 12px;cursor:pointer}
+.ghost:hover{border-color:var(--p)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px;box-shadow:var(--shadow)}
+.card h2{margin:0 0 4px;font-size:15px;font-weight:700}
+.sub{margin:0;color:var(--mute);font-size:13px}
+.hero{position:relative;overflow:hidden}
+.hero:before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,var(--p2),var(--p),var(--p3))}
+.status{display:inline-flex;align-items:center;gap:8px;padding:4px 12px;border-radius:99px;font-size:13px;background:var(--tint);border:1px solid var(--line)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--mute)}
+.on .dot{background:var(--ok);box-shadow:0 0 0 4px #10b98126}.off .dot{background:var(--bad)}.warn .dot{background:var(--warn)}
+.ip{font:700 clamp(24px,6vw,34px)/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;direction:ltr;text-align:right;margin:10px 0 2px;word-break:break-all}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.btn{border:0;border-radius:12px;padding:10px 18px;font-weight:700;cursor:pointer;color:#fff;background:linear-gradient(120deg,var(--p),#6366f1);box-shadow:0 10px 26px -12px var(--p)}
+.btn:hover{filter:brightness(1.08)}.btn:disabled{opacity:.5;cursor:not-allowed;filter:none}
+.btn.line{background:transparent;color:var(--ink);border:1px solid var(--line);box-shadow:none;font-weight:500}
+.list{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}
+.list li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--tint)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;direction:ltr;unicode-bidi:embed}
+.chip{font-size:12px;padding:2px 10px;border-radius:99px;background:var(--tint);border:1px solid var(--line)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.copy{display:flex;gap:8px;align-items:center;justify-content:space-between;background:var(--tint);border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin-top:10px}
+.copy code{direction:ltr;overflow-wrap:anywhere;font-size:13px;text-align:left}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
+.tabs button{border:1px solid var(--line);background:transparent;border-radius:10px;padding:5px 12px;cursor:pointer;font-size:13px}
+.tabs button[aria-selected=true]{background:linear-gradient(120deg,var(--p),#6366f1);border-color:transparent;color:#fff}
+ol{margin:6px 0 0;padding-inline-start:22px;color:var(--ink)}ol li{margin:4px 0}
+.bar{height:8px;border-radius:99px;background:var(--tint);border:1px solid var(--line);overflow:hidden;margin-top:10px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--p2),var(--p));border-radius:99px}
+.note{font-size:12.5px;color:var(--mute);line-height:1.9}
+.msg{min-height:1.4em;font-size:13px}.msg.bad{color:var(--bad)}.msg.good{color:var(--ok)}
+pre{direction:ltr;text-align:left;margin:10px 0 0;padding:12px;border-radius:12px;background:var(--tint);border:1px solid var(--line);overflow:auto;font-size:12px}
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div class="brand"><span class="mark"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg></span><span>DNS گیمینگ</span></div>
+    <button class="ghost" id="theme" type="button" aria-label="تغییر پوسته">◐</button>
+  </div>
+
+  <section class="card hero" aria-live="polite">
+    <div class="row"><div><h2 id="who"></h2><p class="sub" id="state-text"></p></div><span class="status" id="state"><i class="dot"></i><span></span></span></div>
+    <p class="sub" style="margin-top:14px">IP فعلی شما</p>
+    <div class="ip" id="ip" dir="ltr"></div>
+    <p class="note" id="ip-note"></p>
+    <div class="row" style="margin-top:12px"><button class="btn" id="register" type="button"></button><span class="msg" id="msg" role="status"></span></div>
+  </section>
+
+  <section class="card">
+    <h2>IPهای ثبت‌شده</h2>
+    <p class="sub" id="leases-sub"></p>
+    <ul class="list" id="leases"></ul>
+  </section>
+
+  <section class="card">
+    <h2>آدرس DNS برای دستگاه</h2>
+    <p class="sub">این آدرس را در تنظیمات DNS کنسول یا شبکه وارد کنید.</p>
+    <div id="servers"></div>
+    <div id="no-server" class="note" hidden>هنوز آدرسی فعال نشده است؛ ادمین باید DNS نود را فعال کند.</div>
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div id="guide"></div>
+  </section>
+
+  <section class="card">
+    <h2>سرویس‌های پوشش‌داده‌شده</h2>
+    <p class="sub" id="policy"></p>
+    <div class="chips" id="services"></div>
+    <div id="usage"></div>
+  </section>
+
+  <section class="card">
+    <h2>ثبت خودکار IP</h2>
+    <p class="sub">اگر IP اینترنت شما تغییر می‌کند، این دستور را از دستگاهی که در همان شبکه است (یا میان‌بر گوشی) اجرا کنید.</p>
+    <pre id="curl"></pre>
+    <p class="note">هر کسی این لینک را داشته باشد می‌تواند IPهای این حساب را مدیریت کند؛ آن را به اشتراک نگذارید.</p>
+  </section>
+
+  <p class="note">این سرویس فقط ترافیک TCP (وب و لانچرها) را هدایت می‌کند؛ بازی‌های آنلاین ممکن است به UDP هم نیاز داشته باشند و کارکرد هر بازی تضمین نشده است.</p>
+</main>
+<script type="application/json" id="boot">{{ data | tojson }}</script>
+<script>
+(function(){
+"use strict";
+var $=function(id){return document.getElementById(id)};
+var state=JSON.parse($("boot").textContent);
+var base=location.pathname.replace(/\/+$/,"");
+var busy=false;
+var guides={
+ "PS5 / PS4":["تنظیمات ← شبکه ← تنظیمات ← راه‌اندازی اتصال اینترنت","شبکه را انتخاب و «تنظیمات پیشرفته» را بزنید","DNS Settings را روی «دستی» بگذارید و آدرس را در Primary DNS بنویسید","Secondary DNS هم همان آدرس باشد؛ سپس اتصال را آزمایش کنید"],
+ "Xbox":["تنظیمات ← عمومی ← تنظیمات شبکه ← تنظیمات پیشرفته","تنظیمات DNS ← دستی","آدرس را در DNS اصلی و فرعی وارد کنید","اتصال را آزمایش و کنسول را یک‌بار ری‌استارت کنید"],
+ "Switch":["Settings ← Internet ← Internet Settings","شبکه را انتخاب کنید ← Change Settings","DNS Settings را Manual کنید","آدرس را در Primary DNS بنویسید و ذخیره کنید"],
+ "Windows / Mac":["تنظیمات شبکه ← ویژگی‌های اتصال فعال","IPv4 ← Use the following DNS server addresses","آدرس را در Preferred DNS بنویسید","در صورت نیاز DNS مرورگر (Secure DNS) را خاموش کنید"],
+ "Android":["اندروید برای DNS خصوصی فقط نام‌دامنه (DoT) می‌پذیرد، نه IP","در تنظیمات Wi‑Fi ← پیشرفته ← IP Static و DNS1 را روی آدرس بگذارید","یا از لینک DoH پایین در مرورگر/برنامه‌ی سازگار استفاده کنید"],
+ "iPhone":["Settings ← Wi‑Fi ← (i) کنار شبکه ← Configure DNS","Manual را بزنید و آدرس را اضافه کنید","سرورهای قبلی را حذف و ذخیره کنید"]
+};
+function fa(n){return Number(n).toLocaleString("fa-IR")}
+function bytes(n){var u=["B","KB","MB","GB","TB"],i=0;n=Number(n)||0;while(n>=1024&&i<4){n/=1024;i++}return n.toFixed(i?1:0)+" "+u[i]}
+function when(s){try{return new Date(s).toLocaleString("fa-IR",{dateStyle:"medium",timeStyle:"short"})}catch(e){return s}}
+function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e}
+function copyButton(value){var b=el("button","ghost","کپی");b.type="button";b.addEventListener("click",function(){navigator.clipboard.writeText(value).then(function(){b.textContent="کپی شد";setTimeout(function(){b.textContent="کپی"},1400)},function(){})});return b}
+function flash(text,kind){var m=$("msg");m.textContent=text;m.className="msg "+(kind||"")}
+function render(){
+ $("who").textContent=state.username;
+ var st=$("state");var label=st.querySelector("span");
+ var ready=state.eligible;
+ st.className="status "+(ready?"on":"off");
+ label.textContent=ready?"فعال":"غیرفعال";
+ $("state-text").textContent=ready?"سرویس برای حساب شما فعال است.":(!state.service_enabled?"سرویس DNS در پنل خاموش است.":"حساب شما فعال نیست؛ با پشتیبانی تماس بگیرید.");
+ $("ip").textContent=state.client_ip&&state.client_ip!=="Unknown"?state.client_ip:"نامشخص";
+ $("ip-note").textContent=state.client_registered?"این IP ثبت شده و می‌تواند از سرویس استفاده کند.":"این IP هنوز ثبت نشده است. IP باید همان شبکه‌ای باشد که کنسول یا دستگاه بازی روی آن است.";
+ var rb=$("register");rb.textContent=state.client_registered?"تمدید ثبت این IP":"ثبت IP من";
+ rb.disabled=busy||!ready||state.client_ip==="Unknown";
+ $("leases-sub").textContent="حداکثر "+fa(state.max_leases)+" IP؛ هر ثبت "+fa(state.lease_days)+" روز اعتبار دارد.";
+ var ul=$("leases");ul.replaceChildren();
+ if(!state.leases.length){var e=el("li","","هنوز IPی ثبت نشده است.");ul.appendChild(e)}
+ state.leases.forEach(function(l){
+  var li=el("li");var left=el("div");var ipE=el("div","mono",l.ip);left.appendChild(ipE);
+  left.appendChild(el("div","note","تا "+when(l.expires_at)+(l.current?" · همین دستگاه":"")));
+  var del=el("button","ghost","حذف");del.type="button";del.addEventListener("click",function(){act("DELETE","/ip/"+encodeURIComponent(l.ip),"IP حذف شد.")});
+  li.appendChild(left);li.appendChild(del);ul.appendChild(li)});
+ var sv=$("servers");sv.replaceChildren();
+ state.servers.forEach(function(s){var box=el("div","copy");var c=el("code","",s.address+(s.port&&s.port!==53?":"+s.port:""));box.appendChild(c);box.appendChild(copyButton(s.address));if(!s.applied){box.appendChild(el("span","chip","در انتظار تأیید نود"))}sv.appendChild(box)});
+ $("no-server").hidden=state.servers.length>0;
+ if(state.doh_url){var d=el("div","copy");d.appendChild(el("code","",state.doh_url));d.appendChild(el("span","chip","DoH"));d.appendChild(copyButton(state.doh_url));sv.appendChild(d)}
+ $("policy").textContent=state.policy.name+" · "+fa(state.policy.domains)+" دامنه";
+ var sc=$("services");sc.replaceChildren();state.services.forEach(function(s){sc.appendChild(el("span","chip",s.label))});
+ var u=$("usage");u.replaceChildren();
+ if(state.relay.enabled){var line=el("p","note",state.relay.byte_limit?("مصرف: "+bytes(state.relay.used)+" از "+bytes(state.relay.byte_limit)):("مصرف: "+bytes(state.relay.used)+" (بدون سقف)"));u.appendChild(line);
+  if(state.relay.byte_limit){var bar=el("div","bar");var fill=el("i");fill.style.width=Math.min(100,state.relay.used/state.relay.byte_limit*100)+"%";bar.appendChild(fill);u.appendChild(bar)}}
+ $("curl").textContent="curl -X POST "+location.origin+base+"/ip";
+}
+function act(method,path,ok){
+ if(busy)return;busy=true;render();flash("");
+ fetch(base+path,{method:method,headers:{Accept:"application/json"},cache:"no-store"}).then(function(r){return r.json().then(function(j){return{ok:r.ok,body:j}})}).then(function(r){
+  if(r.ok){state=r.body;flash(ok,"good")}else{flash(typeof r.body.detail==="string"?mapError(r.body.detail):"انجام نشد.","bad")}
+ }).catch(function(){flash("اتصال برقرار نشد.","bad")}).then(function(){busy=false;render()});
+}
+function mapError(d){
+ if(/At most three/.test(d))return "حداکثر ۳ IP مجاز است؛ یکی از IPهای قدیمی را حذف کنید.";
+ if(/another account/.test(d))return "این IP برای حساب دیگری ثبت شده است.";
+ if(/not active/.test(d))return "سرویس برای حساب شما فعال نیست.";
+ return d}
+$("register").addEventListener("click",function(){act("POST","/ip","IP ثبت شد.")});
+var tabs=$("tabs"),guide=$("guide");
+Object.keys(guides).forEach(function(name,i){var b=el("button","",name);b.type="button";b.setAttribute("role","tab");b.addEventListener("click",function(){show(name)});tabs.appendChild(b);if(i===0)setTimeout(function(){show(name)})});
+function show(name){Array.prototype.forEach.call(tabs.children,function(b){b.setAttribute("aria-selected",b.textContent===name?"true":"false")});
+ var ol=el("ol");var addr=state.servers[0]?state.servers[0].address:"آدرس DNS";guides[name].forEach(function(t){ol.appendChild(el("li","",t))});guide.replaceChildren(ol)}
+var root=document.documentElement;try{var saved=localStorage.getItem("dns-theme");if(saved)root.dataset.theme=saved}catch(e){}
+$("theme").addEventListener("click",function(){var dark=root.dataset.theme?root.dataset.theme==="dark":matchMedia("(prefers-color-scheme: dark)").matches;root.dataset.theme=dark?"light":"dark";try{localStorage.setItem("dns-theme",root.dataset.theme)}catch(e){}});
+render();
+})();
+</script>
+</body>
+</html>

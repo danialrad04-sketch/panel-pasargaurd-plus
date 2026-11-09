@@ -88,7 +88,7 @@ try {
     }
     if (scripted && url.pathname === '/api/smartdns/gaming/9/attach') {
       posted.attach.push(route.request().postDataJSON())
-      return route.fulfill(json({ account_id: 4, policy_id: 9, leases: [], byte_limit: 0 }))
+      return route.fulfill(json({ account_id: 4, policy_id: 9, leases: [], byte_limit: 0, portal_path: '/dns-sub/abc123' }))
     }
     if (scripted && url.pathname === '/api/users/simple') return route.fulfill(json({ users: [{ id: 5, username: 'player' }] }))
     const response = await route.fetch({ url: backend + url.pathname + url.search })
@@ -140,6 +140,7 @@ try {
   await dialog.getByLabel(/Byte cap/).fill('2.5')
   await attach.click()
   await dialog.getByText('User attached:').waitFor()
+  assert.equal(await dialog.getByLabel('DNS link').inputValue(), origin + '/dns-sub/abc123')
   assert.deepEqual(posted.attach[0], { user_id: 5, client_ips: ['198.51.100.7', '198.51.100.8'], byte_limit: Math.round(2.5 * 1024 ** 3) })
   if (process.env.SCREENSHOT_DIR) {
     await mkdir(process.env.SCREENSHOT_DIR, { recursive: true })
