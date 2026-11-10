@@ -18,10 +18,40 @@ type Plan = {
   dns?: { will_enable: boolean; bind_address: string; port: number }
 }
 type Applied = { policy_id: number; node_id: number; route_ids: number[]; revision: number; applied: boolean; detail?: string | null }
-type Catalog = { services: { key: string; label: string }[] }
+type Catalog = { services: { key: string; label: string }[]; presets?: { key: string; label: [string, string]; services: string[] }[] }
 type Profile = { policy_id: number; name: string; node_id: number; routes: number; applied: boolean; accounts: number; address: string }
 
-const GAMING = ['playstation', 'xbox', 'nintendo', 'steam', 'epic', 'ea', 'blizzard', 'ubisoft', 'riot', 'rockstar', 'bethesda', 'gog', 'roblox', 'minecraft', 'othergames']
+const GAMING = [
+  'playstation',
+  'xbox',
+  'nintendo',
+  'steam',
+  'epic',
+  'ea',
+  'blizzard',
+  'ubisoft',
+  'riot',
+  'rockstar',
+  'bethesda',
+  'gog',
+  'roblox',
+  'minecraft',
+  'othergames',
+  'activision',
+  'valvegames',
+  'supercell',
+  'hoyoverse',
+  'garena',
+  'pubgmobile',
+  'mmo',
+  'survival',
+  'wargaming',
+  'bandainamco',
+  'bethesdagames',
+  'amongus',
+  'streaming_games',
+  'anticheat',
+]
 const blockers: Record<string, [string, string]> = {
   node_not_found: ['نود پیدا نشد.', 'Node not found.'],
   node_not_connected: ['نود متصل نیست.', 'The node is not connected.'],
@@ -178,6 +208,10 @@ export default function GamingDNSWizard({ nodes, tunnels, fa }: { nodes: TunnelN
     setServices(services.includes(key) ? services.filter(item => item !== key) : [...services, key])
     reset()
   }
+  const addPreset = (members: string[]) => {
+    setServices(Array.from(new Set([...services, ...members])))
+    reset()
+  }
   const input = 'border-input bg-background h-10 w-full rounded-md border px-3 text-sm'
 
   return (
@@ -280,6 +314,27 @@ export default function GamingDNSWizard({ nodes, tunnels, fa }: { nodes: TunnelN
               </div>
               <fieldset className="space-y-2">
                 <legend className="text-sm">{t('سرویس‌ها', 'Services')}</legend>
+                {(catalog.data?.presets?.length ?? 0) > 0 && (
+                  <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t('بسته‌های آماده', 'Ready-made bundles')}>
+                    {catalog.data?.presets?.map(preset => (
+                      <button key={preset.key} type="button" className="hover:border-primary rounded-full border px-3 py-1 text-xs" onClick={() => addPreset(preset.services)}>
+                        + {preset.label[fa ? 0 : 1]}
+                      </button>
+                    ))}
+                    {services.length > 0 && (
+                      <button
+                        type="button"
+                        className="text-muted-foreground text-xs underline"
+                        onClick={() => {
+                          setServices([])
+                          reset()
+                        }}
+                      >
+                        {t('پاک‌کردن انتخاب', 'Clear selection')}
+                      </button>
+                    )}
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-x-4 gap-y-2">
                   {GAMING.map(key => (
                     <label key={key} className="flex items-center gap-2 text-sm">

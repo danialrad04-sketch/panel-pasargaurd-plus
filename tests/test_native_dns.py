@@ -378,7 +378,7 @@ async def test_expired_ip_lease_and_disabled_service(native, monkeypatch):
 async def test_native_catalog_persists_real_policy(native, monkeypatch):
     async with await client_for(native, monkeypatch) as client:
         catalog = (await client.get("/api/dns/catalog")).json()
-        assert catalog["counts"] == {"services": 42, "groups": 48, "domains": 505}
+        assert catalog["counts"] == {"services": 66, "groups": 86, "domains": 891}
         assert catalog["relay_available"] is False
         result = await client.post(
             "/api/dns/policies/from-catalog",

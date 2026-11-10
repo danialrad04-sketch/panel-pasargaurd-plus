@@ -1,0 +1,832 @@
+{
+ "services": [
+  {
+   "key": "riot",
+   "groups": [
+    {
+     "key": "extra",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "leagueoflegends.net",
+      "lolesports.com",
+      "playvalorant.com",
+      "pvp.net",
+      "riotcdn.com",
+      "riotcdn.net",
+      "teamfighttactics.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "blizzard",
+   "groups": [
+    {
+     "key": "extra",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "battlenet.com.cn",
+      "blizzard.net",
+      "blizzgame.com",
+      "blz-contentstack.com",
+      "demonware.net",
+      "diablo4.com",
+      "hearthstone.com",
+      "overwatch.com",
+      "playhearthstone.com",
+      "starcraft.com",
+      "starcraft2.com",
+      "warcraft.com",
+      "worldofwarcraft.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "epic",
+   "groups": [
+    {
+     "key": "extra",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "eac-cdn.com",
+      "easyanticheat.net",
+      "epicgames.dev",
+      "epicgamescdn.com",
+      "fallguys.com",
+      "fortnite.com",
+      "kidswebservices.com",
+      "mediatonic.co.uk",
+      "psyonix.com",
+      "rocketleague.com",
+      "unrealtournament.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "steam",
+   "groups": [
+    {
+     "key": "extra",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "counter-strike.net",
+      "cs2.net",
+      "dota2.com",
+      "playdota.com",
+      "steam-chat.com",
+      "steamcdn-a.akamaihd.net",
+      "steamdeck.com",
+      "steamgames.com",
+      "steamserver.net",
+      "steamusercontent.com",
+      "underlords.com",
+      "valve.net"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "ea",
+   "groups": [
+    {
+     "key": "extra",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "bf.com",
+      "criterion.com",
+      "ea-sports.com",
+      "ea.com.au",
+      "eafc.com",
+      "thesims4.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "ubisoft",
+   "groups": [
+    {
+     "key": "extra",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "acvalhalla.com",
+      "farcrygame.com",
+      "rainbow6.com",
+      "thedivision-game.com",
+      "ubisoft.org",
+      "ubisoftconnect.com",
+      "ubisoftgroup.com",
+      "ubisoftservices.com",
+      "uplay.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "rockstar",
+   "groups": [
+    {
+     "key": "extra",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "2k.com",
+      "2kgames.com",
+      "gta5.com",
+      "gtaonline.com",
+      "rockstarlincoln.com",
+      "rockstarnorth.com",
+      "rsg.sc"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "xbox",
+   "groups": [
+    {
+     "key": "extra",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "microsoftstore.com",
+      "xboxab.com",
+      "xboxlive.cn",
+      "xboxservices.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "playstation",
+   "groups": [
+    {
+     "key": "extra",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "gaikai.com",
+      "playstationnetwork.com",
+      "playstationnow.com",
+      "ps4.sony",
+      "ps5.sony",
+      "sonyinteractive.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "nintendo",
+   "groups": [
+    {
+     "key": "extra",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "nintendo-europe.com",
+      "nintendo.co.jp",
+      "nintendo.co.uk",
+      "nintendoaccount.com",
+      "nintendoswitch.com",
+      "nintendowifi.net"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "minecraft",
+   "groups": [
+    {
+     "key": "extra",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "curseforge.com",
+      "fabricmc.net",
+      "hypixel.net",
+      "minecraft.wiki",
+      "minecraftforge.net",
+      "modrinth.com",
+      "papermc.io"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "roblox",
+   "groups": [
+    {
+     "key": "extra",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "roblox.qq.com",
+      "robloxapis.com",
+      "robloxdev.com",
+      "robloxlabs.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "discord",
+   "groups": [
+    {
+     "key": "extra",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "discord.media",
+      "discordcdn.com",
+      "discordstatus.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "twitch",
+   "groups": [
+    {
+     "key": "extra",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "jtvnw.net",
+      "twitchcdn.net",
+      "twitchsvc.net"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "supercell",
+   "label": "Supercell",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "boombeach.com",
+      "brawlstars.com",
+      "clashofclans.com",
+      "clashroyale.com",
+      "haydaygame.com",
+      "squadbusters.com",
+      "supercell.net",
+      "supercellcdn.com",
+      "supercellid.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "hoyoverse",
+   "label": "HoYoverse (Genshin، Star Rail)",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "genshinimpact.com",
+      "honkaiimpact3.com",
+      "hoyo.link",
+      "hoyolab.com",
+      "hoyoplay.com",
+      "mihoyocdn.com",
+      "starrail.com",
+      "zenlesszonezero.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "garena",
+   "label": "Garena / Free Fire",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "freefire.com",
+      "freefiremobile.com",
+      "garena.sg",
+      "garena.tw",
+      "garenanow.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "pubgmobile",
+   "label": "PUBG / Krafton",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "battlegrounds.com",
+      "igamecj.com",
+      "playbattlegrounds.com",
+      "proximabeta.com",
+      "pubgmobile.com",
+      "tencentgames.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "activision",
+   "label": "Call of Duty / Activision",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "activisionblizzard.com",
+      "callofdutyleague.com",
+      "infinityward.com",
+      "sledgehammergames.com",
+      "treyarch.com",
+      "vanguard-game.com",
+      "warzone.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "valvegames",
+   "label": "Valve / CS2 / Dota 2",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "csgo.com",
+      "esea.net",
+      "faceit-cdn.net"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "wargaming",
+   "label": "Wargaming / War Thunder",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "crossout.net",
+      "gaijin.net",
+      "gaijinent.com",
+      "wargaming.com",
+      "wargaming.net",
+      "warthunder.com",
+      "worldoftanks.com",
+      "worldoftanks.eu",
+      "worldofwarships.com",
+      "worldofwarships.eu",
+      "wotblitz.eu"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "bandainamco",
+   "label": "Bandai Namco / Capcom / Square Enix",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "bandainamco.net",
+      "bandainamcoent.co.jp",
+      "bandainamcoent.com",
+      "capcom-unity.com",
+      "capcom.co.jp",
+      "capcom.com",
+      "eso.com",
+      "finalfantasyxiv.com",
+      "konami.com",
+      "konami.net",
+      "sega.co.jp",
+      "sega.com",
+      "square-enix-games.com",
+      "square-enix.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "bethesdagames",
+   "label": "Bethesda / Elder Scrolls / Fallout",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "arkane-studios.com",
+      "doomgame.com",
+      "elderscrolls.com",
+      "fallout.com",
+      "fallout76.com",
+      "id-software.com",
+      "zenimax.com",
+      "zenimaxonline.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "mmo",
+   "label": "بازی‌های MMO و آنلاین",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "albiononline.com",
+      "amazongames.com",
+      "arena.net",
+      "blackdesertonline.com",
+      "bungie.net",
+      "destinythegame.com",
+      "digitalextremes.com",
+      "gameforge.com",
+      "grindinggear.com",
+      "guildwars2.com",
+      "jagex.com",
+      "lostark.com",
+      "ncsoft.com",
+      "newworld.com",
+      "pathofexile.com",
+      "pearlabyss.com",
+      "playlostark.com",
+      "poe2.com",
+      "runescape.com",
+      "sandboxinteractive.com",
+      "warframe.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "survival",
+   "label": "بازی‌های Survival و Co-op",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "7daystodie.com",
+      "arkgame.com",
+      "facepunch.com",
+      "irongatestudio.com",
+      "palworld.com",
+      "playark.com",
+      "playrust.com",
+      "pocketpair.jp",
+      "projectzomboid.com",
+      "re-logic.com",
+      "rustafied.com",
+      "studiowildcard.com",
+      "terraria.org",
+      "thefunpimps.com",
+      "theindiestone.com",
+      "valheimgame.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "mobilegames",
+   "label": "بازی‌های موبایل",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "playfab.com",
+      "playfabapi.com",
+      "unitychina.cn"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "amongus",
+   "label": "Among Us / Innersloth / Indie",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "amongus.com",
+      "fanatical.com",
+      "gamejolt.com",
+      "gamersgate.com",
+      "greenmangaming.com",
+      "indiegala.com",
+      "innersloth.com",
+      "itch.zone"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "streaming_games",
+   "label": "استریم و کلاود گیمینگ",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "boosteroid.com",
+      "geforcenow.com",
+      "luna.amazon.com",
+      "moonlight-stream.org",
+      "nvidiagrid.net",
+      "parsec.app",
+      "parsecgaming.com",
+      "shadow.tech"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "anticheat",
+   "label": "ضدتقلب (EAC / BattlEye / Vanguard)",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "battleye.com",
+      "be-servers.com",
+      "esportal.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "ai2",
+   "label": "هوش مصنوعی (تکمیلی)",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "ai.google.dev",
+      "ai21.com",
+      "anyscale.com",
+      "bard.google.com",
+      "bolt.new",
+      "character.ai",
+      "claude.com",
+      "cohere.ai",
+      "cohere.com",
+      "copilot.microsoft.com",
+      "dreamstudio.ai",
+      "elevenlabs.io",
+      "fireworks.ai",
+      "grok.com",
+      "ideogram.ai",
+      "leonardo.ai",
+      "lovable.dev",
+      "midjourney.com",
+      "modal.com",
+      "notebooklm.google",
+      "pika.art",
+      "poe.com",
+      "replicate.com",
+      "runwayml.com",
+      "sora.com",
+      "stability.ai",
+      "suno.ai",
+      "suno.com",
+      "v0.dev",
+      "vercel.ai"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "devtools",
+   "label": "ابزار توسعه (تحریم‌شده)",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "broadcom.com",
+      "circleci.com",
+      "cockroachlabs.com",
+      "datadoghq.com",
+      "dockerstatic.com",
+      "getpostman.com",
+      "jira.com",
+      "neon.tech",
+      "pagerduty.com",
+      "planetscale.com",
+      "redhat.com",
+      "redis.io",
+      "redislabs.com",
+      "snyk.io",
+      "sonarcloud.io",
+      "supabase.co",
+      "travis-ci.com",
+      "travis-ci.org"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "mobiledev",
+   "label": "توسعه موبایل (اندروید/iOS/Flutter)",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "androidstudio.google.com",
+      "capacitorjs.com",
+      "cocoapods.org",
+      "dart.dev",
+      "expo.dev",
+      "firebaseio.com",
+      "ionic.io",
+      "kotlinlang.org",
+      "onesignal.com",
+      "pub.dev",
+      "reactnative.dev",
+      "revenuecat.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "hosting",
+   "label": "هاستینگ، دامنه و CDN",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "bunny.net",
+      "bunnycdn.com",
+      "cdnjs.com",
+      "gandi.net",
+      "godaddy.com",
+      "jsdelivr.net",
+      "kinsta.com",
+      "myshopify.com",
+      "name.com",
+      "namecheap.com",
+      "porkbun.com",
+      "shopify.com",
+      "squarespace.com",
+      "unpkg.com",
+      "vercel-dns.com",
+      "wix.com",
+      "wixstatic.com",
+      "wordpress.com",
+      "wp.com",
+      "wpengine.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "creators",
+   "label": "پلتفرم‌های سازندگان و فروش دیجیتال",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "buymeacoffee.com",
+      "gumroad.com",
+      "ko-fi.com",
+      "lemonsqueezy.com",
+      "paddle.com",
+      "paddle.net",
+      "patreon.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "learning",
+   "label": "آموزش آنلاین (تحریم‌شده)",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "brilliant.org",
+      "codecademy.com",
+      "developer.mozilla.org",
+      "exercism.org",
+      "leetcode.com",
+      "masterclass.com",
+      "neetcode.io",
+      "pluralsight.com",
+      "skillshare.com",
+      "udacity.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "video",
+   "label": "استریم ویدیو و موسیقی",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "amazonvideo.com",
+      "atv-ps.amazon.com",
+      "audible.com",
+      "bamgrid.com",
+      "crunchyroll.com",
+      "dailymotion.com",
+      "deezer.com",
+      "disney-plus.net",
+      "disneyplus.com",
+      "dssott.com",
+      "dzcdn.net",
+      "funimation.com",
+      "hbomax.com",
+      "hulu.com",
+      "max.com",
+      "nflxso.net",
+      "pandora.com",
+      "primevideo.com",
+      "sndcdn.com",
+      "soundcloud.com",
+      "tidal.com",
+      "vimeo.com",
+      "vimeocdn.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "creative",
+   "label": "طراحی و خلاقیت (تحریم‌شده)",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "adobe.io",
+      "adobecc.com",
+      "behance.com",
+      "behance.net",
+      "canva.dev",
+      "dribbble.com",
+      "envatousercontent.com",
+      "figmausercontent.com",
+      "flaticon.com",
+      "framer.com",
+      "freepik.com",
+      "gettyimages.com",
+      "invisionapp.com",
+      "istockphoto.com",
+      "lottiefiles.com",
+      "notion.com",
+      "notionusercontent.com",
+      "pexels.com",
+      "pixabay.com",
+      "shutterstock.com",
+      "sketch.com",
+      "typekit.net",
+      "webflow.com"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "office",
+   "label": "آفیس و همکاری",
+   "groups": [
+    {
+     "key": "main",
+     "label": "تکمیلی (فورک)",
+     "domains": [
+      "airtable.com",
+      "box.com",
+      "clickup.com",
+      "dropbox.com",
+      "dropboxapi.com",
+      "dropboxusercontent.com",
+      "evernote.com",
+      "gotomeeting.com",
+      "monday.com",
+      "onenote.com",
+      "slack-files.com",
+      "todoist.com",
+      "webex.com",
+      "zoom.com",
+      "zoomgov.com"
+     ]
+    }
+   ]
+  }
+ ]
+}

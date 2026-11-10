@@ -14,6 +14,24 @@ CATALOG_SHA256 = "7ce0cae493437ec23e0ff9a08f7a92a862c4a8ffffe2a3f8f890293179ca39
 SOURCE_REVISION = "a2b2ff843cb1fc8f0a5712a88149f5c379198ff1"
 
 
+# One-click bundles for the wizard. Each must fit the gateway route budget on its own (see tests).
+PRESETS = [
+    ("console", "کنسول (PlayStation، Xbox، Nintendo)", "Consoles (PlayStation, Xbox, Nintendo)", ["playstation", "xbox", "nintendo"]),
+    (
+        "pc",
+        "بازی PC و لانچرها",
+        "PC games and launchers",
+        ["steam", "epic", "ea", "ubisoft", "blizzard", "activision", "riot", "rockstar", "valvegames", "anticheat", "bethesda", "bethesdagames", "gog", "discord", "twitch"],
+    ),
+    ("mobile", "بازی موبایل", "Mobile games", ["supercell", "hoyoverse", "garena", "pubgmobile", "roblox", "minecraft", "amongus", "othergames"]),
+    ("online", "MMO، Survival و بازی‌های آنلاین", "MMO, survival and online games", ["mmo", "survival", "wargaming", "bandainamco", "streaming_games"]),
+    ("ai", "هوش مصنوعی", "AI services", ["openai", "anthropic", "ai2", "otherai"]),
+    ("dev", "توسعه‌دهنده", "Developer tools", ["github", "gitlab", "docker", "devtools", "mobiledev", "jetbrains", "microsoft", "nvidia", "apple", "packages"]),
+    ("media", "ویدیو و موسیقی", "Video and music", ["netflix", "spotify", "video"]),
+    ("work", "طراحی، آموزش و دفتر کار", "Design, learning and office", ["creative", "learning", "office", "figma", "slackzoom", "adobe"]),
+]
+
+
 @lru_cache(maxsize=1)
 def catalog():
     raw = (ROOT / "doctor-dns-services.json").read_bytes()
@@ -23,6 +41,16 @@ def catalog():
     provenance = json.loads((ROOT / "doctor-dns-source.json").read_text())
     if provenance["sha256"] != CATALOG_SHA256 or provenance["commit"] != SOURCE_REVISION:
         raise RuntimeError("Gaming catalog provenance mismatch")
+    # Fork-curated additions: extra groups for existing services and new services. Unlike the pinned upstream
+    # snapshot this file is edited here; the checks below (and tests/test_catalog_extension.py) guard its shape.
+    extension = json.loads((ROOT / "fork-services.json").read_text())
+    by_key = {service["key"]: service for service in value["services"]}
+    for service in extension["services"]:
+        if service["key"] in by_key:
+            by_key[service["key"]]["groups"].extend(service["groups"])
+        else:
+            value["services"].append(service)
+            by_key[service["key"]] = service
     domains = set()
     groups = set()
     for service in value["services"]:
@@ -36,9 +64,16 @@ def catalog():
                 if normalized != domain or domain in domains:
                     raise RuntimeError("Duplicate or noncanonical catalog domain")
                 domains.add(domain)
+    known = {service["key"] for service in value["services"]}
+    presets = []
+    for key, label_fa, label_en, members in PRESETS:
+        if not set(members) <= known:
+            raise RuntimeError(f"Preset {key} names an unknown service")
+        presets.append({"key": key, "label": [label_fa, label_en], "services": members})
     return {
         **value,
-        "source": provenance,
+        "presets": presets,
+        "source": {**provenance, "fork_extension": "app/data/fork-services.json"},
         "counts": {
             "services": len(value["services"]),
             "groups": len(groups),
