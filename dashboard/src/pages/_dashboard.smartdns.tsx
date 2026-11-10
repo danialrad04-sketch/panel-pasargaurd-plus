@@ -77,7 +77,7 @@ export default function SmartDNS() {
   const nodeName = (id: number) => topology.data?.nodes.find(node => node.id === id)?.name || `#${id}`
   if (!owner) return <div className="rounded-xl border p-5">{t('مدیریت gateway فقط برای مالک پنل در دسترس است.', 'Gateway infrastructure is owner-only.')}</div>
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 pb-8" dir={fa ? 'rtl' : 'ltr'}>
+    <div className="mx-auto w-full max-w-7xl space-y-6 px-4 pt-4 pb-8 sm:px-6" dir={fa ? 'rtl' : 'ltr'}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-muted-foreground mb-2 text-xs">PASARGUARD PLUS · SMARTDNS</p>

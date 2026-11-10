@@ -63,7 +63,7 @@ module.exports = {
         },
       },
       fontFamily: {
-        body: ['Inter', 'Vazirmatn', 'ui-sans-serif', 'system-ui', 'sans-serif', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'],
+        body: ['Vazirmatn', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'],
       },
       keyframes: {
         pulseAnimation: {

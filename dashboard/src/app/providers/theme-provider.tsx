@@ -111,7 +111,7 @@ export function ThemeProvider({
   children,
   defaultTheme = 'system',
   defaultColorTheme = 'default',
-  defaultRadius = '0.5rem',
+  defaultRadius = '0.625rem',
   storageKey = 'theme',
   colorStorageKey = 'color-theme',
   radiusStorageKey = 'radius',

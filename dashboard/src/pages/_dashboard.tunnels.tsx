@@ -110,7 +110,7 @@ export default function NativeTunnels() {
     })
   if (!owner) return <div className={panel}>{t('مدیریت زیرساخت تونل فقط برای مالک پنل در دسترس است.', 'Tunnel infrastructure is available to the panel owner.')}</div>
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 pb-8" dir={fa ? 'rtl' : 'ltr'}>
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pt-4 pb-8 sm:px-6" dir={fa ? 'rtl' : 'ltr'}>
       {checking && <TunnelPreflight tunnel={checking} fa={fa} onClose={() => setChecking(null)} />}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
