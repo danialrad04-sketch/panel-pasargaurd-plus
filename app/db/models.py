@@ -1138,6 +1138,8 @@ class DNSAccount(Base, CreatedAtUTCMixin):
     relay_enabled: Mapped[bool] = mapped_column(default=False)
     relay_byte_limit: Mapped[int] = mapped_column(BigInteger, default=0)
     relay_rps: Mapped[int] = mapped_column(default=200)
+    # Per-user speed cap in bytes/second, handed to the gateway with every grant. 0 = unlimited.
+    relay_rate_bps: Mapped[int] = mapped_column(BigInteger, default=0)
     relay_rate_second: Mapped[int] = mapped_column(BigInteger, default=0)
     relay_rate_count: Mapped[int] = mapped_column(default=0)
 
@@ -1157,6 +1159,17 @@ class DNSUsagePeriod(Base, CreatedAtUTCMixin):
     relay_reserved: Mapped[int] = mapped_column(BigInteger, default=0)
     relay_uncertain_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
     ended_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True), default=None)
+
+
+class SmartDNSServiceUsage(Base, CreatedAtUTCMixin):
+    """Relay bytes per account, UTC day and gateway domain. Never holds individual sites or timestamps."""
+
+    __tablename__ = "smartdns_service_usage"
+    __table_args__ = (UniqueConstraint("account_id", "day", "domain"),)
+    account_id: Mapped[int] = fk_id_column("dns_accounts.id", ondelete="CASCADE", index=True)
+    day: Mapped[str] = mapped_column(String(10))
+    domain: Mapped[str] = mapped_column(String(253))
+    bytes: Mapped[int] = mapped_column(BigInteger, default=0)
 
 
 class DNSIPLease(Base):

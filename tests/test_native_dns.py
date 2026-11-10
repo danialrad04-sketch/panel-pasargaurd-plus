@@ -475,3 +475,13 @@ def test_public_doh_endpoint_rejects_insecure_or_ambiguous_urls(url):
 
     with pytest.raises(ValueError):
         DNSSettings(DNS_PUBLIC_URL=url, _env_file=None)
+
+
+async def test_answers_are_recorded_for_the_watch_list(native):
+    from app.dns import watch
+
+    watch.clear()
+    await native.service.answer(QUERY, token=native.token)
+    rows = watch.recent(native.account_id)
+    assert len(rows) == 1 and rows[0]["outcome"] in {"direct", "via_gateway", "blocked", "pending"}
+    watch.clear()

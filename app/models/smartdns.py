@@ -61,6 +61,7 @@ class RelayAccountInput(BaseModel):
     enabled: bool = False
     byte_limit: int = Field(default=0, ge=0, le=9_000_000_000_000_000)
     grants_per_second: int = Field(default=200, ge=1, le=2000)
+    rate_bps: int = Field(default=0, ge=0, le=10_000_000_000)
 
 
 class GrantInput(BaseModel):

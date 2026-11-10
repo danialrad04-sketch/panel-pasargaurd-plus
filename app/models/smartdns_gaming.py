@@ -66,9 +66,17 @@ class GamingAttachInput(BaseModel):
     # 0 means no byte cap for this user; it is chosen explicitly, never implied.
     byte_limit: int = Field(ge=0, le=9_000_000_000_000_000)
     grants_per_second: int = Field(default=200, ge=1, le=2000)
+    # Speed cap in bytes/second enforced by the gateway; 0 = unlimited.
+    rate_bps: int = Field(default=0, ge=0, le=10_000_000_000)
 
     @field_validator("client_ips")
     @classmethod
     def ips(cls, values):
         result = sorted({DNSLeaseInput(ip=value).ip for value in values})
         return result
+
+
+class GamingDomainsInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # Names found with the watch list; each is validated as an explicit suffix, never a wildcard.
+    domains: list[str] = Field(min_length=1, max_length=50)

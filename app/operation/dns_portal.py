@@ -120,7 +120,9 @@ async def info(db, token, client_ip):
             "byte_limit": limit,
             "used": view["relay_bytes"] + view["relay_reserved"],
             "remaining": max(0, limit - view["relay_bytes"] - view["relay_reserved"]) if limit else None,
+            "rate_bps": view["relay_rate_bps"],
         },
+        "by_service": await operation.service_usage(db, account.id),
         "queries": view["queries"],
         "game_acceptance": "untested",
     }

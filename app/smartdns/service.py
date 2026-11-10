@@ -27,6 +27,7 @@ from app.db.models import (
     SmartDNSGrant,
     SmartDNSNodeState,
     SmartDNSRoute,
+    SmartDNSServiceUsage,
     User,
 )
 from app.dns.policy import rule_for
@@ -133,7 +134,7 @@ async def reserve(db, node_id, secret, body):
             or fix_datetime_timezone(existing.expires_at) <= now
         ):
             deny("Grant request conflict", 409)
-        return {"grant_id": existing.id, "amount": existing.amount, "lease_ms": 2000}
+        return {"grant_id": existing.id, "amount": existing.amount, "lease_ms": 2000, "rate_bps": account.relay_rate_bps}
     await reconcile(db, account.id)
     usage = await period(db, account.id, account.period)
     second = int(time.time())
@@ -161,7 +162,26 @@ async def reserve(db, node_id, secret, body):
     usage.relay_reserved += amount
     usage.relay_reservations += 1
     await db.commit()
-    return {"grant_id": grant.id, "amount": amount, "lease_ms": 2000}
+    return {"grant_id": grant.id, "amount": amount, "lease_ms": 2000, "rate_bps": account.relay_rate_bps}
+
+
+async def add_service_usage(db, grant, used):
+    """Daily bytes per gateway domain: the only breakdown kept, so a user's site history never exists."""
+    route = await db.get(SmartDNSRoute, grant.route_id)
+    if route is None:
+        return
+    day = datetime.now(UTC).strftime("%Y-%m-%d")
+    row = await db.scalar(
+        select(SmartDNSServiceUsage).where(
+            SmartDNSServiceUsage.account_id == grant.account_id,
+            SmartDNSServiceUsage.day == day,
+            SmartDNSServiceUsage.domain == route.domain,
+        )
+    )
+    if row is None:
+        db.add(SmartDNSServiceUsage(account_id=grant.account_id, day=day, domain=route.domain, bytes=used))
+    else:
+        row.bytes += used
 
 
 async def settle(db, node_id, secret, body):
@@ -181,6 +201,8 @@ async def settle(db, node_id, secret, body):
             deny("Settlement already finalized", 409)
         return {"settled": True}
     usage = await period(db, grant.account_id, grant.period)
+    if body.used:
+        await add_service_usage(db, grant, body.used)
     if grant.uncertain:
         usage.relay_bytes -= grant.amount - body.used
         usage.relay_uncertain_bytes -= grant.amount

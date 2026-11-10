@@ -16,7 +16,7 @@ from app.models.smartdns import (
     RouteModify,
     SettleInput,
 )
-from app.models.smartdns_gaming import GamingApplyInput, GamingAttachInput, GamingPlanInput
+from app.models.smartdns_gaming import GamingApplyInput, GamingAttachInput, GamingDomainsInput, GamingPlanInput
 from app.models.tunnel import TunnelRevision
 from app.routers.authentication import require_owner
 from app.smartdns import control, gaming, service
@@ -68,6 +68,11 @@ async def gaming_attach(policy_id: int, body: GamingAttachInput, db: DB, admin: 
     return await gaming.attach(db, policy_id, body, admin)
 
 
+@router.post("/gaming/{policy_id}/domains")
+async def gaming_domains(policy_id: int, body: GamingDomainsInput, db: DB, admin: Owner):
+    return await gaming.add_domains(db, policy_id, body.domains, admin.username)
+
+
 @router.post("/routes", status_code=201)
 async def create(body: RouteInput, db: DB, admin: Owner):
     return await control.save(db, body, admin.username)
@@ -96,9 +101,10 @@ async def account(account_id: int, body: RelayAccountInput, db: DB, admin: Owner
     if not row:
         raise HTTPException(404, "DNS account not found")
     row.relay_enabled, row.relay_byte_limit, row.relay_rps = body.enabled, body.byte_limit, body.grants_per_second
+    row.relay_rate_bps = body.rate_bps
     control.audit(db, admin.username, "account", account_id, enabled=body.enabled, byte_limit=body.byte_limit)
     await db.commit()
-    return {"enabled": row.relay_enabled, "byte_limit": row.relay_byte_limit, "grants_per_second": row.relay_rps}
+    return {"enabled": row.relay_enabled, "byte_limit": row.relay_byte_limit, "grants_per_second": row.relay_rps, "rate_bps": row.relay_rate_bps}
 
 
 @router.post("/nodes/{node_id}/reserve")

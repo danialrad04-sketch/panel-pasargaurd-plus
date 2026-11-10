@@ -12,7 +12,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from app.db.base import begin_immediate_if_sqlite
-from app.db.models import Admin, DNSAccount, DNSIPLease, DNSPolicy, DNSUsagePeriod, ServiceAudit, User, UserStatus
+from app.db.models import (
+    Admin,
+    DNSAccount,
+    DNSIPLease,
+    DNSPolicy,
+    DNSUsagePeriod,
+    ServiceAudit,
+    SmartDNSServiceUsage,
+    User,
+    UserStatus,
+)
 from app.operation.permissions import PermissionDenied, enforce_scope, get_scope_admin_id
 from app.utils.helpers import fix_datetime_timezone
 from app.utils.jwt import get_secret_key
@@ -102,6 +112,7 @@ def view_from_rows(account, user, policy, usage):
         "query_limit": account.query_limit,
         "qps": account.qps,
         "relay_rps": account.relay_rps,
+        "relay_rate_bps": account.relay_rate_bps,
         "relay_enabled": account.relay_enabled,
         "relay_byte_limit": account.relay_byte_limit,
         "relay_bytes": usage.relay_bytes,
@@ -307,6 +318,7 @@ async def user_dns(db, user_id, admin):
         portal_path = None
     return {
         "account": await account_view(db, account, user),
+        "by_service": await service_usage(db, account.id),
         "leases": [
             {"ip": lease.ip, "expires_at": fix_datetime_timezone(lease.expires_at)}
             for lease in sorted(leases, key=lambda item: item.expires_at)
@@ -314,3 +326,33 @@ async def user_dns(db, user_id, admin):
         ],
         "portal_path": portal_path,
     }
+
+
+async def service_usage(db, account_id, days=30):
+    """Relay bytes of the last `days` UTC days grouped by catalog service, largest first."""
+    from app.dns.catalog import catalog
+
+    since = (datetime.now(UTC) - timedelta(days=days - 1)).strftime("%Y-%m-%d")
+    rows = (
+        await db.execute(
+            select(SmartDNSServiceUsage.domain, func.sum(SmartDNSServiceUsage.bytes))
+            .where(SmartDNSServiceUsage.account_id == account_id, SmartDNSServiceUsage.day >= since)
+            .group_by(SmartDNSServiceUsage.domain)
+        )
+    ).all()
+    owners = [
+        (service["label"], {domain for group in service["groups"] for domain in group["domains"]})
+        for service in catalog()["services"]
+    ]
+    totals = {}
+    for domain, used in rows:
+        label = next(
+            (name for name, owned in owners if any(domain == d or domain.endswith("." + d) for d in owned)), None
+        )
+        label = label or "سایر"
+        totals[label] = totals.get(label, 0) + int(used or 0)
+    return [
+        {"label": label, "bytes": used}
+        for label, used in sorted(totals.items(), key=lambda item: item[1], reverse=True)
+        if used
+    ]

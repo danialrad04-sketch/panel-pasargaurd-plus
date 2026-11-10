@@ -242,6 +242,7 @@ async def attach(db, policy_id, body, admin):
         account_id = account.id
     row, _ = await operation.account_by_id(db, account_id, admin, "update", lock=True)
     row.relay_enabled, row.relay_byte_limit, row.relay_rps = True, body.byte_limit, body.grants_per_second
+    row.relay_rate_bps = body.rate_bps
     control.audit(db, admin.username, "account", account_id, enabled=True, byte_limit=body.byte_limit)
     await db.commit()
     leases = [
@@ -297,3 +298,83 @@ async def profiles(db):
     return [
         {**item, "name": names.get(key, ""), "accounts": accounts.get(key, 0)} for key, item in sorted(grouped.items())
     ]
+
+
+async def add_domains(db, policy_id, domains, actor):
+    """Route more names through an existing gaming profile (found with the watch list), then push to the node."""
+    from app.dns.policy import DNSRule
+
+    try:
+        wanted = sorted({DNSRule.normalized_domain(value) for value in domains})
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from None
+    if not wanted:
+        raise HTTPException(422, "No domain given")
+    await lock_state(db)
+    policy = await db.scalar(select(DNSPolicy).where(DNSPolicy.id == policy_id).with_for_update())
+    if policy is None:
+        raise HTTPException(404, "DNS policy not found")
+    routes = (await db.scalars(select(SmartDNSRoute).where(SmartDNSRoute.policy_id == policy_id))).all()
+    if not routes:
+        raise HTTPException(409, "This policy is not a gaming profile")
+    template = routes[0]
+    rules = [dict(rule) for rule in policy.rules]
+    by_domain = {rule["domain"]: rule for rule in rules}
+    if blocked := [domain for domain in wanted if by_domain.get(domain, {}).get("action") == "block"]:
+        raise HTTPException(409, {"blockers": [blocker("domain_blocked", ", ".join(blocked))]})
+    changed = [domain for domain in wanted if by_domain.get(domain, {}).get("action") != "rewrite"]
+    if not changed:
+        return {"added": [], "already": wanted, "route_ids": [], "applied": True, "revision": None}
+    for domain in changed:
+        by_domain[domain] = {"domain": domain, "action": "rewrite", "addresses": [template.public_address]}
+    policy.rules = sorted(by_domain.values(), key=lambda rule: rule["domain"])
+    policy.revision += 1
+    covered = [route.domain for route in routes]
+    fresh = suffix_cover(
+        [d for d in changed if not any(d == kept or d.endswith("." + kept) for kept in covered)]
+    )
+    total = await db.scalar(select(func.count()).select_from(SmartDNSRoute))
+    if total + len(fresh) > MAX_ROUTES:
+        raise HTTPException(409, {"blockers": [blocker("route_limit", f"{total}+{len(fresh)}>{MAX_ROUTES}")]})
+    state = await control.node_state(db, template.node_id)
+    created = []
+    try:
+        for domain in fresh:
+            route = SmartDNSRoute(
+                **RouteInput(
+                    node_id=template.node_id,
+                    policy_id=policy_id,
+                    domain=domain,
+                    public_address=template.public_address,
+                    bind_address=template.bind_address,
+                    tcp_ports=[80, 443],
+                    mode="sniff",
+                    enabled=True,
+                    egress_tunnel_id=template.egress_tunnel_id,
+                ).model_dump()
+            )
+            db.add(route)
+            await db.flush()
+            await control.validate(db, route)
+            created.append(route)
+    except HTTPException as error:
+        await db.rollback()
+        raise HTTPException(409, {"blockers": [blocker("validation_failed", str(error.detail))]}) from None
+    state.revision += 1
+    revision, node_id = state.revision, template.node_id
+    control.audit(db, actor, "gaming.domains", policy_id, added=changed, routes=len(created), revision=revision)
+    ids = [route.id for route in created]
+    await db.commit()
+    try:
+        pushed = await control.deploy(node_id, revision, actor)
+    except HTTPException as error:
+        pushed = {"ok": False, "detail": str(error.detail)}
+    return {
+        "added": changed,
+        "already": [domain for domain in wanted if domain not in changed],
+        "route_ids": ids,
+        "revision": revision,
+        "applied": bool(pushed["ok"]),
+        "detail": pushed.get("detail"),
+        "game_acceptance": "untested",
+    }

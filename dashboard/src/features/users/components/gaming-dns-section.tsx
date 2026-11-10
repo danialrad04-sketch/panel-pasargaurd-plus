@@ -6,16 +6,18 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { fetcher } from '@/service/http'
+import { DnsWatchDialog } from '@/features/users/components/dns-watch-dialog'
 
 type Profile = { policy_id: number; name: string; routes: number; applied: boolean; accounts: number; address: string }
 type UserDns = {
-  account: { id: number; enabled: boolean; eligible: boolean; policy_id: number; policy_name: string; relay_byte_limit: number; relay_bytes: number } | null
+  account: { id: number; enabled: boolean; eligible: boolean; policy_id: number; policy_name: string; relay_byte_limit: number; relay_bytes: number; relay_rps: number; relay_rate_bps: number } | null
+  by_service?: { label: string; bytes: number }[]
   leases: { ip: string; expires_at: string }[]
   portal_path: string | null
 }
 
-export type GamingDnsDraft = { enabled: boolean; policyId: string; limitGb: string; ips: string }
-export const emptyGamingDnsDraft: GamingDnsDraft = { enabled: false, policyId: '', limitGb: '', ips: '' }
+export type GamingDnsDraft = { enabled: boolean; policyId: string; limitGb: string; speedMbit: string; ips: string }
+export const emptyGamingDnsDraft: GamingDnsDraft = { enabled: false, policyId: '', limitGb: '', speedMbit: '', ips: '' }
 
 const GB = 1024 ** 3
 const reason = (e: any) => (typeof e?.data?.detail === 'string' ? e.data.detail : e?.message)
@@ -29,7 +31,12 @@ export async function attachGamingDns(userId: number, draft: GamingDnsDraft) {
   const gb = Number(draft.limitGb)
   return fetcher<{ account_id: number; portal_path: string }>(`/api/smartdns/gaming/${draft.policyId}/attach`, {
     method: 'POST',
-    body: { user_id: userId, client_ips: ips, byte_limit: draft.limitGb.trim() && gb > 0 ? Math.round(gb * GB) : 0 },
+    body: {
+      user_id: userId,
+      client_ips: ips,
+      byte_limit: draft.limitGb.trim() && gb > 0 ? Math.round(gb * GB) : 0,
+      rate_bps: draft.speedMbit.trim() && Number(draft.speedMbit) > 0 ? Math.round(Number(draft.speedMbit) * 125000) : 0,
+    },
   })
 }
 
@@ -97,9 +104,10 @@ export function GamingDnsSection({ userId, draft, onDraft }: Props) {
     setBusy(true)
     setError('')
     try {
-      await fetcher(`/api/dns/accounts/${account.id}`, {
+      await fetcher(`/api/dns/accounts/${account.id}`, { method: 'PUT', body: { policy_id: account.policy_id, enabled } })
+      await fetcher(`/api/smartdns/accounts/${account.id}`, {
         method: 'PUT',
-        body: { policy_id: account.policy_id, enabled, query_limit: 0, qps: 20, relay_enabled: enabled, relay_byte_limit: account.relay_byte_limit, relay_rps: 200 },
+        body: { enabled, byte_limit: account.relay_byte_limit, grants_per_second: account.relay_rps, rate_bps: account.relay_rate_bps },
       })
       await refresh()
     } catch (e: any) {
@@ -117,15 +125,15 @@ export function GamingDnsSection({ userId, draft, onDraft }: Props) {
           {t('DNS گیمینگ', 'Gaming DNS')}
         </div>
         {account ? (
-          <label className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-2 text-xs">
             <span>{account.enabled ? t('فعال', 'On') : t('خاموش', 'Off')}</span>
             <Switch checked={account.enabled} disabled={busy} onCheckedChange={value => void setEnabled(value)} aria-label={t('فعال بودن DNS', 'DNS enabled')} />
-          </label>
+          </div>
         ) : (
-          <label className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-2 text-xs">
             <span>{t('فعال‌سازی برای این کاربر', 'Enable for this user')}</span>
             <Switch checked={draft.enabled} onCheckedChange={value => onDraft({ ...draft, enabled: value })} aria-label={t('فعال‌سازی DNS گیمینگ', 'Enable gaming DNS')} />
-          </label>
+          </div>
         )}
       </div>
       <p className="text-muted-foreground text-xs leading-6">
@@ -147,6 +155,20 @@ export function GamingDnsSection({ userId, draft, onDraft }: Props) {
             {account.relay_byte_limit ? <bdi dir="ltr"> / {(account.relay_byte_limit / GB).toFixed(1)} GB</bdi> : ` / ${t('نامحدود', 'unlimited')}`}
           </div>
           <div className="text-xs">
+            {t('سقف سرعت:', 'Speed cap:')} <bdi dir="ltr">{account.relay_rate_bps ? `${((account.relay_rate_bps * 8) / 1e6).toFixed(1)} Mbit/s` : t('نامحدود', 'unlimited')}</bdi>
+            <span className="text-muted-foreground"> ({t('اعمال روی نود نیازمند نسخه جدید نود است', 'enforced by node builds that support it')})</span>
+          </div>
+          {current.data?.by_service?.length ? (
+            <div className="text-xs">
+              {t('مصرف ۳۰ روز اخیر به تفکیک سرویس:', 'Last 30 days by service:')}{' '}
+              {current.data.by_service.slice(0, 6).map(item => (
+                <bdi key={item.label} className="me-2 inline-block rounded border px-1.5">
+                  {item.label} · <span dir="ltr">{(item.bytes / GB).toFixed(2)} GB</span>
+                </bdi>
+              ))}
+            </div>
+          ) : null}
+          <div className="text-xs">
             {t('IPهای ثبت‌شده:', 'Registered IPs:')}{' '}
             {current.data?.leases.length
               ? current.data.leases.map(lease => (
@@ -156,6 +178,7 @@ export function GamingDnsSection({ userId, draft, onDraft }: Props) {
                 ))
               : t('هنوز ثبت نشده', 'none yet')}
           </div>
+          <DnsWatchDialog accountId={account.id} policyId={account.policy_id} />
           {portal && (
             <div className="flex gap-2">
               <Input dir="ltr" readOnly value={portal} aria-label="DNS link" className="min-w-0 flex-1 text-xs" />
@@ -191,6 +214,10 @@ export function GamingDnsSection({ userId, draft, onDraft }: Props) {
           <label className="space-y-1 text-xs">
             <span>{t('سقف حجم DNS (GB؛ خالی = نامحدود)', 'DNS cap (GB; empty = unlimited)')}</span>
             <Input dir="ltr" inputMode="decimal" value={draft.limitGb} onChange={event => onDraft({ ...draft, limitGb: event.target.value })} />
+          </label>
+          <label className="space-y-1 text-xs">
+            <span>{t('سقف سرعت (Mbit/s؛ خالی = نامحدود)', 'Speed cap (Mbit/s; empty = unlimited)')}</span>
+            <Input dir="ltr" inputMode="decimal" value={draft.speedMbit} onChange={event => onDraft({ ...draft, speedMbit: event.target.value })} />
           </label>
           <label className="space-y-1 text-xs">
             <span>{t('IP بازیکن (اختیاری، حداکثر ۳)', 'Player IPs (optional, up to 3)')}</span>

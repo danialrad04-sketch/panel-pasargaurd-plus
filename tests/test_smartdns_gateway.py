@@ -209,3 +209,27 @@ async def test_node_dns_authorization_source_ip_budget_and_generation(gateway, m
         with pytest.raises(HTTPException) as pending:
             await resolve_on_behalf_of_node(node.id, body, db, node.api_key)
         assert "pending" in pending.value.detail
+
+
+async def test_grant_carries_speed_cap_and_settlement_feeds_service_usage_once(gateway):
+    from sqlalchemy import select
+
+    from app.db.models import SmartDNSServiceUsage
+
+    native, node, route = gateway
+    async with native.sessions() as db:
+        account = await db.get(DNSAccount, native.account_id)
+        account.relay_rate_bps = 250_000
+        await db.commit()
+    async with native.sessions() as db:
+        value = await service.reserve(db, node.id, node.api_key, grant(route))
+    assert value["rate_bps"] == 250_000
+    settle = SettleInput(grant_id=value["grant_id"], used=321)
+    async with native.sessions() as db:
+        await service.settle(db, node.id, node.api_key, settle)
+        await service.settle(db, node.id, node.api_key, settle)  # idempotent: no double count
+    async with native.sessions() as db:
+        rows = (await db.scalars(select(SmartDNSServiceUsage))).all()
+        assert [(row.domain, row.bytes) for row in rows] == [(route.domain, 321)]
+        summary = await accounts.service_usage(db, native.account_id)
+    assert summary == [{"label": "سایر", "bytes": 321}]

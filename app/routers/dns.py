@@ -190,6 +190,17 @@ async def remove_account(
     return Response(status_code=204)
 
 
+@router.get("/api/dns/accounts/{account_id}/watch")
+async def watch_names(account_id: int, db: DB, admin: Read):
+    """Names this account asked for recently and how each was answered. Volatile, in memory, per worker."""
+    from app.dns import watch
+
+    account, _ = await operation.account_by_id(db, account_id, admin, "read")
+    return JSONResponse(
+        jsonable_encoder({"items": watch.recent(account.id)}), headers={"Cache-Control": "no-store"}
+    )
+
+
 @router.post("/api/dns/accounts/{account_id}/reset", response_model=DNSAccountView)
 async def reset(
     account_id: int, db: DB, admin: Annotated[AdminDetails, Depends(require_permission("dns", "reset_usage"))]

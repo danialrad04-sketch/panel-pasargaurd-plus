@@ -11,12 +11,14 @@ import dns.exception
 import dns.flags
 import dns.message
 import dns.rcode
+import dns.rdatatype
 from fastapi import HTTPException
 from sqlalchemy import select, update
 
 from app.db.base import SessionLocal, begin_immediate_if_sqlite
 from app.db.models import DNSAccount, DNSIPLease, DNSPolicy, DNSUsagePeriod, User
-from app.dns.policy import DNSResolver, parse_query, serialize
+from app.dns import watch
+from app.dns.policy import DNSResolver, parse_query, rule_for, serialize
 from app.operation.dns import USER_LOAD, digest, eligible
 from config import dns_settings
 
@@ -134,6 +136,13 @@ class DNSService:
         try:
             account_id, period, policy = await self.reserve(len(wire), token=token, source_ip=source_ip)
             failed, blocked = False, False
+            question = query.question[0]
+            watch.record(
+                account_id,
+                question.name.to_text().rstrip(".").lower(),
+                dns.rdatatype.to_text(question.rdtype),
+                watch.label(rule_for(question.name, policy["rules"])),
+            )
             try:
                 response, blocked = await asyncio.to_thread(self.resolver.resolve, query, policy)
                 failed = response.rcode() == dns.rcode.SERVFAIL

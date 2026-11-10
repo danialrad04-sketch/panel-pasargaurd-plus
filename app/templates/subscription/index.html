@@ -218,6 +218,7 @@ try{document.documentElement.dataset.theme=localStorage.getItem('sub-card-theme'
         <p>پوشش فعلی: {% if portal.services %}{% for s in portal.services %}{{ s.label }}{% if not loop.last %}، {% endif %}{% endfor %}{% else %}{{ portal.policy.name }}{% endif %}</p>
       </li>
     </ol>
+    {% if portal.by_service %}<div class="dns-foot" style="border-top:0;padding-top:0"><span>۳۰ روز اخیر:</span>{% for item in portal.by_service[:5] %}<span><bdi>{{ item.label }}</bdi> <bdi dir="ltr">{{ item.bytes | bytesformat }}</bdi></span>{% endfor %}</div>{% endif %}
     <div class="dns-foot"><span>حجم DNS: <bdi dir="ltr">{{ portal.relay.used | bytesformat }}{% if portal.relay.byte_limit %} / {{ portal.relay.byte_limit | bytesformat }}{% else %} (نامحدود){% endif %}</bdi></span><a href="{{ dns_info.portal_path }}">صفحه کامل DNS</a></div>
   {% elif dns_info.token %}
     <div style="padding:16px 20px"><div class="field"><code id="dns-url">{{ dns_info.doh_url or ('/dns-query/' ~ dns_info.token) }}</code><button class="btn line" type="button" id="copy-dns">کپی</button></div><p class="privacy">این آدرس DNS-over-HTTPS خصوصی است.</p></div>

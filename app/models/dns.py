@@ -24,6 +24,7 @@ class DNSAccountCreate(DNSAccountInput):
 
 class DNSAccountView(BaseModel):
     relay_rps: int = 200
+    relay_rate_bps: int = 0
     relay_enabled: bool = False
     relay_byte_limit: int = 0
     relay_bytes: int = 0
