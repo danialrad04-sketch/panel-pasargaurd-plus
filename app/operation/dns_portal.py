@@ -4,15 +4,15 @@ A user can see their DNS status and register or remove their own source IPs. Not
 """
 
 import hmac
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 from fastapi import HTTPException
 from pydantic import ValidationError
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
 from app.db.base import begin_immediate_if_sqlite
-from app.db.models import DNSAccount, DNSIPLease, DNSPolicy, SmartDNSNodeState, SmartDNSRoute, User
+from app.db.models import DNSAccount, DNSIPLease, DNSPolicy, ServiceAudit, SmartDNSNodeState, SmartDNSRoute, User
 from app.dns.catalog import catalog
 from app.models.dns import DNSLeaseInput
 from app.operation import dns as operation
@@ -21,6 +21,8 @@ from config import dns_settings
 # A home IP changes rarely; a week keeps the player connected without silently leaving access open for long.
 LEASE_TTL = 7 * 86400
 MAX_LEASES = 3
+# Doctor-DNS style guard: a shared link cannot be used to rotate through addresses.
+MAX_REGISTRATIONS_PER_DAY = 6
 
 
 def normalize_ip(value):
@@ -129,7 +131,20 @@ async def register(db, token, ip):
     account, user = await find(db, token, lock=True)
     if not (account.enabled and operation.eligible(user) and dns_settings.enabled):
         raise HTTPException(403, "This DNS service is not active for your account")
-    await operation.grant_lease(db, account, ip, LEASE_TTL, f"user:{user.id}")
+    actor = f"user:{user.id}"
+    recent = await db.scalar(
+        select(func.count())
+        .select_from(ServiceAudit)
+        .where(
+            ServiceAudit.actor == actor,
+            ServiceAudit.action == "dns.lease",
+            ServiceAudit.target_id == str(account.id),
+            ServiceAudit.created_at > datetime.now(UTC) - timedelta(days=1),
+        )
+    )
+    if recent >= MAX_REGISTRATIONS_PER_DAY:
+        raise HTTPException(429, "Too many IP changes today; try again tomorrow or ask your provider")
+    await operation.grant_lease(db, account, ip, LEASE_TTL, actor)
     return await info(db, token, ip)
 
 

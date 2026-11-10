@@ -505,7 +505,13 @@ class SubscriptionOperation(BaseOperation):
             page_payload = self._build_subscription_body_payload(
                 user, links, formatted_announce, sub_settings, format_variables, is_hwid_enabled
             )
-            page_payload["dns_info"] = await portal_metadata(db, db_user.id)
+            dns_info = await portal_metadata(db, db_user.id)
+            if dns_info and dns_info.get("token"):
+                from app.operation.dns_portal import info as dns_portal_info
+
+                dns_info["portal"] = await dns_portal_info(db, dns_info["token"], ip)
+                dns_info["portal_path"] = f"/dns-sub/{dns_info['token']}"
+            page_payload["dns_info"] = dns_info
             return HTMLResponse(render_template(template, page_payload))
         else:
             # Reject unsupported clients before registering the HWID, so they never use up a device slot

@@ -285,3 +285,32 @@ async def portal_metadata(db, user_id):
             result["token"] = token
             result["doh_url"] = (dns_settings.public_url or "/dns-query") + "/" + token
     return result
+
+
+async def user_dns(db, user_id, admin):
+    """The DNS state of one panel user, for the user form. Same scope rules as the user itself."""
+    user = await db.get(User, user_id, options=[USER_LOAD])
+    if user is None:
+        raise HTTPException(404, "User not found")
+    scope(admin, "read", user)
+    account = (await db.scalars(select(DNSAccount).where(DNSAccount.user_id == user_id))).one_or_none()
+    if account is None:
+        return {"account": None, "leases": [], "portal_path": None}
+    now = datetime.now(UTC)
+    leases = (await db.scalars(select(DNSIPLease).where(DNSIPLease.account_id == account.id))).all()
+    portal_path = None
+    try:
+        token = credential(account, await get_secret_key())
+        if hmac.compare_digest(digest(token), account.token_hash or ""):
+            portal_path = f"/dns-sub/{token}"
+    except HTTPException:
+        portal_path = None
+    return {
+        "account": await account_view(db, account, user),
+        "leases": [
+            {"ip": lease.ip, "expires_at": fix_datetime_timezone(lease.expires_at)}
+            for lease in sorted(leases, key=lambda item: item.expires_at)
+            if fix_datetime_timezone(lease.expires_at) > now
+        ],
+        "portal_path": portal_path,
+    }

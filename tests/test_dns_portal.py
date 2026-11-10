@@ -116,3 +116,26 @@ async def test_one_users_link_cannot_remove_another_users_ip(portal):
     assert removed.status_code == 200
     async with portal.world.sessions() as db:
         assert await db.get(DNSIPLease, "198.51.100.7") is not None
+
+
+async def test_user_form_state_and_attach_without_ips(portal):
+    async with portal.world.sessions() as db:
+        state = await dns_operation.user_dns(db, 1, OWNER)
+    assert state["account"]["user_id"] == 1
+    assert [lease["ip"] for lease in state["leases"]] == ["198.51.100.7"]
+    assert state["portal_path"] == f"/dns-sub/{portal.token}"
+    async with portal.world.sessions() as db:
+        with pytest.raises(Exception) as missing:
+            await dns_operation.user_dns(db, 999, OWNER)
+    assert getattr(missing.value, "status_code", None) == 404
+    # IPs are optional when attaching: the user registers theirs on their own link.
+    assert GamingAttachInput(user_id=2, byte_limit=0).client_ips == []
+
+
+async def test_ip_changes_per_day_are_limited(portal):
+    async with portal.world.sessions() as db:
+        for _ in range(dns_portal.MAX_REGISTRATIONS_PER_DAY):
+            await dns_portal.register(db, portal.token, "203.0.113.50")
+        with pytest.raises(Exception) as limited:
+            await dns_portal.register(db, portal.token, "203.0.113.50")
+    assert getattr(limited.value, "status_code", None) == 429

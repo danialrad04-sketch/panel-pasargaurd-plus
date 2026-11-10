@@ -18,6 +18,7 @@ import { LoaderButton } from '@/components/ui/loader-button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { attachGamingDns, emptyGamingDnsDraft, GamingDnsSection, type GamingDnsDraft } from '@/features/users/components/gaming-dns-section'
 import { Textarea } from '@/components/ui/textarea'
 import { useAdmin } from '@/hooks/use-admin'
 import useDirDetection from '@/hooks/use-dir-detection'
@@ -334,6 +335,7 @@ function UserModal({ isDialogOpen, onOpenChange, form, editingUser, editingUserI
   const [loading, setLoading] = useState(false)
   const status = form.watch('status')
   const [activeTab, setActiveTab] = useState<'groups' | 'templates'>('groups')
+  const [gamingDns, setGamingDns] = useState<GamingDnsDraft>(emptyGamingDnsDraft)
   const tabs = React.useMemo(
     () => [
       ...(requireTemplateForCreate ? [] : [{ id: 'groups' as const, label: 'groups', icon: Group }]),
@@ -933,13 +935,21 @@ function UserModal({ isDialogOpen, onOpenChange, form, editingUser, editingUserI
             }),
           )
         } else {
-          await createUserFromTemplateMutation.mutateAsync({
+          const created = await createUserFromTemplateMutation.mutateAsync({
             data: {
               user_template_id: selectedTemplateId,
               username: values.username,
               note: values.note || undefined,
             },
           })
+          if (gamingDns.enabled && gamingDns.policyId && (created as { id?: number })?.id) {
+            try {
+              await attachGamingDns((created as { id: number }).id, gamingDns)
+            } catch (dnsError: any) {
+              toast.warning(`${t('کاربر ساخته شد اما DNS گیمینگ فعال نشد:', 'User created, but gaming DNS was not enabled:')} ${typeof dnsError?.data?.detail === 'string' ? dnsError.data.detail : dnsError?.message || ''}`)
+            }
+          }
+          setGamingDns(emptyGamingDnsDraft)
           toast.success(
             t('userDialog.userCreated', {
               username: values.username,
@@ -959,7 +969,7 @@ function UserModal({ isDialogOpen, onOpenChange, form, editingUser, editingUserI
         setLoading(false)
       }
     },
-    [editingUser, selectedTemplateId, form, onOpenChange, t],
+    [editingUser, selectedTemplateId, form, gamingDns, onOpenChange, t],
   )
 
   const onSubmit = React.useCallback(
@@ -1147,9 +1157,17 @@ function UserModal({ isDialogOpen, onOpenChange, form, editingUser, editingUserI
               ...sendValues,
               status: (sendValues.status === 'active' ? 'active' : sendValues.status) as 'active' | 'on_hold',
             }
-            await createUserMutation.mutateAsync({
+            const created = await createUserMutation.mutateAsync({
               data: createData,
             })
+            if (gamingDns.enabled && gamingDns.policyId && (created as { id?: number })?.id) {
+              try {
+                await attachGamingDns((created as { id: number }).id, gamingDns)
+              } catch (dnsError: any) {
+                toast.warning(`${t('کاربر ساخته شد اما DNS گیمینگ فعال نشد:', 'User created, but gaming DNS was not enabled:')} ${typeof dnsError?.data?.detail === 'string' ? dnsError.data.detail : dnsError?.message || ''}`)
+              }
+            }
+            setGamingDns(emptyGamingDnsDraft)
             toast.success(
               t('userDialog.userCreated', {
                 username: values.username,
@@ -1174,7 +1192,7 @@ function UserModal({ isDialogOpen, onOpenChange, form, editingUser, editingUserI
         setLoading(false)
       }
     },
-    [canUseNextPlan, canUseResetStrategy, editingUser, editingUserData, editingUserId, form, handleTemplateMutation, onOpenChange, requireTemplateForCreate, selectedTemplateId, status, t, touchedFields],
+    [canUseNextPlan, canUseResetStrategy, editingUser, editingUserData, editingUserId, form, gamingDns, handleTemplateMutation, onOpenChange, requireTemplateForCreate, selectedTemplateId, status, t, touchedFields],
   )
 
   // Helper for cryptographically secure random integer
@@ -2333,6 +2351,7 @@ function UserModal({ isDialogOpen, onOpenChange, form, editingUser, editingUserI
               </div>
               {renderUserMetaPanel('mt-4 lg:hidden')}
             </div>
+            {(!editingUser || editingUserId) && <GamingDnsSection userId={editingUser ? editingUserId : undefined} draft={gamingDns} onDraft={setGamingDns} />}
             {/* Cancel/Create buttons - always visible */}
             <div className="-mx-1 mt-2 flex flex-row items-center justify-end gap-3 overflow-x-auto px-1 py-1 sm:mx-0 sm:px-0 sm:pt-2 sm:pb-0">
               {editingUser && (

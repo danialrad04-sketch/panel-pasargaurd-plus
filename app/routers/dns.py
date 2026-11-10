@@ -7,6 +7,7 @@ from typing import Annotated
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from sqlalchemy import delete, func, select
@@ -149,6 +150,14 @@ async def accounts(
     search: str = Query("", max_length=64),
 ):
     return await operation.list_accounts(db, admin, offset, limit, search)
+
+
+@router.get("/api/dns/users/{user_id}")
+async def user_dns(user_id: int, db: DB, admin: Read):
+    """DNS access of one panel user, shown inside the user form."""
+    return JSONResponse(
+        jsonable_encoder(await operation.user_dns(db, user_id, admin)), headers={"Cache-Control": "no-store"}
+    )
 
 
 @router.post("/api/dns/accounts", response_model=DNSAccountView, status_code=201)

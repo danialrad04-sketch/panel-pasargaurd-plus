@@ -1,712 +1,255 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="referrer" content="no-referrer">
-        <meta name="color-scheme" content="light dark">
-        <title>{{ user.username }} · اشتراک من</title>
-        <style>
-            :root {
-                --bg: #f4f6fa;
-                --card: #fff;
-                --text: #17243c;
-                --muted: #69758b;
-                --line: #e3e8f0;
-                --primary: #4369c7;
-                --tint: #eef2fc;
-                --good: #187c62;
-                --shadow: 0 12px 40px #19335c08
-            }
-
-            :root[data-theme=dark] {
-                --bg: #101520;
-                --card: #181f2e;
-                --text: #eef2fa;
-                --muted: #a0aec4;
-                --line: #2b364b;
-                --primary: #91aeff;
-                --tint: #24314b;
-                --good: #7bd9b5;
-                --shadow: none
-            }
-
-            * {
-                box-sizing: border-box
-            }
-
-            body {
-                margin: 0;
-                background: var(--bg);
-                color: var(--text);
-                font-family: Tahoma, system-ui, sans-serif;
-                font-size: 14px;
-                line-height: 1.8
-            }
-
-            button,
-            input,
-            a {
-                font: inherit
-            }
-
-            button,
-            a {
-                touch-action: manipulation
-            }
-
-            button {
-                cursor: pointer
-            }
-
-            button:focus-visible,
-            a:focus-visible,
-            input:focus-visible,
-            summary:focus-visible {
-                outline: 3px solid var(--primary);
-                outline-offset: 4px
-            }
-
-            button {
-                border: 1px solid var(--line);
-                background: var(--card);
-                color: var(--text);
-                border-radius: 12px;
-                padding: 10px 16px;
-                transition: background .15s
-            }
-
-            button:hover {
-                background: var(--tint)
-            }
-
-            a {
-                color: var(--primary);
-                text-decoration: none
-            }
-
-            a:hover {
-                text-decoration: underline
-            }
-
-            h1,
-            h2,
-            h3,
-            p {
-                margin: 0
-            }
-
-            h1 {
-                font-size: clamp(26px, 4vw, 38px);
-                line-height: 1.5;
-                letter-spacing: -1px
-            }
-
-            h2 {
-                font-size: 18px
-            }
-
-            h3 {
-                font-size: 15px
-            }
-
-            small,
-            .muted {
-                color: var(--muted)
-            }
-
-            .shell {
-                max-width: 1120px;
-                margin: auto;
-                padding: 28px 28px 40px
-            }
-
-            .topbar,
-            .brand,
-            .actions,
-            .section-head {
-                display: flex;
-                align-items: center;
-                gap: 12px
-            }
-
-            .topbar {
-                justify-content: space-between;
-                padding-bottom: 24px;
-                border-bottom: 1px solid var(--line)
-            }
-
-            .brand-icon {
-                display: grid;
-                place-items: center;
-                background: var(--text);
-                color: var(--card);
-                width: 42px;
-                height: 42px;
-                border-radius: 14px;
-                font-size: 22px
-            }
-
-            .brand strong {
-                display: block;
-                letter-spacing: 1px;
-                font-family: system-ui, sans-serif
-            }
-
-            .brand small {
-                font-size: 11px
-            }
-
-            .hero {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                gap: 24px;
-                padding: 40px 0 26px
-            }
-
-            .eyebrow {
-                color: var(--primary);
-                font-size: 11px;
-                letter-spacing: 2px;
-                font-family: system-ui, sans-serif;
-                font-weight: 700;
-                margin-bottom: 10px
-            }
-
-            .hero p {
-                color: var(--muted);
-                margin-top: 8px
-            }
-
-            .pill {
-                border-radius: 100px;
-                background: var(--tint);
-                color: var(--primary);
-                padding: 6px 14px;
-                white-space: nowrap;
-                font-size: 12px
-            }
-
-            .pill.active {
-                color: var(--good)
-            }
-
-            .pill.expired,
-            .pill.limited,
-            .pill.disabled {
-                color: #c65353
-            }
-
-            .grid {
-                display: grid;
-                grid-template-columns: minmax(0, 1.8fr) minmax(260px, 1fr);
-                gap: 20px
-            }
-
-            .card {
-                background: var(--card);
-                border: 1px solid var(--line);
-                border-radius: 22px;
-                padding: 26px;
-                box-shadow: var(--shadow);
-                min-width: 0
-            }
-
-            .section-head {
-                justify-content: space-between;
-                margin-bottom: 22px
-            }
-
-            .section-head .num {
-                font-size: 12px;
-                color: var(--muted);
-                font-family: system-ui, sans-serif
-            }
-
-            .usage {
-                display: grid;
-                grid-template-columns: 1fr auto;
-                gap: 20px;
-                align-items: center
-            }
-
-            .amount {
-                font-size: 32px;
-                font-weight: 700;
-                font-family: system-ui, sans-serif;
-                line-height: 1.4;
-                margin-top: 8px
-            }
-
-            .amount small {
-                font-size: 13px;
-                font-weight: 400
-            }
-
-            .ring {
-                position: relative;
-                width: 116px;
-                height: 116px;
-                display: grid;
-                place-items: center;
-                direction: ltr
-            }
-
-            .ring svg {
-                width: 100%;
-                height: 100%;
-                transform: rotate(-90deg)
-            }
-
-            .ring circle {
-                fill: none;
-                stroke: var(--line);
-                stroke-width: 8
-            }
-
-            .ring .fill {
-                stroke: var(--primary);
-                stroke-linecap: round;
-                stroke-dasharray: 283;
-                stroke-dashoffset: calc(283 - 2.83 * var(--usage))
-            }
-
-            .ring strong {
-                position: absolute;
-                font-size: 21px;
-                font-family: system-ui, sans-serif
-            }
-
-            .metrics {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 16px;
-                border-top: 1px solid var(--line);
-                padding-top: 20px;
-                margin-top: 22px
-            }
-
-            .metrics dt {
-                color: var(--muted);
-                font-size: 12px
-            }
-
-            .metrics dd {
-                margin: 5px 0 0;
-                font-size: 16px;
-                font-weight: 600
-            }
-
-            .account dl {
-                margin: 0
-            }
-
-            .account dl>div {
-                display: flex;
-                justify-content: space-between;
-                gap: 16px;
-                padding: 13px 0;
-                border-bottom: 1px solid var(--line)
-            }
-
-            .account dl>div:last-child {
-                border: 0
-            }
-
-            .account dt {
-                color: var(--muted);
-                font-size: 12px
-            }
-
-            .account dd {
-                margin: 0;
-                text-align: end;
-                overflow-wrap: anywhere
-            }
-
-            .wide {
-                grid-column: 1/-1
-            }
-
-            .primary {
-                background: var(--primary);
-                border-color: var(--primary);
-                color: var(--card);
-                font-weight: 600
-            }
-
-            .primary:hover {
-                filter: brightness(.95);
-                background: var(--primary)
-            }
-
-            .connection {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                border-top: 1px solid var(--line);
-                padding: 16px 0
-            }
-
-            .connection:first-of-type {
-                border-top: 0
-            }
-
-            .connection .index {
-                flex: none;
-                display: grid;
-                place-items: center;
-                border: 1px solid var(--line);
-                border-radius: 10px;
-                width: 34px;
-                height: 34px;
-                color: var(--muted);
-                font-family: system-ui, sans-serif
-            }
-
-            .connection-main {
-                flex: 1;
-                min-width: 0
-            }
-
-            .connection-main strong {
-                font-size: 13px;
-                font-weight: 500
-            }
-
-            .link-input {
-                display: block;
-                border: 0;
-                background: transparent;
-                color: var(--muted);
-                width: 100%;
-                min-width: 0;
-                direction: ltr;
-                text-align: right;
-                font-size: 12px;
-                text-overflow: ellipsis;
-                padding: 4px 0
-            }
-
-            .copy-button,
-            .qr-button {
-                padding: 7px 12px;
-                font-size: 12px
-            }
-
-            .connection .actions {
-                flex: none;
-                gap: 7px
-            }
-
-            .search {
-                background: var(--bg);
-                border: 1px solid var(--line);
-                color: var(--text);
-                padding: 10px 14px;
-                border-radius: 12px;
-                width: 100%;
-                margin-bottom: 12px
-            }
-
-            .empty {
-                padding: 24px;
-                text-align: center;
-                color: var(--muted);
-                background: var(--bg);
-                border-radius: 14px
-            }
-
-            .application-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-                gap: 14px
-            }
-
-            .application {
-                border: 1px solid var(--line);
-                border-radius: 16px;
-                padding: 18px
-            }
-
-            .app-title {
-                display: flex;
-                gap: 10px;
-                align-items: center;
-                margin-bottom: 12px
-            }
-
-            .app-title img {
-                width: 36px;
-                height: 36px;
-                object-fit: contain;
-                border-radius: 9px
-            }
-
-            .application p {
-                font-size: 12px;
-                color: var(--muted);
-                margin-bottom: 12px
-            }
-
-            .downloads {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 12px;
-                font-size: 12px;
-                margin-bottom: 14px
-            }
-
-            .announcement {
-                background: var(--tint);
-                border: 1px solid var(--line);
-                padding: 18px 22px;
-                border-radius: 16px;
-                margin-bottom: 20px;
-                white-space: pre-line
-            }
-
-            .announcement a {
-                margin-inline-start: 12px
-            }
-
-            .guide details {
-                border-top: 1px solid var(--line);
-                padding: 14px 0
-            }
-
-            .guide summary {
-                cursor: pointer;
-                font-weight: 500
-            }
-
-            .guide p {
-                color: var(--muted);
-                margin-top: 10px;
-                font-size: 13px
-            }
-
-            .footer {
-                display: flex;
-                justify-content: space-between;
-                gap: 12px;
-                padding-top: 25px;
-                color: var(--muted);
-                font-size: 11px
-            }
-
-            .toast {
-                position: fixed;
-                inset-inline: 20px;
-                bottom: 24px;
-                margin: auto;
-                max-width: 440px;
-                background: var(--text);
-                color: var(--card);
-                border-radius: 14px;
-                padding: 14px 20px;
-                text-align: center;
-                z-index: 5
-            }
-
-            .toast:empty {
-                display: none
-            }
-
-            dialog {
-                background: var(--card);
-                color: var(--text);
-                border: 1px solid var(--line);
-                border-radius: 22px;
-                padding: 26px;
-                width: min(360px, 90vw);
-                text-align: center
-            }
-
-            dialog::backdrop {
-                background: #101520aa;
-                backdrop-filter: blur(4px)
-            }
-
-            #qrCodeContainer {
-                background: white;
-                padding: 16px;
-                margin: 16px auto;
-                display: table;
-                border-radius: 12px
-            }
-
-            #qrCodeContainer img,
-            #qrCodeContainer canvas {
-                max-width: 100%;
-                height: auto
-            }
-
-            .dialog-close {
-                float: left;
-                padding: 2px 10px
-            }
-
-            .privacy {
-                font-size: 12px;
-                color: var(--muted);
-                margin-top: 14px
-            }
-
-            .hidden,
-            [hidden] {
-                display: none !important
-            }
-
-            @media(max-width:720px) {
-                .shell {
-                    padding: 18px 16px
-                }
-
-                .hero {
-                    padding: 26px 0;
-                    align-items: flex-start
-                }
-
-                .grid {
-                    grid-template-columns: 1fr
-                }
-
-                .wide {
-                    grid-column: auto
-                }
-
-                .card {
-                    padding: 20px;
-                    border-radius: 18px
-                }
-
-                .hero .pill {
-                    margin-top: 12px
-                }
-
-                .connection {
-                    flex-wrap: wrap;
-                    gap: 10px
-                }
-
-                .connection-main {
-                    flex-basis: calc(100% - 50px)
-                }
-
-                .connection .actions {
-                    margin-inline-start: 44px
-                }
-
-                .section-head {
-                    flex-wrap: wrap
-                }
-
-                .footer {
-                    flex-direction: column
-                }
-
-                .amount {
-                    font-size: 27px
-                }
-
-                .ring {
-                    width: 100px;
-                    height: 100px
-                }
-            }
-
-            @media(prefers-reduced-motion:reduce) {
-                * {
-                    transition: none !important;
-                    scroll-behavior: auto !important
-                }
-            }
-        </style>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="dark light">
+<meta name="robots" content="noindex">
+<title>{{ user.username }} · کارت اتصال</title>
+<style>
+:root{--bg:#e7ecf3;--panel:#fff;--soft:#f1f4f9;--ink:#0c1a2e;--mute:#5a6a82;--line:#d3dbe7;--accent:#0b7a86;--on-accent:#fff;--mark:#d98a00;--ok:#12805c;--bad:#c42b3a;--shadow:0 30px 60px -34px #0c1a2e55;--r:22px}
+:root[data-theme=dark]{--bg:#070f1b;--panel:#0e1929;--soft:#0a1422;--ink:#e8eef7;--mute:#8da0ba;--line:#1d2b42;--accent:#41d9c8;--on-accent:#04201f;--mark:#f5b942;--ok:#4ade9a;--bad:#ff7b86;--shadow:0 30px 60px -34px #000}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;min-height:100dvh;background:var(--bg);color:var(--ink);font:15px/1.9 Vazirmatn,"Segoe UI",Tahoma,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;background-image:radial-gradient(var(--line) 1px,transparent 1.2px);background-size:22px 22px;opacity:.55;mask-image:linear-gradient(#000,transparent 70%)}
+a{color:var(--accent)}
+.hidden{display:none!important}
+:focus-visible{outline:3px solid var(--mark);outline-offset:2px;border-radius:8px}
+.wrap{position:relative;max-width:1040px;margin:0 auto;padding:18px 16px 56px}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 0 18px}
+.who{display:flex;align-items:center;gap:10px;min-width:0}
+.avatar{flex:none;width:38px;height:38px;border-radius:12px;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-weight:800;font-size:17px}
+.who b{display:block;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60vw}
+.who small{color:var(--mute);font-size:12px}
+.icon-btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:12px;height:38px;padding:0 14px;font:inherit;font-size:13px;cursor:pointer}
+.icon-btn:hover{border-color:var(--accent)}
+.layout{display:grid;gap:22px}
+@media(min-width:900px){.layout{grid-template-columns:minmax(0,340px) minmax(0,1fr);align-items:start}.pass-col{position:sticky;top:18px}}
+
+/* the pass: one ticket, notched, with a stub */
+.pass{position:relative;background:var(--panel);border-radius:var(--r);box-shadow:var(--shadow);border:1px solid var(--line);overflow:hidden;
+}
+.pass-main{padding:22px 22px 18px}
+.pass-label{color:var(--mute);font-size:13px}
+.days{display:flex;align-items:baseline;gap:8px;line-height:1;margin:6px 0 14px}
+.days .n{color:var(--ink);font-size:84px;font-weight:800;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.days span{font-size:18px;color:var(--mute)}
+.days.inf .n{color:var(--accent)}
+.strip{display:flex;gap:3px;height:34px;align-items:flex-end;direction:rtl}
+.strip i{flex:1;border-radius:3px;background:var(--line);height:42%}
+.strip i.on{background:var(--mark);height:100%}
+.strip i.on:nth-child(5n){height:100%}
+.strip i:not(.on):nth-child(5n){height:64%}
+.strip.open i{background:repeating-linear-gradient(135deg,var(--line) 0 3px,transparent 3px 6px);height:70%}
+.strip-note{display:flex;justify-content:space-between;color:var(--mute);font-size:12px;margin-top:6px}
+.pass-stub:before,.pass-stub:after{content:"";position:absolute;top:-14px;width:26px;height:26px;border-radius:50%;background:var(--bg);border:1px solid var(--line)}
+.pass-stub:before{inset-inline-start:-14px}.pass-stub:after{inset-inline-end:-14px}
+.pass-stub{position:relative;margin-top:14px;padding:18px 22px 20px;border-top:2px dashed var(--line);display:grid;gap:10px}
+.fuel{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.fuel b{font-size:22px;font-variant-numeric:tabular-nums}
+.fuel small{color:var(--mute)}
+.meter{height:10px;border-radius:99px;background:var(--soft);border:1px solid var(--line);overflow:hidden}
+.meter i{display:block;height:100%;width:calc(var(--usage,0) * 1%);background:linear-gradient(90deg,var(--accent),var(--mark));border-radius:99px}
+.stamp{position:absolute;inset-inline-end:16px;top:-26px;transform:rotate(-5deg);border:2px solid currentColor;border-radius:10px;padding:1px 12px;font-weight:800;font-size:13px;background:var(--panel);color:var(--ok)}
+.stamp.limited,.stamp.expired,.stamp.disabled{color:var(--bad)}
+.stamp.on_hold{color:var(--mark)}
+.facts{margin:0;display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;font-size:13px}
+.facts dt{color:var(--mute)}
+.facts dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+
+/* content column: flat sections, no card grid */
+.col{display:grid;gap:34px}
+.sec>h2{display:flex;align-items:center;gap:10px;margin:0 0 4px;font-size:17px;line-height:1.5}
+.sec>h2:before{content:"";width:9px;height:9px;background:var(--mark);transform:rotate(45deg);border-radius:2px;flex:none}
+.sec>p.lead{margin:0 0 14px;color:var(--mute);font-size:13px}
+.notice{border-inline-start:4px solid var(--mark);background:var(--panel);border-radius:12px;padding:12px 16px;font-size:14px}
+.notice a{margin-inline-start:8px;white-space:nowrap}
+.tools{display:flex;gap:10px;margin:8px 0 12px;flex-wrap:wrap}
+.search{flex:1;min-width:180px;height:42px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:0 14px;font:inherit}
+.btn{border:0;border-radius:12px;height:42px;padding:0 18px;font:inherit;font-weight:700;cursor:pointer;background:var(--accent);color:var(--on-accent)}
+.btn.line{background:transparent;color:var(--ink);border:1px solid var(--line);font-weight:600}
+.btn.line:hover{border-color:var(--accent)}
+.copy-button,.qr-button,.import-button{border:1px solid var(--line);border-radius:12px;height:38px;padding:0 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:var(--ink)}
+.copy-button{background:var(--accent);color:var(--on-accent);border-color:transparent}
+.field .copy-button{height:32px;font-size:12px;padding:0 12px}
+.qr-button:hover,.import-button:hover{border-color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+#connections{border-top:1px solid var(--line)}
+.connection{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)}
+.connection[hidden]{display:none}
+.index{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font-size:12px;color:var(--mute);font-variant-numeric:tabular-nums}
+.connection-main{min-width:0}
+.connection-name{display:block;line-height:1.5}
+.link-input{width:100%;border:0;background:transparent;color:var(--mute);font:12px ui-monospace,Menlo,Consolas,monospace;direction:ltr;text-align:left;text-overflow:ellipsis;padding:0}
+.actions{display:flex;gap:8px}
+.actions .btn{height:38px;padding:0 14px;font-size:13px}
+.empty{margin:14px 0;padding:16px;border:1px dashed var(--line);border-radius:14px;color:var(--mute);text-align:center}
+@media(max-width:560px){.connection{grid-template-columns:1fr auto}.index{display:none}}
+
+/* DNS: three steps in one tinted band */
+.dns{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.dns-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 20px;background:linear-gradient(100deg,color-mix(in srgb,var(--accent) 16%,transparent),transparent 70%);border-bottom:1px solid var(--line)}
+.dns-head b{font-size:16px}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:99px;padding:1px 12px;font-size:12px;border:1px solid var(--line);background:var(--soft);color:var(--mute)}
+.chip.good{color:var(--ok);border-color:currentColor}.chip.bad{color:var(--bad);border-color:currentColor}
+.steps{list-style:none;margin:0;padding:0;display:grid}
+@media(min-width:700px){.steps{grid-template-columns:repeat(3,1fr)}.steps li+li{border-inline-start:1px solid var(--line)}}
+.steps li{padding:18px 20px;display:grid;gap:8px;align-content:start}
+@media(max-width:699px){.steps li+li{border-top:1px solid var(--line)}}
+.steps h3{margin:0;font-size:14px;display:flex;gap:8px;align-items:center}
+.steps h3 em{font-style:normal;width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-size:12px}
+.steps p{margin:0;color:var(--mute);font-size:13px}
+.field{display:flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:4px 4px 4px 12px;background:var(--soft)}
+.field code{flex:1;direction:ltr;text-align:left;font:13px ui-monospace,Menlo,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.field .btn{height:32px;font-size:12px;padding:0 12px}
+.ips{display:flex;flex-wrap:wrap;gap:6px}
+.ips span{direction:ltr;font:12px ui-monospace,Menlo,monospace;border:1px solid var(--line);border-radius:8px;padding:0 8px;background:var(--soft)}
+.ips span.me{border-color:var(--ok);color:var(--ok)}
+.dns-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px 18px;justify-content:space-between;color:var(--mute);font-size:12.5px}
+.dns-msg{min-height:1.4em;font-size:13px}
+.dns-msg.bad{color:var(--bad)}.dns-msg.good{color:var(--ok)}
+
+.apps{display:flex;gap:12px;overflow-x:auto;padding:4px 2px 10px;scroll-snap-type:x proximity}
+.app{flex:0 0 min(78vw,260px);scroll-snap-align:start;border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:14px;display:grid;gap:8px;align-content:start}
+.app-title{display:flex;gap:10px;align-items:center}
+.app-title img{width:36px;height:36px;border-radius:10px;object-fit:cover}
+.app h3{margin:0;font-size:15px;line-height:1.4}
+.app small{color:var(--mute)}
+.app p{margin:0;color:var(--mute);font-size:13px}
+.downloads{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:13px}
+details{border-bottom:1px solid var(--line);padding:2px 0}
+summary{cursor:pointer;padding:10px 0;font-weight:600}
+details p{margin:0 0 12px;color:var(--mute);font-size:14px}
+.privacy{color:var(--mute);font-size:12px;margin:12px 0 0}
+.foot{margin-top:38px;color:var(--mute);font-size:12px;text-align:center}
+dialog{border:1px solid var(--line);border-radius:20px;background:var(--panel);color:var(--ink);padding:24px;text-align:center;max-width:320px}
+dialog::backdrop{background:#030a14b3;backdrop-filter:blur(3px)}
+dialog h2{margin:0 0 12px;font-size:16px}
+.dialog-close{position:absolute;inset-block-start:8px;inset-inline-end:8px;border:0;background:transparent;color:var(--mute);font-size:24px;cursor:pointer;width:36px;height:36px}
+#qrCodeContainer{display:grid;place-items:center;background:#fff;padding:14px;border-radius:14px;margin-bottom:10px}
+.toast{position:fixed;inset-inline:16px;bottom:18px;margin:auto;width:fit-content;max-width:92vw;background:var(--ink);color:var(--bg);border-radius:12px;padding:0 16px;font-size:14px;transition:opacity .2s,transform .2s}
+.toast:empty{opacity:0;transform:translateY(10px);pointer-events:none}
+.toast:not(:empty){padding:8px 16px}
+@media(prefers-reduced-motion:no-preference){.strip i.on{animation:rise .7s cubic-bezier(.2,.8,.2,1) backwards;animation-delay:calc(var(--i) * 18ms)}@keyframes rise{from{height:8%;opacity:.2}}}
+</style>
 <script>
-try{document.documentElement.dataset.theme=localStorage.getItem('pasarguard-sub-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch{document.documentElement.dataset.theme='light'}
+try{document.documentElement.dataset.theme=localStorage.getItem('sub-card-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch{document.documentElement.dataset.theme='dark'}
 </script>
 {% include "subscription/qr-code.html" %}
 </head>
 <body>
 {% set status = user.status.value %}
-{% set status_names = {
-    "active": "فعال",
-    "on_hold": "در انتظار اتصال",
-    "limited": "پایان حجم",
-    "expired": "منقضی‌شده",
-    "disabled": "غیرفعال"
-} %}
+{% set status_names = {"active": "فعال", "on_hold": "منتظر اولین اتصال", "limited": "حجم تمام شده", "expired": "منقضی", "disabled": "غیرفعال"} %}
 {% set used = user.used_traffic or 0 %}
 {% set usage = ([100, ([0, (used / user.data_limit * 100)] | max)] | min) if user.data_limit else 0 %}
-<div class="shell">
-<header class="topbar">
-<div class="brand">
-<div class="brand-icon" aria-hidden="true">◈</div>
-<div><strong dir="ltr">PASARGUARD <span style="color:var(--primary)">PLUS</span></strong><small>فضای شخصی اتصال شما</small></div>
-</div>
-<button id="theme-toggle" type="button" aria-label="تغییر پوسته" aria-pressed="false">◐ <span>تغییر پوسته</span></button>
+{% if status == "on_hold" %}
+  {% set days_left = ((user.on_hold_expire_duration / 86400) | round(0, 'ceil') | int) if user.on_hold_expire_duration else none %}
+{% elif user.expire %}
+  {% set days_left = [0, ((user.expire - now()).total_seconds() / 86400) | round(0, 'ceil') | int] | max %}
+{% else %}
+  {% set days_left = none %}
+{% endif %}
+{% set filled = ([days_left, 30] | min) if days_left is not none else 0 %}
+<div class="wrap">
+<header class="bar">
+  <div class="who"><div class="avatar" aria-hidden="true">{{ (user.username or '?')[:1] | upper }}</div><div style="min-width:0"><b><bdi>{{ user.username }}</bdi></b><small>کارت اتصال شخصی</small></div></div>
+  <button id="theme-toggle" class="icon-btn" type="button" aria-label="تغییر پوسته" aria-pressed="false">روشن / تیره</button>
 </header>
-<section class="hero">
-<div>
-<p class="eyebrow">YOUR CONNECTION, SIMPLIFIED</p>
-<h1>اشتراک من<span style="color:var(--primary)">.</span></h1>
-<p>سلام <bdi>{{ user.username }}</bdi>، اطلاعات اتصال شما اینجاست.</p>
+
+<div class="layout">
+<div class="pass-col">
+<section class="pass" aria-label="وضعیت اشتراک">
+  <div class="pass-main">
+    <div class="pass-label">{% if status == "on_hold" %}اعتبار پس از اولین اتصال{% else %}اعتبار باقی‌مانده{% endif %}</div>
+    <div class="days{% if days_left is none %} inf{% endif %}"><span class="n">{% if days_left is none %}∞{% else %}{{ days_left }}{% endif %}</span><span>{% if days_left is none %}نامحدود{% else %}روز{% endif %}</span></div>
+    <div class="strip{% if days_left is none %} open{% endif %}" role="img" aria-label="{% if days_left is none %}بدون محدودیت زمانی{% else %}{{ days_left }} روز باقی مانده{% endif %}">{% for i in range(30) %}<i{% if i < filled %} class="on" style="--i:{{ i }}"{% endif %}></i>{% endfor %}</div>
+    <div class="strip-note"><span>{% if days_left is not none and days_left > 30 %}هر خط یک روز؛ ۳۰ روز آخر{% elif days_left is not none %}هر خط یک روز{% else %}&nbsp;{% endif %}</span><span>{% if status != "on_hold" and user.expire %}تا {{ user.expire | datetime }}{% endif %}</span></div>
+  </div>
+  <div class="pass-stub">
+    <span class="stamp {{ status }}">{{ status_names.get(status, status) }}</span>
+    <div class="fuel"><div><small>حجم باقی‌مانده</small><br><b dir="ltr">{% if user.data_limit %}{{ ([0, user.data_limit - used] | max) | bytesformat }}{% else %}∞{% endif %}</b></div><small dir="ltr">{% if user.data_limit %}{{ used | bytesformat }} / {{ user.data_limit | bytesformat }}{% else %}{{ used | bytesformat }} مصرف{% endif %}</small></div>
+    <div class="meter" style="--usage:{{ usage | round(2) }}" role="img" aria-label="{{ usage | int }} درصد حجم مصرف شده"><i></i></div>
+    <dl class="facts"><div><dt>بازنشانی مصرف</dt><dd>{% set reset = user.data_limit_reset_strategy.value if user.data_limit_reset_strategy else 'no_reset' %}{{ {'no_reset':'ندارد','day':'روزانه','week':'هفتگی','month':'ماهانه','year':'سالانه'}.get(reset, reset) }}</dd></div>{% if status == "on_hold" %}<div><dt>مهلت شروع</dt><dd>{% if user.on_hold_timeout %}{{ user.on_hold_timeout | datetime }}{% else %}بدون محدودیت{% endif %}</dd></div>{% else %}<div><dt>وضعیت</dt><dd>{{ status_names.get(status, status) }}</dd></div>{% endif %}</dl>
+  </div>
+</section>
 </div>
-<span class="pill {{ status }}">● {{ status_names.get(status, status) }}</span>
-</section>
-{% if announce %}<aside class="announcement">{{ announce }}{% if announce_url and announce_url.startswith(("https://", "http://")) %}<a href="{{ announce_url }}" target="_blank" rel="noopener noreferrer">اطلاعات بیشتر ↗</a>{% endif %}</aside>{% endif %}
-<main class="grid">
-<section class="card"><div class="section-head"><h2>نمای کلی مصرف</h2><span class="num">01 / USAGE</span></div><div class="usage"><div><span class="muted">حجم باقی‌مانده</span><div class="amount" dir="ltr">{% if user.data_limit %}{{ ([0, user.data_limit - used] | max) | bytesformat }}{% else %}∞ <small>نامحدود</small>{% endif %}</div><p class="muted">{% if user.data_limit %}از {{ user.data_limit | bytesformat }} حجم اشتراک{% else %}بدون محدودیت حجمی{% endif %}</p></div><div class="ring" style="--usage:{{ usage | round(2) }}" role="img" aria-label="{{ usage | int }} درصد حجم مصرف شده"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="45" /><circle class="fill" cx="50" cy="50" r="45" /></svg><strong>{% if user.data_limit %}{{ usage | int }}%{% else %}∞{% endif %}</strong></div></div><dl class="metrics"><div><dt>مصرف فعلی</dt><dd dir="ltr">{{ used | bytesformat }}</dd></div><div><dt>بازنشانی مصرف</dt><dd>{% set reset = user.data_limit_reset_strategy.value if user.data_limit_reset_strategy else 'no_reset' %}{{ {'no_reset':'بدون بازنشانی','day':'روزانه','week':'هفتگی','month':'ماهانه','year':'سالانه'}.get(reset, reset) }}</dd></div></dl></section>
-<section class="card account"><div class="section-head"><h2>جزئیات اشتراک</h2><span class="num">02 / ACCOUNT</span></div><dl><div><dt>نام کاربری</dt><dd><bdi>{{ user.username }}</bdi></dd></div><div><dt>وضعیت سرویس</dt><dd>{{ status_names.get(status, status) }}</dd></div>{% if status == "on_hold" %}<div><dt>اعتبار پس از اولین اتصال</dt><dd>{% if user.on_hold_expire_duration %}{{ (user.on_hold_expire_duration / 86400) | int }} روز{% else %}نامحدود{% endif %}</dd></div><div><dt>مهلت شروع</dt><dd>{% if user.on_hold_timeout %}{{ user.on_hold_timeout | datetime }}{% else %}بدون محدودیت{% endif %}</dd></div>{% else %}<div><dt>تاریخ پایان</dt><dd>{% if user.expire %}{{ user.expire | datetime }}{% else %}نامحدود{% endif %}</dd></div><div><dt>اعتبار باقی‌مانده</dt><dd>{% if user.expire %}{{ [0, ((user.expire - now()).total_seconds() / 86400) | round(0, 'ceil') | int] | max }} روز{% else %}نامحدود{% endif %}</dd></div>{% endif %}</dl></section>
-<section class="card wide"><div class="section-head"><div><h2>اتصال‌های شما</h2><small>لینک را کپی کنید یا با برنامه اتصال، QR را اسکن کنید.</small></div>{% if status in ("active","on_hold") and links %}<button class="primary" id="copy-all" type="button">کپی همه لینک‌ها</button>{% endif %}</div>
+
+<div class="col">
+{% if announce %}<aside class="notice">{{ announce }}{% if announce_url and announce_url.startswith(("https://", "http://")) %}<a href="{{ announce_url }}" target="_blank" rel="noopener noreferrer">اطلاعات بیشتر</a>{% endif %}</aside>{% endif %}
+
+<section class="sec">
+  <h2>اتصال‌ها</h2>
+  <p class="lead">یک اتصال را کپی کنید یا QR را با برنامه‌ی اتصال اسکن کنید.</p>
 {% if status in ("active","on_hold") %}
-{% if links %}<label for="connection-search" class="hidden">جستجوی اتصال</label><input id="connection-search" class="search" type="search" aria-label="جستجوی اتصال" placeholder="جستجو در اتصال‌ها…" autocomplete="off">
-<div id="connections">{% for link in links %}<article class="connection"><span class="index">{{ '%02d' | format(loop.index) }}</span><div class="connection-main"><strong class="connection-name">اتصال {{ loop.index }}</strong><input type="text" class="link-input" value="{{ link }}" readonly aria-label="لینک اتصال {{ loop.index }}"></div><div class="actions"><button class="copy-button" type="button" data-link="{{ link }}">کپی لینک</button><button class="qr-button" type="button" data-link="{{ link }}" aria-label="کد QR اتصال {{ loop.index }}">QR ↗</button></div></article>{% endfor %}</div><p id="no-results" class="empty" hidden>اتصالی با این مشخصات پیدا نشد.</p>
+{% if links %}
+  <div class="tools"><label for="connection-search" class="hidden">جستجوی اتصال</label><input id="connection-search" class="search" type="search" aria-label="جستجوی اتصال" placeholder="جستجو در اتصال‌ها…" autocomplete="off"><button class="btn" id="copy-all" type="button">کپی همه</button></div>
+  <div id="connections">{% for link in links %}<article class="connection"><span class="index n">{{ loop.index }}</span><div class="connection-main"><strong class="connection-name">اتصال {{ loop.index }}</strong><input type="text" class="link-input" value="{{ link }}" readonly aria-label="لینک اتصال {{ loop.index }}"></div><div class="actions"><button class="copy-button" type="button" data-link="{{ link }}">کپی</button><button class="qr-button" type="button" data-link="{{ link }}" aria-label="کد QR اتصال {{ loop.index }}">QR</button></div></article>{% endfor %}</div>
+  <p id="no-results" class="empty" hidden>اتصالی با این مشخصات پیدا نشد.</p>
 {% else %}<p class="empty">هنوز اتصالی برای این اشتراک تنظیم نشده است. با پشتیبانی سرویس تماس بگیرید.</p>{% endif %}
-{% else %}<p class="empty">{% if status == "limited" %}حجم اشتراک به پایان رسیده است.{% elif status == "expired" %}اعتبار اشتراک به پایان رسیده است.{% else %}اشتراک شما در حال حاضر غیرفعال است.{% endif %} برای فعال‌سازی با پشتیبانی سرویس تماس بگیرید.</p>{% endif %}
-<p class="privacy">این صفحه و لینک‌های آن خصوصی هستند؛ فقط در دستگاه‌های خودتان استفاده کنید.</p>
+{% else %}<p class="empty">{% if status == "limited" %}حجم اشتراک تمام شده است.{% elif status == "expired" %}اعتبار اشتراک تمام شده است.{% else %}اشتراک شما فعلاً غیرفعال است.{% endif %} برای فعال‌سازی با پشتیبانی تماس بگیرید.</p>{% endif %}
+  <p class="privacy">این صفحه خصوصی است؛ لینک‌ها را فقط روی دستگاه‌های خودتان استفاده کنید.</p>
 </section>
+
 {% if dns_info %}
-<section class="card wide">
-  <div class="section-head"><div><h2>DNS اختصاصی شما</h2><small>با همان حساب پاسارگارد؛ سهمیه درخواست مستقل از حجم VPN.</small></div><span class="pill">DNS / DoH</span></div>
-  <dl class="metrics"><div><dt>درخواست‌های این دوره</dt><dd>{{ dns_info.queries }}{% if dns_info.query_limit %} از {{ dns_info.query_limit }}{% endif %}</dd></div><div><dt>سیاست دامنه</dt><dd>{{ dns_info.policy_name }}</dd></div></dl>
-  {% if dns_info.token %}
-  <div class="connection"><div class="connection-main"><strong>DNS-over-HTTPS</strong><input type="text" id="dns-url" class="dns-url link-input" value="{{ dns_info.doh_url or ('/dns-query/' ~ dns_info.token) }}" readonly aria-label="آدرس خصوصی DoH"></div><div class="actions"><button type="button" id="copy-dns">کپی آدرس DNS</button></div></div>
-  <p class="privacy">آدرس DNS را در برنامه سازگار با DoH وارد کنید. این آدرس خصوصی است.</p>
-  {% else %}<p class="empty">خدمت DNS یا دسترسی این حساب در حال حاضر فعال نیست.</p>{% endif %}
+{% set portal = dns_info.portal %}
+<section class="sec" id="dns">
+  <h2>DNS بازی</h2>
+  <p class="lead">برای کنسول، کامپیوتر یا گوشی: IP اینترنت فعلی‌تان را ثبت کنید و آدرس DNS را در دستگاه وارد کنید.</p>
+  <div class="dns">
+    <div class="dns-head"><b>DNS اختصاصی شما</b>
+      {% if dns_info.token and portal and portal.eligible %}<span class="chip good">فعال</span>{% elif dns_info.token %}<span class="chip bad">فعلاً غیرفعال</span>{% else %}<span class="chip bad">خاموش</span>{% endif %}</div>
+  {% if dns_info.token and portal %}
+    <ol class="steps">
+      <li><h3><em class="n">1</em>ثبت IP</h3>
+        <p>IP فعلی شما: <bdi dir="ltr"><b>{{ portal.client_ip or 'نامشخص' }}</b></bdi></p>
+        <button class="btn" id="dns-register" type="button" data-url="{{ dns_info.portal_path }}/ip" {% if portal.client_registered %}disabled{% endif %}>{% if portal.client_registered %}این IP ثبت شده است{% else %}ثبت IP فعلی من{% endif %}</button>
+        <div class="ips">{% for lease in portal.leases %}<span class="{% if lease.current %}me{% endif %}">{{ lease.ip }}</span>{% else %}<small class="pass-label">هنوز IP ثبت نشده</small>{% endfor %}</div>
+        <p class="n">حداکثر {{ portal.max_leases }} IP؛ هر ثبت {{ portal.lease_days }} روز اعتبار دارد.</p>
+        <div class="dns-msg" id="dns-msg" role="status"></div>
+      </li>
+      <li><h3><em class="n">2</em>آدرس DNS</h3>
+        {% for server in portal.servers %}<div class="field"><code>{{ server.address }}</code><button class="copy-button" type="button" data-link="{{ server.address }}">کپی</button></div>{% else %}<p>سرور DNS هنوز آماده نیست؛ بعداً سر بزنید یا با پشتیبانی تماس بگیرید.</p>{% endfor %}
+        <p>در تنظیمات شبکه‌ی دستگاه، DNS را روی این آدرس بگذارید.</p>
+      </li>
+      <li><h3><em class="n">3</em>بازی کنید</h3>
+        <p>بعد از تغییر DNS، دستگاه را یک بار ری‌استارت یا اینترنتش را قطع و وصل کنید.</p>
+        <p>پوشش فعلی: {% if portal.services %}{% for s in portal.services %}{{ s.label }}{% if not loop.last %}، {% endif %}{% endfor %}{% else %}{{ portal.policy.name }}{% endif %}</p>
+      </li>
+    </ol>
+    <div class="dns-foot"><span>حجم DNS: <bdi dir="ltr">{{ portal.relay.used | bytesformat }}{% if portal.relay.byte_limit %} / {{ portal.relay.byte_limit | bytesformat }}{% else %} (نامحدود){% endif %}</bdi></span><a href="{{ dns_info.portal_path }}">صفحه کامل DNS</a></div>
+  {% elif dns_info.token %}
+    <div style="padding:16px 20px"><div class="field"><code id="dns-url">{{ dns_info.doh_url or ('/dns-query/' ~ dns_info.token) }}</code><button class="btn line" type="button" id="copy-dns">کپی</button></div><p class="privacy">این آدرس DNS-over-HTTPS خصوصی است.</p></div>
+  {% else %}<p class="empty" style="margin:16px 20px">سرویس DNS یا دسترسی این حساب فعلاً روشن نیست.</p>{% endif %}
+  </div>
 </section>
 {% endif %}
-{% if apps %}<section class="card wide"><div class="section-head"><div><h2>برنامه‌های پیشنهادی</h2><small>برنامه مناسب دستگاه خود را انتخاب کنید.</small></div><span class="num">03 / APPS</span></div><div class="application-grid">{% for app in apps %}<article class="application"><div class="app-title">{% if app.icon_url and app.icon_url.startswith(("https://","/")) and not app.icon_url.startswith("//") %}<img src="{{ app.icon_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}<div><h3>{{ app.name }}{% if app.recommended %} <span class="pill">پیشنهادی</span>{% endif %}</h3>{% if app.platform %}<small>{{ app.platform.value }}</small>{% endif %}</div></div>{% if app.description %}<p>{{ app.description.get("fa") or app.description.get('en') or '' }}</p>{% endif %}<div class="downloads">{% for link in app.download_links or [] %}{% if link.url.startswith(("https://","http://")) %}<a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.name }} ↗</a>{% endif %}{% endfor %}</div>{% if app.import_url %}<button type="button" class="import-button" data-url="{{ app.import_url }}">افزودن به برنامه ↗</button>{% endif %}</article>{% endfor %}</div></section>{% endif %}
-<section class="card wide guide">
-<div class="section-head">
-<h2>چند قدم تا اتصال</h2>
-<span class="num">HELP CENTER</span>
-</div>
-<details>
-<summary>چطور متصل شوم؟</summary>
-<p>ابتدا برنامه مناسب دستگاه خود را نصب کنید. لینک اتصال را کپی و از بخش Import برنامه وارد کنید؛ یا QR همان اتصال را با برنامه اسکن کنید. سپس اتصال را فعال کنید.</p>
-</details>
-<details>
-<summary>اگر اتصال برقرار نشد چه کنم؟</summary>
-<p>اعتبار و حجم اشتراک و ساعت دستگاه را بررسی کنید. برنامه را به‌روز کنید و یکی دیگر از اتصال‌های همین صفحه را امتحان کنید. اگر مشکل ادامه داشت با پشتیبانی سرویس تماس بگیرید.</p>
-</details>
-<details>
-<summary>عدد مصرف چه چیزی را نشان می‌دهد؟</summary>
-<p>مصرف ثبت‌شده در پنل نمایش داده می‌شود و ممکن است با کمی تأخیر به‌روزرسانی شود. بعد از بازنشانی دوره، مصرف همان دوره را خواهید دید.</p>
-</details>
+
+{% if apps %}
+<section class="sec">
+  <h2>برنامه‌ها</h2>
+  <p class="lead">برنامه‌ی مناسب دستگاه خود را انتخاب کنید.</p>
+  <div class="apps">{% for app in apps %}<article class="app"><div class="app-title">{% if app.icon_url and app.icon_url.startswith(("https://","/")) and not app.icon_url.startswith("//") %}<img src="{{ app.icon_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}<div><h3>{{ app.name }}{% if app.recommended %} <span class="chip good">پیشنهادی</span>{% endif %}</h3>{% if app.platform %}<small>{{ app.platform.value }}</small>{% endif %}</div></div>{% if app.description %}<p>{{ app.description.get("fa") or app.description.get('en') or '' }}</p>{% endif %}<div class="downloads">{% for link in app.download_links or [] %}{% if link.url.startswith(("https://","http://")) %}<a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.name }}</a>{% endif %}{% endfor %}</div>{% if app.import_url %}<button type="button" class="import-button" data-url="{{ app.import_url }}">افزودن به برنامه</button>{% endif %}</article>{% endfor %}</div>
 </section>
-</main>
-<footer class="footer">
-<span dir="ltr">PASARGUARD PLUS · DONINO</span><span>اتصال ساده‌تر، مدیریت روشن‌تر.</span>
-</footer>
+{% endif %}
+
+<section class="sec">
+  <h2>راهنما</h2>
+  <details><summary>چطور وصل شوم؟</summary><p>برنامه‌ی مناسب دستگاه را نصب کنید، یک اتصال را کپی یا QR آن را اسکن کنید و داخل برنامه اضافه‌اش کنید.</p></details>
+  <details><summary>وصل نمی‌شود، چه کنم؟</summary><p>اعتبار و حجم را در کارت کنار صفحه ببینید، ساعت دستگاه را درست کنید، برنامه را به‌روز کنید و اتصال دیگری از همین صفحه را امتحان کنید.</p></details>
+  <details><summary>DNS بازی چطور کار می‌کند؟</summary><p>فقط از IP ثبت‌شده‌ی شما جواب می‌دهد. اگر IP اینترنتتان عوض شد، دوباره «ثبت IP فعلی من» را بزنید. فقط ترافیک وب‌سایت‌ها و فروشگاه‌های بازی (TCP) پوشش داده می‌شود؛ ترافیک UDP داخل بازی از این مسیر نمی‌گذرد.</p></details>
+  <details><summary>عدد حجم چه چیزی را نشان می‌دهد؟</summary><p>مصرف ثبت‌شده در سرور است و ممکن است چند دقیقه دیرتر به‌روز شود.</p></details>
+</section>
+</div>
+</div>
+<p class="foot">کارت اتصال · {{ user.username }}</p>
 </div>
 <dialog id="qr-dialog" aria-labelledby="qr-title">
 <button type="button" class="dialog-close" aria-label="بستن">×</button>
 <h2 id="qr-title">اسکن برای اتصال</h2>
 <div id="qrCodeContainer"></div>
-<p class="muted">با برنامه اتصال خود اسکن کنید.</p>
+<p class="pass-label">با برنامه‌ی اتصال اسکن کنید.</p>
 </dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 {% include "subscription/page-script.html" %}

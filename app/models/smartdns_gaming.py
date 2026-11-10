@@ -60,7 +60,8 @@ class GamingApplyInput(GamingPlanInput):
 class GamingAttachInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     user_id: int = Field(gt=0)
-    client_ips: list[str] = Field(min_length=1, max_length=3)
+    # Optional: the user can register the IP they play from on their own DNS link.
+    client_ips: list[str] = Field(default_factory=list, max_length=3)
     ttl: int = Field(default=86400, ge=60, le=86400)
     # 0 means no byte cap for this user; it is chosen explicitly, never implied.
     byte_limit: int = Field(ge=0, le=9_000_000_000_000_000)

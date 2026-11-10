@@ -19,7 +19,7 @@ themeButton.addEventListener("click", () => {
     document.documentElement.dataset.theme === "dark" ? "light" : "dark";
   document.documentElement.dataset.theme = next;
   try {
-    localStorage.setItem("pasarguard-sub-theme", next);
+    localStorage.setItem("sub-card-theme", next);
   } catch {}
   syncTheme();
 });
@@ -78,9 +78,43 @@ $("connection-search")?.addEventListener("input", (event) => {
 });
 const dnsInput = $("dns-url");
 if (dnsInput) {
-  dnsInput.value = new URL(dnsInput.value, location.origin).href;
-  $("copy-dns").addEventListener("click", () => copy(dnsInput.value));
+  const href = new URL(dnsInput.textContent, location.origin).href;
+  dnsInput.textContent = href;
+  $("copy-dns").addEventListener("click", () => copy(href));
 }
+$("dns-register")?.addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  const message = $("dns-msg");
+  button.disabled = true;
+  message.className = "dns-msg";
+  message.textContent = "در حال ثبت…";
+  try {
+    const response = await fetch(button.dataset.url, {
+      method: "POST",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      let detail = "";
+      try {
+        detail = (await response.json()).detail || "";
+      } catch {}
+      throw new Error(typeof detail === "string" ? detail : "");
+    }
+    message.className = "dns-msg good";
+    message.textContent = "IP شما ثبت شد.";
+    setTimeout(() => location.reload(), 700);
+  } catch (error) {
+    button.disabled = false;
+    message.className = "dns-msg bad";
+    message.textContent = "ثبت نشد" + (error.message ? ": " + error.message : ".");
+  }
+});
+// Persian digits for display-only numbers; links, IPs and sizes stay as they are.
+const faDigits = "۰۱۲۳۴۵۶۷۸۹";
+document.querySelectorAll(".n").forEach((node) => {
+  node.textContent = node.textContent.replace(/\d/g, (d) => faDigits[d]);
+});
 const dialog = $("qr-dialog");
 document.querySelectorAll(".qr-button").forEach((button) =>
   button.addEventListener("click", () => {
