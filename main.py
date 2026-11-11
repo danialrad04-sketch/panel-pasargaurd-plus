@@ -119,6 +119,16 @@ if __name__ == "__main__":
     else:
         if server_settings.uds:
             bind_args["uds"] = server_settings.uds
+        elif server_settings.allow_http:
+            bind_args["host"] = server_settings.host
+            bind_args["port"] = server_settings.port
+            logger.warning(
+                "Running over plain HTTP on %s:%s (UVICORN_ALLOW_INSECURE_HTTP). Logins, tokens and subscription "
+                "links are NOT encrypted; use it for first setup or private networks, then add a certificate or a "
+                "TLS reverse proxy.",
+                server_settings.host,
+                server_settings.port,
+            )
         else:
             ip = check_and_modify_ip(server_settings.host)
 

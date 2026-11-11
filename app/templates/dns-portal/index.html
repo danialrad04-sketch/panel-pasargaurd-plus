@@ -120,7 +120,8 @@ function fa(n){return Number(n).toLocaleString("fa-IR")}
 function bytes(n){var u=["B","KB","MB","GB","TB"],i=0;n=Number(n)||0;while(n>=1024&&i<4){n/=1024;i++}return n.toFixed(i?1:0)+" "+u[i]}
 function when(s){try{return new Date(s).toLocaleString("fa-IR",{dateStyle:"medium",timeStyle:"short"})}catch(e){return s}}
 function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e}
-function copyButton(value){var b=el("button","ghost","کپی");b.type="button";b.addEventListener("click",function(){navigator.clipboard.writeText(value).then(function(){b.textContent="کپی شد";setTimeout(function(){b.textContent="کپی"},1400)},function(){})});return b}
+function copyText(value){if(navigator.clipboard&&window.isSecureContext)return navigator.clipboard.writeText(value);return new Promise(function(ok,fail){var t=document.createElement("textarea");t.value=value;t.setAttribute("readonly","");t.style.position="fixed";t.style.opacity="0";document.body.appendChild(t);t.select();var done=false;try{done=document.execCommand("copy")}catch(e){}document.body.removeChild(t);done?ok():fail()})}
+function copyButton(value){var b=el("button","ghost","کپی");b.type="button";b.addEventListener("click",function(){copyText(value).then(function(){b.textContent="کپی شد";setTimeout(function(){b.textContent="کپی"},1400)},function(){})});return b}
 function flash(text,kind){var m=$("msg");m.textContent=text;m.className="msg "+(kind||"")}
 function render(){
  $("who").textContent=state.username;

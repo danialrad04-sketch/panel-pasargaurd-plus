@@ -1,0 +1,36 @@
+name: Publish image
+
+# Prebuilt image so install.sh can pull instead of compiling the dashboard and node cores on a small VPS.
+# After the first run, make the package public (GitHub profile -> Packages -> panel-pasargaurd-plus ->
+# Package settings -> Change visibility), otherwise anonymous pulls fail and the installer builds locally.
+on:
+    push:
+        branches: [main]
+    workflow_dispatch:
+
+env:
+    IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+        steps:
+            - uses: actions/checkout@v7
+            - uses: docker/setup-buildx-action@v3
+            - uses: docker/login-action@v3
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+            - uses: docker/build-push-action@v6
+              with:
+                  context: .
+                  push: true
+                  tags: |
+                      ${{ env.IMAGE }}:latest
+                      ${{ env.IMAGE }}:${{ github.sha }}
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max

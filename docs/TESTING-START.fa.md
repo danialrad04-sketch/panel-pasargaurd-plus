@@ -1,26 +1,41 @@
 # نصب و آزمون فورک بومی PasarGuard Plus
 
-این راهنما برای همین فورک و شاخهٔ `feat/donino-integration` است. اسکریپت نصب upstream، قابلیت‌های این فورک را نصب نمی‌کند. سناریوی هدف: پنل روی سرور مستقل، نود ایران و نود آلمان هر دو متصل به پنل، ترافیک کاربران از ایران از طریق آلمان، انتشار IP ایران در اشتراک.
+این راهنما برای همین فورک (شاخهٔ `main`) است. اسکریپت نصب upstream قابلیت‌های این فورک را نصب نمی‌کند؛ از اسکریپت همین مخزن استفاده کنید. سناریوی هدف: پنل روی سرور مستقل، نود ایران و نود آلمان هر دو متصل به پنل، ترافیک کاربران از ایران از طریق آلمان، انتشار IP ایران در اشتراک.
 
-## ۱. نصب تازهٔ پنل روی Linux
+## ۱. نصب پنل
 
-Docker Engine، Compose v2، Git و دسترسی ساخت image لازم است. برای اولین تست از محیط و دیتابیس مستقل استفاده کنید.
+### نصب تک‌خطی (پیشنهادی)
 
 ```sh
-git clone --branch feat/donino-integration https://github.com/danialrad04-sketch/panel-pasargaurd-plus.git
+curl -fsSL https://raw.githubusercontent.com/danialrad04-sketch/panel-pasargaurd-plus/main/install.sh | sudo bash
+```
+
+بدون دامنه، پنل با HTTP روی IP سرور بالا می‌آید و در پایان آدرس و کلید یک‌بارمصرف مالک چاپ می‌شود. گزینه‌ها: `PGP_MODE=https-ip` (گواهی خودامضا برای IP)، `PGP_PORT`، `PGP_DNS=1`، `PGP_BUILD=1`، `PGP_DIR`، `PGP_REF`. جزئیات در [INSTALL.md](INSTALL.md) و [README-fa](../README-fa.md).
+
+دستور مدیریت `pasarguard-plus` نصب می‌شود: `status`، `logs`، `key`، `update`، `dns`، `https-ip`، `env`، `uninstall`.
+
+**HTTP یا HTTPS؟** با `UVICORN_ALLOW_INSECURE_HTTP=true` (پیش‌فرض نصب‌کننده) رمز و توکن و لینک اشتراک رمزنگاری نمی‌شوند. برای شروع مناسب است. برای استفادهٔ جدی `pasarguard-plus https-ip` یا دامنه با TLS. gateway دی‌ان‌اس گیمینگ **فقط با HTTPS پنل** کار می‌کند (`SMARTDNS_PANEL_URL`)؛ `https-ip` آن و فایل CA را خودکار تنظیم می‌کند.
+
+### نصب دستی
+
+Docker Engine، Compose v2، Git و دسترسی ساخت image لازم است.
+
+```sh
+git clone https://github.com/danialrad04-sketch/panel-pasargaurd-plus.git
 cd panel-pasargaurd-plus
 cp .env.example .env
+# در .env: UVICORN_ALLOW_INSECURE_HTTP=true  (HTTP با IP)  یا تنظیمات TLS
 docker compose build
 docker compose up -d pasarguard
 docker compose logs --tail=100 pasarguard
 docker compose ps
 ```
 
-داشبورد داخل Docker از سورس همین فورک ساخته می‌شود؛ ساخت دستی `dashboard/build` لازم نیست. اولین build شامل دریافت وابستگی‌های Python و frontend و ساخت هسته‌های نود و بستهٔ نصب خودکار است. `DEBUG=false` نگه دارید. تنظیمات TLS و آدرس پنل را در `.env` کامل کنید. پنل بدون TLS برای دسترسی محلی مناسب است؛ برای تست اولیه می‌توان پورت محلی را با SSH forward کرد. برای لینک اشتراک روی دستگاه واقعی از دامنه و HTTPS معتبر استفاده کنید. راهنمای تنظیمات فعلی پاسارگارد همچنان برای HTTPS/reverse proxy کاربرد دارد.
+داشبورد داخل Docker از سورس همین فورک ساخته می‌شود؛ ساخت دستی `dashboard/build` لازم نیست. اولین build شامل دریافت وابستگی‌های Python و frontend و ساخت هسته‌های نود و بستهٔ نصب خودکار است. `DEBUG=false` نگه دارید. برای لینک اشتراک روی دستگاه واقعی بهتر است دامنه و HTTPS معتبر داشته باشید.
 
-Compose به‌صورت پیش‌فرض دیتابیس را در `/var/lib/pasarguard/db.sqlite3` ذخیره می‌کند. اگر `SQLALCHEMY_DATABASE_URL` را در `.env` تعیین کرده‌اید، همان مقدار حفظ می‌شود. **ارتقای نصب قبلی:** پیش از تغییر مسیر دیتابیس، از دیتابیس و کلیدها نسخهٔ پشتیبان سازگار بگیرید؛ URL فعلی را حفظ کنید یا دیتابیس را در حالت توقف سرویس به volume منتقل کنید. تغییر مسیر به یک فایل خالی، انتقال اطلاعات قبلی نیست. `start.sh` migration را قبل از شروع API اجرا می‌کند.
+Compose به‌صورت پیش‌فرض دیتابیس را در `/var/lib/pasarguard/db.sqlite3` ذخیره می‌کند. اگر `SQLALCHEMY_DATABASE_URL` را در `.env` تعیین کرده‌اید، همان مقدار حفظ می‌شود. **ارتقای نصب قبلی:** پیش از تغییر مسیر دیتابیس، از دیتابیس و کلیدها نسخهٔ پشتیبان بگیرید؛ تغییر مسیر به یک فایل خالی، انتقال اطلاعات قبلی نیست. `start.sh` migration را قبل از شروع API اجرا می‌کند و `pasarguard-plus update` پیش از ارتقا از SQLite کپی می‌گیرد.
 
-کلید یک‌بارمصرف ساخت مالک:
+کلید یک‌بارمصرف ساخت مالک (`pasarguard-plus key` یا):
 
 ```sh
 docker compose exec pasarguard pasarguard-cli generate-temp-key

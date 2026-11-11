@@ -1,249 +1,102 @@
-# Building this fork
-
-Use the [native fork installation and testing guide (Persian)](docs/TESTING-START.fa.md) to build the panel and source-built Paqet nodes. The upstream installer does not install this fork's features.
-
 <p align="center">
-  <a href="https://github.com/PasarGuard/panel" target="_blank" rel="noopener noreferrer">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://github.com/PasarGuard/PasarGuard.github.io/raw/main/public/logos/PasarGuard-white-logo.png">
-      <img width="160" height="160" src="https://github.com/PasarGuard/PasarGuard.github.io/raw/main/public/logos/PasarGuard-black-logo.png">
-    </picture>
-  </a>
+  <img width="120" height="120" src="dashboard/public/statics/favicon/favicon.svg" alt="PasarGuard Plus">
 </p>
 
-<h1 align="center">🛡️ PasarGuard</h1>
+<h1 align="center">PasarGuard Plus</h1>
 
 <p align="center">
-    <strong>Unified & Censorship-Resistant Proxy Management Solution</strong>
+  A fork of <a href="https://github.com/PasarGuard/panel">PasarGuard</a> for Iran-facing deployments:
+  native node tunnels, DNS for gaming and sanctioned services, and a rebuilt dashboard and subscription page.
+  <br>
+  <a href="README-fa.md">فارسی</a>
 </p>
 
 ---
 
-<br/>
-<p align="center">
-    <a href="https://github.com/PasarGuard/panel/actions/workflows/build.yml" target="_blank">
-        <img src="https://img.shields.io/github/actions/workflow/status/PasarGuard/panel/build.yml?style=flat-square" />
-    </a>
-    <a href="https://hub.docker.com/r/PasarGuard/panel" target="_blank">
-        <img src="https://img.shields.io/docker/pulls/pasarguard/panel?style=flat-square&logo=docker" />
-    </a>
-    <a href="https://github.com/PasarGuard/panel/blob/main/LICENSE" target="_blank">
-        <img src="https://img.shields.io/github/license/PasarGuard/panel?style=flat-square" />
-    </a>
-    <a href="https://t.me/Pasar_Guard" target="_blank">
-        <img src="https://img.shields.io/badge/telegram-group-blue?style=flat-square&logo=telegram" />
-    </a>
-    <a href="https://github.com/PasarGuard/panel" target="_blank">
-        <img src="https://img.shields.io/github/stars/PasarGuard/panel?style=social" />
-    </a>
-</p>
+## Install
 
-<p align="center">
- <a href="./README-fa.md">
- 🇮🇷 فارسی
- </a>
-  /
-  <a href="./README-zh-cn.md">
- 🇨🇳 简体中文
- </a>
-   /
-  <a href="./README-ru.md">
- 🇷🇺 Русский
- </a>
-</p>
+On a fresh Ubuntu/Debian/CentOS server (as root), one line:
 
-<p align="center">
-  <a href="https://github.com/PasarGuard/panel" target="_blank" rel="noopener noreferrer" >
-    <img src="https://github.com/PasarGuard/PasarGuard.github.io/raw/main/public/logos/screenshot.png" alt="PasarGuard screenshots" width="600" height="auto">
-  </a>
-</p>
-
-## 📋 Table of Contents
-
-> **Quick Navigation** - Jump to any section below
-
--   [📖 Overview](#-overview)
-    -   [🤔 Why using PasarGuard?](#-why-using-pasarguard)
-        -   [✨ Features](#-features)
--   [🚀 Installation guide](#-installation-guide)
--   [📚 Documentation](#-documentation)
--   [💖 Donation](#-donation)
-
----
-
-# 📖 Overview
-
-> **What is PasarGuard?**
-
-PasarGuard is a powerful proxy management tool that offers an intuitive and efficient interface for handling hundreds of proxy accounts. Built with Python and React.js it combines performance, scalability, and ease of use to simplify large-scale proxy management. It supports both [Xray-core](https://github.com/XTLS/Xray-core) and [WireGuard](https://www.wireguard.com/) for maximum performance.
-
----
-
-## 🤔 Why using PasarGuard?
-
-> **Simple, Powerful, Reliable**
-
-PasarGuard is a user-friendly, feature-rich, and reliable proxy management tool. It allows you to create and manage multiple proxies for your users without the need for complex configuration. With its built-in web interface, you can easily monitor activity, modify settings, and control user access limits — all from one convenient dashboard.
-
----
-
-### ✨ Features
-
-<div align="left">
-
-**🌐 Web Interface & API**
-- Built-in **Web UI** dashboard
-- Fully **REST API** backend
-- **Multi-Node** support for infrastructure distribution
-
-**🔐 Protocols & Security**
-- Supports **Vmess**, **VLESS**, **Trojan**, **Shadowsocks**, **WireGuard** and **Hysteria2**
-- **TLS** and **REALITY** support
-- **Multi-protocol** for a single user
-
-**👥 User Management**
-- **Multi-user** on a single inbound
-- **Multi-inbound** on a **single port** (fallbacks support)
-- **Traffic** and **expiry date** limitations
-- **Periodic** traffic limit (daily, weekly, etc.)
-- **HWID/device limits** for hardware-bound access control
-
-**🔗 Subscriptions & Sharing**
-- **Subscription link** compatible with **V2ray**, **Clash** and **ClashMeta**
-- Automated **Share link** and **QRcode** generator
-- System monitoring and **traffic statistics**
-
-**🛠️ Tools & Customization**
-- Customizable xray configuration
-- Integrated **Telegram Bot**
-- **Command Line Interface (CLI)**
-- **Multi-language** support
-- **Multi-admin** support with **RBAC** for granular permissions and scoped access
-
-</div>
-
----
-
-# 🚀 Installation guide
-
-> **Quick Start** - Get PasarGuard running in minutes
-
-### For a quick setup, use the following commands based on your preferred database.
-
----
-
-**TimescaleDB (Recommended):**
-```bash
-sudo bash -c "$(curl -fsSL https://github.com/PasarGuard/scripts/raw/main/pasarguard.sh)" @ install --database timescaledb
+```sh
+curl -fsSL https://raw.githubusercontent.com/danialrad04-sketch/panel-pasargaurd-plus/main/install.sh | sudo bash
 ```
 
-**SQLite:**
-```bash
-sudo bash -c "$(curl -fsSL https://github.com/PasarGuard/scripts/raw/main/pasarguard.sh)" @ install
+It installs Docker if missing, pulls (or builds) the image, starts the panel and prints the panel address and a one-time owner key. **No domain is needed**: by default the panel runs over plain HTTP on the server IP.
+
+Then open `http://SERVER-IP:8000/dashboard/`, enter the owner key with a username and a strong password, and open TCP port 8000 in your firewall.
+
+> HTTP is not encrypted. Use it to get started or on a private network. For real use run `pasarguard-plus https-ip` (self-signed certificate for the IP, no domain) or put a domain with TLS in front. Gaming DNS gateways need HTTPS, so run `pasarguard-plus https-ip` before creating a gaming DNS profile.
+
+Install options (environment variables in front of `bash`):
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `PGP_MODE` | `http` | `http` = plain HTTP on the IP; `https-ip` = self-signed IP certificate |
+| `PGP_PORT` | `8000` | Panel port |
+| `PGP_DNS` | off | `1` also starts the native DNS worker and local resolver |
+| `PGP_BUILD` | off | `1` builds the image on the server instead of pulling the prebuilt one |
+| `PGP_DIR` | `/opt/pasarguard-plus` | Install directory |
+| `PGP_REF` | `main` | Branch or tag |
+
+Example: `curl -fsSL …/install.sh | sudo PGP_MODE=https-ip PGP_PORT=8443 bash`
+
+Building the image on the server compiles the dashboard and the node cores; plan for about 2 GB of RAM and several minutes. Re-running the installer upgrades an existing install and keeps your `.env`.
+
+### Manage
+
+```sh
+pasarguard-plus status      # containers and panel address
+pasarguard-plus logs        # follow the log
+pasarguard-plus key         # new one-time owner key
+pasarguard-plus update      # pull the latest version, back up SQLite, rebuild, restart
+pasarguard-plus dns         # enable the native DNS worker + local resolver
+pasarguard-plus https-ip    # switch to a self-signed HTTPS certificate for the IP
+pasarguard-plus env         # edit .env
 ```
 
-**MySQL:**
-```bash
-sudo bash -c "$(curl -fsSL https://github.com/PasarGuard/scripts/raw/main/pasarguard.sh)" @ install --database mysql
-```
-
-**MariaDB:**
-```bash
-sudo bash -c "$(curl -fsSL https://github.com/PasarGuard/scripts/raw/main/pasarguard.sh)" @ install --database mariadb
-```
-
-**PostgreSQL:**
-```bash
-sudo bash -c "$(curl -fsSL https://github.com/PasarGuard/scripts/raw/main/pasarguard.sh)" @ install --database postgresql
-```
-
-### 📋 After installation:
-
-<div align="left">
-
-**📋 Watch the logs** (press `Ctrl+C` to stop)
-
-**📁 Files are located at** `/opt/pasarguard`
-
-**⚙️ Config file:** `/opt/pasarguard/.env` (see [Configuration](#-configuration) for details)
-
-**💾 Data files:** `/var/lib/pasarguard`
-
-**🔒 Important:** Dashboard requires SSL certificate for security
-- Get SSL certificate: [Guide](https://docs.pasarguard.org/en/examples/issue-ssl-certificate)
-- Access: `https://YOUR_DOMAIN:8000/dashboard/`
-
-**🔗 For testing without domain:** Use SSH port forwarding (see below)
-
-</div>
+Manual install and the full prerequisites list: [docs/INSTALL.md](docs/INSTALL.md) (Persian: [docs/TESTING-START.fa.md](docs/TESTING-START.fa.md)).
 
 ---
 
-```bash
-ssh -L 8000:localhost:8000 user@serverip
-```
+## What this fork adds
 
-Then access: `http://localhost:8000/dashboard/`
+| Area | What you get |
+|---|---|
+| **Native tunnels** | Paqet, Backhaul, GOST, FRP and SS2022 tunnels between nodes, managed from the panel; automatic node install over SSH; tunnel entries published in subscriptions. |
+| **Gaming DNS** | A DNS profile (~890 domains, 66 services, one-click bundles) that routes game, store and sanctioned-service traffic through a gateway on your node. Built into the Add/Edit User form; users register their own IP from a personal link; daily IP-change limit; per-service usage; domain watch to find missing domains. |
+| **Unified users** | DNS access follows the panel user: expiry, data limit, status and admin scope. No separate DNS accounts to maintain. |
+| **UI** | New "Firuzeh & Lapis" theme and a rebuilt subscription page. |
+| **Operations** | Health checks, encrypted SQLite backups, certificate-expiry checks. |
 
-> ⚠️ **Testing only** - You'll lose access when you close the SSH terminal.
+### Honest status
 
-### 🔧 Next Steps:
-
-```bash
-# Generate a one-time setup key for owner account setup
-pasarguard cli generate-temp-key
-
-# Use the key on the dashboard login page to create the owner account
-
-# Get help
-pasarguard --help
-```
-
-
-
-# 📚 Documentation
-
-<div align="left">
-
-**📖 Official Documentation** - Complete guides available in:
-
-🇺🇸 **[English](https://docs.pasarguard.org/en)**
-
-🇮🇷 **[فارسی](https://docs.pasarguard.org/fa)**
-
-🇷🇺 **[Русский](https://docs.pasarguard.org/ru)**
-
-🇨🇳 **[简体中文](https://docs.pasarguard.org/zh-cn)**
-
-</div>
-
-> **Contributing:** Help improve documentation on [GitHub](https://github.com/PasarGuard/PasarGuard.github.io)
+Panel-side features are covered by automated tests. **Nothing has been validated with a real game, console or ISP yet** (see [docs/GAMING-ACCEPTANCE.fa.md](docs/GAMING-ACCEPTANCE.fa.md)). Known limits: the gateway relays TCP only (no UDP game traffic yet), the node does not enforce per-user speed caps yet, and a gateway profile holds at most 256 domain routes.
 
 ---
 
-# 💖 Donation
+## Requirements for each feature
 
-<div align="left">
+| Feature | Needs |
+|---|---|
+| Panel | Linux x86_64 or arm64, Docker + Compose v2 (installed for you); about 2 GB RAM if the image is built on the server |
+| Nodes / tunnels | A server per node reachable over SSH for the automatic install; for Paqet, raw-socket capability and a matching NIC/IP/MAC (see [docs/NATIVE-PAQET.fa.md](docs/NATIVE-PAQET.fa.md)) |
+| User DNS links | `DNS_ENABLED=true` (`pasarguard-plus dns`) |
+| Gaming DNS gateway | A connected node, HTTPS panel address (`SMARTDNS_PANEL_URL`, set by `pasarguard-plus https-ip` or your own domain), and an egress node/tunnel **outside Iran** for sanctions bypass |
+| Public DNS port 53 | Free port 53 on the server (stop `systemd-resolved`'s stub listener) and `DNS_LISTEN_ADDRESSES` / `DNS_PORT` set |
 
-> **Support PasarGuard Development**
-
-If PasarGuard helps you, consider supporting its development:
-
-[![Donate](https://img.shields.io/badge/Donate-Support%20Us-green?style=for-the-badge)](https://donate.pasarguard.org)
-
-**Thank you for your support!** 💖
-
-</div>
+Every environment variable is documented in [`.env.example`](.env.example).
 
 ---
 
-<p align="center">
-  Made with ❤️ for Internet freedom
-</p>
+## Documentation
 
+- [Install and prerequisites](docs/INSTALL.md)
+- [Gaming DNS](docs/GAMING-DNS.fa.md) · [roadmap](docs/GAMING-DNS-PRO-PLAN.fa.md) · [acceptance table](docs/GAMING-ACCEPTANCE.fa.md)
+- [Native tunnels](docs/NATIVE-TUNNELS.fa.md) · [Paqet](docs/NATIVE-PAQET.fa.md) · [tunnel hosts in subscriptions](docs/TUNNEL-SUBSCRIPTION-HOSTS.fa.md)
+- [Operations and backups](docs/NATIVE-OPERATIONS.fa.md)
 
-## PasarGuard Plus native upgrades
+The base PasarGuard documentation is at [docs.pasarguard.org](https://docs.pasarguard.org/en).
 
-Native DNS accounts, policy rules, per-user query budgets, DoH and an optional UDP/TCP/DoT worker use the existing PasarGuard users, database and RBAC. Includes a redesigned subscription page and native node tunnels: SS2022 TCP/UDP plus source-built Paqet with a complete Linux configuration editor, node supervisor and diagnostics. No standalone Donino panel or controller is required. See the [native upgrade guide](docs/DONINO-INTEGRATION.fa.md) [Paqet node build and setup](docs/NATIVE-PAQET.fa.md), [tunnel ingress subscription hosts](docs/TUNNEL-SUBSCRIPTION-HOSTS.fa.md), and [feature migration status](docs/NATIVE-UPGRADE-PLAN.fa.md).
+## License
 
-[Native node TCP/UDP tunnels / تونل بومی نودها](docs/NATIVE-TUNNELS.fa.md)
+[AGPL-3.0](LICENSE). Based on [PasarGuard](https://github.com/PasarGuard/panel); upstream copyright and license apply.

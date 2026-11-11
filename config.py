@@ -67,6 +67,9 @@ class ServerSettings(EnvSettings):
     ssl_certfile: str | None = Field(default=None, validation_alias="UVICORN_SSL_CERTFILE")
     ssl_keyfile: str | None = Field(default=None, validation_alias="UVICORN_SSL_KEYFILE")
     ssl_ca_type: str = Field(default="public", validation_alias="UVICORN_SSL_CA_TYPE")
+    # Plain-HTTP access by server IP (no domain / certificate). Off by default: credentials and
+    # subscription links then travel unencrypted. The one-line installer enables it on request.
+    allow_http: bool = Field(default=False, validation_alias="UVICORN_ALLOW_INSECURE_HTTP")
     workers: int = Field(default=1, validation_alias="UVICORN_WORKERS")
     loop: str = Field(default="auto", validation_alias="UVICORN_LOOP")
     proxy_headers: bool = Field(default=False, validation_alias="UVICORN_PROXY_HEADERS")

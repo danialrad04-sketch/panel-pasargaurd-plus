@@ -1,253 +1,112 @@
-# نصب همین فورک
-
-برای ساخت پنل و نود بومی Paqet و آزمون سناریوی ایران ← آلمان، [راهنمای نصب و تست](docs/TESTING-START.fa.md) را ببینید. اسکریپت نصب upstream قابلیت‌های این فورک را نصب نمی‌کند.
+<div dir="rtl">
 
 <p align="center">
-  <a href="https://github.com/PasarGuard/panel" target="_blank" rel="noopener noreferrer">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://github.com/PasarGuard/PasarGuard.github.io/raw/main/public/logos/PasarGuard-white-logo.png">
-      <img width="160" height="160" src="https://github.com/PasarGuard/PasarGuard.github.io/raw/main/public/logos/PasarGuard-black-logo.png">
-    </picture>
-  </a>
+  <img width="120" height="120" src="dashboard/public/statics/favicon/favicon.svg" alt="PasarGuard Plus">
 </p>
 
-<h1 align="center">🛡️ پاسارگارد</h1>
+<h1 align="center">PasarGuard Plus</h1>
 
 <p align="center">
-    <strong>راه‌حل یکپارچه و مقاوم در برابر سانسور برای مدیریت پروکسی</strong>
+  فورکی از <a href="https://github.com/PasarGuard/panel">PasarGuard</a> برای استفاده در ایران:
+  تونل بومی بین نودها، DNS مخصوص بازی و سرویس‌های تحریمی، و داشبورد و صفحه اشتراک بازطراحی‌شده.
+  <br>
+  <a href="README.md">English</a>
 </p>
 
 ---
 
-<br/>
-<p align="center">
-    <a href="#">
-        <img src="https://img.shields.io/github/actions/workflow/status/PasarGuard/panel/build.yml?style=flat-square" />
-    </a>
-    <a href="https://hub.docker.com/r/PasarGuard/panel" target="_blank">
-        <img src="https://img.shields.io/docker/pulls/PasarGuard/panel?style=flat-square&logo=docker" />
-    </a>
-    <a href="#">
-        <img src="https://img.shields.io/github/license/PasarGuard/panel?style=flat-square" />
-    </a>
-    <a href="https://t.me/Pasar_Guard" target="_blank">
-        <img src="https://img.shields.io/badge/telegram-group-blue?style=flat-square&logo=telegram" />
-    </a>
-    <a href="#">
-        <img src="https://img.shields.io/badge/twitter-commiunity-blue?style=flat-square&logo=twitter" />
-    </a>
-    <a href="#">
-        <img src="https://img.shields.io/github/stars/PasarGuard/panel?style=social" />
-    </a>
-</p>
+## نصب
 
-<p align="center">
- <a href="./README.md">
- 🇺🇸 English
- </a>
- /
- <a href="./README-fa.md">
- 🇮🇷 فارسی
- </a>
-  /
-  <a href="./README-zh-cn.md">
- 🇨🇳 简体中文
- </a>
-   /
-  <a href="./README-ru.md">
- 🇷🇺 Русский
- </a>
-</p>
-
-<p align="center">
-  <a href="https://github.com/PasarGuard/panel" target="_blank" rel="noopener noreferrer" >
-    <img src="https://github.com/PasarGuard/PasarGuard.github.io/raw/main/public/logos/screenshot.png" alt="پاسارگارد اسکرین‌شات" width="600" height="auto">
-  </a>
-</p>
-
-## 📋 فهرست مطالب
-
-> **ناوبری سریع** - به هر بخش زیر پرش کنید
-
--   [📖 بررسی اجمالی](#-بررسی-اجمالی)
-    -   [🤔 چرا از پاسارگارد استفاده کنیم؟](#-چرا-از-پاسارگارد-استفاده-کنیم)
-        -   [✨ ویژگی‌ها](#-ویژگیها)
--   [🚀 راهنمای نصب](#-راهنمای-نصب)
--   [📚 مستندات](#-مستندات)
--   [💖 حمایت مالی](#-حمایت-مالی)
-
----
-
-# 📖 بررسی اجمالی
-
-> **پاسارگارد چیست؟**
-
-پاسارگارد یک ابزار قدرتمند مدیریت پروکسی است که رابط کاربری بصری و کارآمدی برای مدیریت صدها حساب پروکسی ارائه می‌دهد. این ابزار با Python و React.js ساخته شده و عملکرد، مقیاس‌پذیری و سهولت استفاده را برای ساده‌سازی مدیریت پروکسی در مقیاس بزرگ ترکیب می‌کند. این ابزار هم از [Xray-core](https://github.com/XTLS/Xray-core) و هم از [WireGuard](https://www.wireguard.com/) برای حداکثر عملکرد پشتیبانی می‌کند.
-
----
-
-## 🤔 چرا از پاسارگارد استفاده کنیم؟
-
-> **ساده، قدرتمند، قابل اعتماد**
-
-پاسارگارد یک ابزار مدیریت پروکسی کاربرپسند، غنی از ویژگی و قابل اعتماد است. این ابزار به شما امکان ایجاد و مدیریت چندین پروکسی برای کاربران بدون نیاز به پیکربندی پیچیده را می‌دهد. با رابط کاربری وب داخلی آن، می‌توانید به راحتی فعالیت‌ها را نظارت کنید، تنظیمات را تغییر دهید و محدودیت‌های دسترسی کاربران را کنترل کنید — همه از یک داشبورد مناسب.
-
----
-
-### ✨ ویژگی‌ها
-
-<div align="right">
-
-**🌐 رابط کاربری وب و API**
-- داشبورد **Web UI** داخلی
-- بک‌اند کاملاً **REST API**
-- پشتیبانی از **Multi-Node** برای توزیع زیرساخت
-
-**🔐 پروتکل‌ها و امنیت**
-- پشتیبانی از **Vmess**، **VLESS**، **Trojan**، **Shadowsocks**، **WireGuard** و **Hysteria2**
-- پشتیبانی از **TLS** و **REALITY**
-- **چند پروتکل** برای یک کاربر
-
-**👥 مدیریت کاربران**
-- **چند کاربر** روی یک inbound
-- **چند inbound** روی **یک پورت** (پشتیبانی از fallbacks)
-- محدودیت‌های **ترافیک** و **تاریخ انقضا**
-- محدودیت ترافیک **دوره‌ای** (روزانه، هفتگی و غیره)
-- محدودیت **HWID/دستگاه** برای کنترل دسترسی مبتنی بر سخت‌افزار
-
-**🔗 اشتراک‌ها و اشتراک‌گذاری**
-- **لینک اشتراک** سازگار با **V2ray**، **Clash** و **ClashMeta**
-- تولیدکننده خودکار **لینک اشتراک** و **QRcode**
-- نظارت بر سیستم و **آمار ترافیک**
-
-**🛠️ ابزارها و سفارشی‌سازی**
-- پیکربندی قابل تنظیم xray
-- **ربات تلگرام** یکپارچه
-- **رابط خط فرمان (CLI)**
-- پشتیبانی از **چند زبان**
-- پشتیبانی از **چند ادمین** با **RBAC** برای دسترسی‌های دقیق و محدوده‌بندی‌شده
+روی یک سرور تازه (Ubuntu / Debian / CentOS) با دسترسی root، فقط یک خط:
 
 </div>
 
----
-
-# 🚀 راهنمای نصب
-
-> **شروع سریع** - پاسارگارد را در چند دقیقه راه‌اندازی کنید
-
-### برای راه‌اندازی سریع، از دستورات زیر بر اساس دیتابیس مورد نظرتان استفاده کنید.
-
----
-
-**TimescaleDB (توصیه شده):**
-```bash
-sudo bash -c "$(curl -fsSL https://github.com/PasarGuard/scripts/raw/main/pasarguard.sh)" @ install --database timescaledb
+```sh
+curl -fsSL https://raw.githubusercontent.com/danialrad04-sketch/panel-pasargaurd-plus/main/install.sh | sudo bash
 ```
 
-**SQLite:**
-```bash
-sudo bash -c "$(curl -fsSL https://github.com/PasarGuard/scripts/raw/main/pasarguard.sh)" @ install
-```
+<div dir="rtl">
 
-**MySQL:**
-```bash
-sudo bash -c "$(curl -fsSL https://github.com/PasarGuard/scripts/raw/main/pasarguard.sh)" @ install --database mysql
-```
+این دستور در صورت نبودن Docker را نصب می‌کند، ایمیج را می‌گیرد (یا می‌سازد)، پنل را بالا می‌آورد و آدرس پنل و یک کلید یک‌بارمصرف مالک را چاپ می‌کند. **دامنه لازم نیست**؛ به‌طور پیش‌فرض پنل با HTTP روی IP سرور بالا می‌آید.
 
-**MariaDB:**
-```bash
-sudo bash -c "$(curl -fsSL https://github.com/PasarGuard/scripts/raw/main/pasarguard.sh)" @ install --database mariadb
-```
+سپس `http://IP-سرور:8000/dashboard/` را باز کنید، کلید مالک را همراه نام کاربری و رمز قوی وارد کنید و پورت TCP 8000 را در فایروال باز کنید.
 
-**PostgreSQL:**
-```bash
-sudo bash -c "$(curl -fsSL https://github.com/PasarGuard/scripts/raw/main/pasarguard.sh)" @ install --database postgresql
-```
+> HTTP رمزنگاری ندارد. برای شروع یا شبکهٔ خصوصی مناسب است. برای استفادهٔ جدی دستور `pasarguard-plus https-ip` را بزنید (گواهی خودامضا برای IP، بدون دامنه) یا دامنه و TLS جلوی پنل بگذارید. gateway دی‌ان‌اس گیمینگ HTTPS لازم دارد؛ پیش از ساخت پروفایل گیمینگ `pasarguard-plus https-ip` را اجرا کنید.
 
-### 📋 پس از نصب:
+گزینه‌های نصب (متغیر محیطی پیش از `bash`):
 
-<div align="right">
+| متغیر | پیش‌فرض | معنی |
+|---|---|---|
+| `PGP_MODE` | `http` | `http` = HTTP ساده روی IP؛ `https-ip` = گواهی خودامضا برای IP |
+| `PGP_PORT` | `8000` | پورت پنل |
+| `PGP_DNS` | خاموش | `1` یعنی worker دی‌ان‌اس و resolver محلی هم بالا بیایند |
+| `PGP_BUILD` | خاموش | `1` یعنی ایمیج روی خود سرور ساخته شود |
+| `PGP_DIR` | `/opt/pasarguard-plus` | مسیر نصب |
+| `PGP_REF` | `main` | شاخه یا تگ |
 
-**📋 لاگ‌ها را مشاهده کنید** (برای توقف `Ctrl+C` را فشار دهید)
+ساخت ایمیج روی سرور داشبورد و هستهٔ نودها را کامپایل می‌کند؛ حدود ۲ گیگابایت RAM و چند دقیقه زمان لازم است. اجرای دوبارهٔ نصب‌کننده نصب را ارتقا می‌دهد و `.env` شما را نگه می‌دارد.
 
-**📁 فایل‌ها در مسیر** `/opt/pasarguard` قرار دارند
-
-**⚙️ فایل پیکربندی:** `/opt/pasarguard/.env` (برای جزئیات [پیکربندی](#-پیکربندی) را ببینید)
-
-**💾 فایل‌های داده:** `/var/lib/pasarguard`
-
-**🔒 مهم:** داشبورد برای امنیت نیاز به گواهی SSL دارد
-- دریافت گواهی SSL: [راهنما](https://PasarGuard.github.io/PasarGuard/fa/examples/issue-ssl-certificate)
-- دسترسی: `https://YOUR_DOMAIN:8000/dashboard/`
-
-**🔗 برای تست بدون دامنه:** از SSH port forwarding استفاده کنید (پایین را ببینید)
+### مدیریت
 
 </div>
 
----
-
-```bash
-ssh -L 8000:localhost:8000 user@serverip
+```sh
+pasarguard-plus status      # وضعیت کانتینرها و آدرس پنل
+pasarguard-plus logs        # دنبال‌کردن لاگ
+pasarguard-plus key         # کلید یک‌بارمصرف مالک
+pasarguard-plus update      # آخرین نسخه، پشتیبان SQLite، ساخت و راه‌اندازی مجدد
+pasarguard-plus dns         # روشن‌کردن worker دی‌ان‌اس و resolver محلی
+pasarguard-plus https-ip    # رفتن به HTTPS با گواهی خودامضا برای IP
+pasarguard-plus env         # ویرایش .env
 ```
 
-سپس دسترسی: `http://localhost:8000/dashboard/`
+<div dir="rtl">
 
-> ⚠️ **فقط برای تست** - با بستن ترمینال SSH دسترسی خود را از دست خواهید داد.
-
-### 🔧 مراحل بعدی:
-
-```bash
-# ایجاد کلید موقت یک‌بارمصرف برای راه‌اندازی حساب owner
-pasarguard cli generate-temp-key
-
-# از این کلید در صفحه ورود داشبورد برای ایجاد حساب owner استفاده کنید
-
-# دریافت راهنما
-pasarguard --help
-```
+راهنمای کامل و پیش‌نیازها: [docs/TESTING-START.fa.md](docs/TESTING-START.fa.md) (انگلیسی: [docs/INSTALL.md](docs/INSTALL.md)).
 
 ---
 
-# 📚 مستندات
+## این فورک چه چیزی اضافه می‌کند
 
-<div align="right">
+| بخش | امکانات |
+|---|---|
+| **تونل بومی** | تونل Paqet، Backhaul، GOST، FRP و SS2022 بین نودها از داخل پنل؛ نصب خودکار نود با SSH؛ انتشار ورودی تونل در اشتراک. |
+| **DNS گیمینگ** | پروفایل DNS (حدود ۸۹۰ دامنه، ۶۶ سرویس، بسته‌های یک‌کلیکی) که ترافیک بازی، فروشگاه و سرویس‌های تحریمی را از gateway روی نود شما عبور می‌دهد. داخل فرم افزودن/ویرایش کاربر؛ کاربر IP خودش را از لینک شخصی ثبت می‌کند؛ سقف تغییر IP روزانه؛ مصرف به تفکیک سرویس؛ ابزار watch برای پیدا کردن دامنهٔ جاافتاده. |
+| **کاربر یکدست** | دسترسی DNS از خود کاربر پنل می‌آید: انقضا، حجم، وضعیت و دسترسی مدیر. حساب جداگانه‌ای برای نگهداری نیست. |
+| **رابط کاربری** | تم «فیروزه و لاجورد» و صفحه اشتراک بازطراحی‌شده. |
+| **عملیات** | healthcheck، پشتیبان رمزنگاری‌شدهٔ SQLite، هشدار انقضای گواهی. |
 
-**📖 مستندات رسمی** - راهنماهای کامل در دسترس:
+### وضعیت صادقانه
 
-🇺🇸 **[English](https://PasarGuard.github.io/PasarGuard)**
+قابلیت‌های سمت پنل با تست خودکار پوشش داده شده‌اند. **هنوز با بازی، کنسول یا ISP واقعی راستی‌آزمایی نشده‌اند** ([جدول پذیرش](docs/GAMING-ACCEPTANCE.fa.md)). محدودیت‌های شناخته‌شده: gateway فقط TCP را رله می‌کند (ترافیک UDP بازی‌ها هنوز نه)، نود هنوز سقف سرعت هر کاربر را اعمال نمی‌کند، و هر پروفایل gateway حداکثر ۲۵۶ مسیر دامنه دارد.
 
-🇮🇷 **[فارسی](https://PasarGuard.github.io/PasarGuard)**
+---
 
-🇷🇺 **[Русский](https://PasarGuard.github.io/PasarGuard)**
+## پیش‌نیاز هر قابلیت
+
+| قابلیت | لازم است |
+|---|---|
+| پنل | Linux با معماری x86_64 یا arm64، Docker و Compose v2 (خودکار نصب می‌شود) |
+| نود و تونل | یک سرور برای هر نود با دسترسی SSH برای نصب خودکار؛ برای Paqet قابلیت raw socket و NIC/IP/MAC درست ([راهنما](docs/NATIVE-PAQET.fa.md)) |
+| لینک DNS کاربر | `DNS_ENABLED=true` (دستور `pasarguard-plus dns`) |
+| gateway دی‌ان‌اس گیمینگ | نود متصل، آدرس HTTPS پنل در `SMARTDNS_PANEL_URL` (دستور `pasarguard-plus https-ip` یا دامنهٔ خودتان) و نود/تونل خروجی **خارج از ایران** برای دورزدن تحریم |
+| پورت ۵۳ عمومی | پورت ۵۳ آزاد (stub سیستم `systemd-resolved` خاموش) و تنظیم `DNS_LISTEN_ADDRESSES` و `DNS_PORT` |
+
+همهٔ متغیرها در [`.env.example`](.env.example) توضیح داده شده‌اند.
+
+---
+
+## مستندات
+
+- [نصب و پیش‌نیازها](docs/TESTING-START.fa.md)
+- [DNS گیمینگ](docs/GAMING-DNS.fa.md) · [نقشه راه](docs/GAMING-DNS-PRO-PLAN.fa.md) · [جدول پذیرش](docs/GAMING-ACCEPTANCE.fa.md)
+- [تونل بومی](docs/NATIVE-TUNNELS.fa.md) · [Paqet](docs/NATIVE-PAQET.fa.md) · [هاست تونل در اشتراک](docs/TUNNEL-SUBSCRIPTION-HOSTS.fa.md)
+- [عملیات و پشتیبان‌گیری](docs/NATIVE-OPERATIONS.fa.md)
+
+مستندات پایهٔ PasarGuard: [docs.pasarguard.org](https://docs.pasarguard.org/fa).
+
+## مجوز
+
+[AGPL-3.0](LICENSE). بر پایهٔ [PasarGuard](https://github.com/PasarGuard/panel)؛ حق نشر و مجوز اصلی برقرار است.
 
 </div>
-
-> **مشارکت:** در بهبود مستندات در [GitHub](https://github.com/PasarGuard/PasarGuard.github.io) کمک کنید
-
----
-
-# 💖 حمایت مالی
-
-<div align="right">
-
-> **حمایت از توسعه پاسارگارد**
-
-اگر پاسارگارد به شما کمک می‌کند، از توسعه آن حمایت کنید:
-
-[![Donate](https://img.shields.io/badge/Donate-Support%20Us-green?style=for-the-badge)](http://donate.pasarguard.org)
-
-**از حمایت شما متشکریم!** 💖
-
-</div>
-
----
-
-<p align="center">
-  Made with ❤️ for Internet freedom
-</p>
-
-## افزونه‌های PasarGuard Plus
-
-خدمات DNS نیتیو با کاربران، سهمیه و مجوزهای پاسارگارد و طراحی جدید صفحه ساب: [راهنمای ادغام و محدوده امکانات](docs/DONINO-INTEGRATION.fa.md).
-
-[Native node TCP/UDP tunnels / تونل بومی نودها](docs/NATIVE-TUNNELS.fa.md)

@@ -1,3 +1,5 @@
+> **PasarGuard Plus fork:** this translation describes upstream PasarGuard. For this fork's installer and features see [README.md](README.md) / [README-fa.md](README-fa.md).
+
 <p align="center">
   <a href="https://github.com/PasarGuard/panel" target="_blank" rel="noopener noreferrer">
     <picture>

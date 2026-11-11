@@ -58,7 +58,10 @@ const blockers: Record<string, [string, string]> = {
   unknown_service: ['سرویس ناشناخته در فهرست.', 'Unknown service in the selection.'],
   policy_name_taken: ['این نام پروفایل قبلاً استفاده شده است.', 'This profile name is already used.'],
   route_limit: ['ظرفیت ۲۵۶ مسیر gateway کافی نیست؛ مسیرهای بلااستفاده را حذف کنید.', 'Not enough room under the 256 gateway-route limit. Remove unused routes.'],
-  panel_url_missing: ['SMARTDNS_PANEL_URL (آدرس HTTPS پنل) تنظیم نشده است.', 'SMARTDNS_PANEL_URL (the panel HTTPS origin) is not configured.'],
+  panel_url_missing: [
+    'آدرس HTTPS پنل (SMARTDNS_PANEL_URL) تنظیم نشده است. بدون دامنه: روی سرور دستور «pasarguard-plus https-ip» را اجرا کنید.',
+    'The panel HTTPS origin (SMARTDNS_PANEL_URL) is not set. Without a domain, run “pasarguard-plus https-ip” on the server.',
+  ],
   node_adapter_unavailable: ['افزونهٔ SmartDNS روی نود پاسخ نمی‌دهد؛ نصب خودکار نود را اجرا کنید.', 'The SmartDNS adapter does not answer on the node. Run the automatic node install.'],
   node_adapter_incompatible: ['نسخهٔ افزونهٔ SmartDNS نود سازگار نیست؛ نود را به‌روزرسانی کنید.', 'The node SmartDNS adapter is not compatible. Update the node.'],
   egress_not_found: ['تونل خروجی پیدا نشد.', 'Egress tunnel not found.'],
