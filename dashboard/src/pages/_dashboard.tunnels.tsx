@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import CarrierEditor from './carrier-editor'
 import NativeProvisioning from './native-provisioning'
+import TunnelDiscovery from './tunnel-discovery'
 import QuickTunnelWizard from './quick-tunnel-wizard'
 import TunnelEngineCore from './tunnel-engine-core'
 import PaqetEditor, { editablePaqet } from './paqet-editor'
@@ -477,6 +478,7 @@ export default function NativeTunnels() {
         </DialogContent>
       </Dialog>
       <QuickTunnelWizard nodes={nodes} fa={fa} />
+      <TunnelDiscovery fa={fa} />
       <NativeProvisioning nodes={nodes} fa={fa} />
       <TunnelEngineCore nodes={nodes} fa={fa} />
       <NetworkOperations items={items} nodes={nodes} fa={fa} />

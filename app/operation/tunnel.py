@@ -67,6 +67,9 @@ async def validate_topology(db, tunnels, *, core_overrides=None):
     for state in (await db.scalars(select(SmartDNSNodeState))).all():
         if state.dns_config.get("enabled"):
             gateway_ports.setdefault(state.node_id, set()).add(state.dns_config["port"])
+    from app.discovery.reservations import assert_free, reserved_by_address
+
+    reserved = await reserved_by_address(db)
     occupied = set()
     for tunnel in tunnels:
         if tunnel.transport in ENGINES:
@@ -78,6 +81,7 @@ async def validate_topology(db, tunnels, *, core_overrides=None):
                 raise HTTPException(422, "Invalid native carrier settings") from None
         for identity, ports in owned_ports(tunnel).items():
             node = nodes[identity]
+            assert_free(ports, reserved.get(node.address, set()), f"Tunnel '{tunnel.name}'")
             core = cores.get(node.core_config_id or 1)
             if any(port in (node.port, node.api_port, node.tunnel_api_port, node.health_echo_port) for port in ports):
                 raise HTTPException(422, "Native carrier conflicts with node management or health listener")

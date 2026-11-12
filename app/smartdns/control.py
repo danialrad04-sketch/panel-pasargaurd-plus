@@ -106,7 +106,9 @@ async def validate(db, route, *, allow_failover=False):
                         422, "Gateway listener conflicts with a user core inbound; use a distinct address or port"
                     )
     from app.db.models import NativeTunnel
+    from app.discovery.reservations import assert_free, reserved_for
 
+    assert_free(set(route.tcp_ports + route.udp_ports), await reserved_for(db, node.address), "Gateway listener")
     if route.egress_tunnel_id:
         from app.tunnel.failover import assert_edit_safe
 
@@ -362,7 +364,9 @@ async def validate_dns_listener(db, node, config):
         ):
             raise HTTPException(422, "DNS listener conflicts with a gateway listener")
     from app.db.models import NativeTunnel
+    from app.discovery.reservations import assert_free, reserved_for
 
+    assert_free({port}, await reserved_for(db, node.address), "DNS listener")
     for tunnel in (await db.scalars(select(NativeTunnel).where(NativeTunnel.enabled.is_(True)))).all():
         if port in owned_ports(tunnel).get(node.id, set()):
             raise HTTPException(422, "DNS listener conflicts with a native tunnel")

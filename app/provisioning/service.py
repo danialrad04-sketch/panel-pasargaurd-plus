@@ -75,6 +75,14 @@ async def enqueue_install(db, body, actor):
             raise HTTPException(409, "This server is already registered; select its existing node")
         if await db.scalar(select(Node.id).where(Node.name == body.name).limit(1)):
             raise HTTPException(409, "Node name already exists")
+    from app.discovery.reservations import assert_free, reserved_for
+
+    assert_free(
+        {body.node_port, body.tunnel_port, body.health_port, 62051},
+        await reserved_for(db, body.host),
+        "The node install",
+        status=409,
+    )
     payload = body.model_dump(exclude={"password", "private_key", "key_passphrase"})
     payload["server_host_key"] = host_key
     row = NativeProvisionJob(

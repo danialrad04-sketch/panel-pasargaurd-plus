@@ -118,6 +118,16 @@ cmd_https_ip() {
     echo "SMARTDNS_PANEL_URL and its CA file were set, so gaming DNS gateways can reach the panel."
 }
 
+# Read-only inspection of THIS server (tunnels, proxy configs, DNS, firewall); secrets are masked on the spot.
+cmd_detect() {
+    need_root detect
+    local out="${1:-/root/tunnel-facts.json}"
+    python3 -I "$APP_DIR/app/discovery/collector.py" >"$out"
+    chmod 600 "$out"
+    echo "Saved $out (read-only scan; nothing was changed). Use the dashboard: Tunnels -> Detect existing tunnels,"
+    echo "or POST it to /api/tunnel/discovery/analyze with {\"address\": \"<this server IP>\", \"facts\": <file>}."
+}
+
 cmd_env() { ${EDITOR:-nano} "$ENV_FILE"; }
 
 cmd_uninstall() {
@@ -139,6 +149,7 @@ pasarguard-plus <command>
   restart       restart the panel
   dns           enable native DNS worker + local resolver
   https-ip [IP] switch to HTTPS with a self-signed certificate for the server IP
+  detect [FILE] read-only scan of this server for existing tunnels (default /root/tunnel-facts.json)
   env           edit $ENV_FILE
   uninstall     stop containers (data is kept)
 EOF
@@ -153,6 +164,7 @@ case "${1:-}" in
     restart) cmd_restart ;;
     dns) cmd_dns ;;
     https-ip) shift; cmd_https_ip "$@" ;;
+    detect) shift; cmd_detect "$@" ;;
     env) cmd_env ;;
     uninstall) cmd_uninstall ;;
     *) usage ;;

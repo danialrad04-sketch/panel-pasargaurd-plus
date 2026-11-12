@@ -62,6 +62,7 @@ Manual install and the full prerequisites list: [docs/INSTALL.md](docs/INSTALL.m
 
 | Area | What you get |
 |---|---|
+| **Existing-tunnel detection** | Read-only scan of a server finds a running Paqet tunnel, V2Ray/Xray configs that ride it, DNS paths and firewall rules, then reserves their ports so the panel never overwrites them. |
 | **Native tunnels** | Paqet, Backhaul, GOST, FRP and SS2022 tunnels between nodes, managed from the panel; automatic node install over SSH; tunnel entries published in subscriptions. |
 | **Gaming DNS** | A DNS profile (~890 domains, 66 services, one-click bundles) that routes game, store and sanctioned-service traffic through a gateway on your node. Built into the Add/Edit User form; users register their own IP from a personal link; daily IP-change limit; per-service usage; domain watch to find missing domains. |
 | **Unified users** | DNS access follows the panel user: expiry, data limit, status and admin scope. No separate DNS accounts to maintain. |
@@ -92,6 +93,7 @@ Every environment variable is documented in [`.env.example`](.env.example).
 
 - [Install and prerequisites](docs/INSTALL.md)
 - [Gaming DNS](docs/GAMING-DNS.fa.md) · [roadmap](docs/GAMING-DNS-PRO-PLAN.fa.md) · [acceptance table](docs/GAMING-ACCEPTANCE.fa.md)
+- [Detect existing tunnels](docs/TUNNEL-DISCOVERY.fa.md) (read-only; reserves ports of a running Paqet/V2Ray/DNS setup)
 - [Native tunnels](docs/NATIVE-TUNNELS.fa.md) · [Paqet](docs/NATIVE-PAQET.fa.md) · [tunnel hosts in subscriptions](docs/TUNNEL-SUBSCRIPTION-HOSTS.fa.md)
 - [Operations and backups](docs/NATIVE-OPERATIONS.fa.md)
 

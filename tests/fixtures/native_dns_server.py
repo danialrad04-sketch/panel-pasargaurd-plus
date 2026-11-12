@@ -45,6 +45,9 @@ app.include_router(maintenance_router)
 from app.routers.provision import router as provision_router
 
 app.include_router(provision_router)
+from app.routers.discovery import router as discovery_router
+
+app.include_router(discovery_router)
 
 if os.environ.get("TEST_NATIVE_PROVISION"):
     # UI fixture only: real persistent queue/encryption/API, no remote install.

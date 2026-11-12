@@ -1244,6 +1244,25 @@ class TunnelFailoverPolicy(Base):
     last_result: Mapped[dict] = mapped_column(PostgresJSONB, default_factory=dict)
 
 
+class NativeExternalTunnel(Base, CreatedAtUTCMixin):
+    """A tunnel, proxy or DNS listener found on a server that this panel does NOT manage.
+
+    Only a reservation: the panel never allocates, binds, rewrites or removes these ports. The summary holds
+    discovery results already stripped of keys, passwords and user ids.
+    """
+
+    __tablename__ = "native_external_tunnels"
+    __table_args__ = (UniqueConstraint("address", "name"),)
+    address: Mapped[str] = mapped_column(String(256), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    kind: Mapped[str] = mapped_column(String(32))
+    ports: Mapped[list] = mapped_column(PostgresJSONB, default_factory=list)
+    role: Mapped[str | None] = mapped_column(String(16), default=None)
+    peer: Mapped[str | None] = mapped_column(String(300), default=None)
+    summary: Mapped[dict] = mapped_column(PostgresJSONB, default_factory=dict, repr=False)
+    created_by: Mapped[str | None] = mapped_column(String(64), default=None)
+
+
 class SmartDNSRoute(Base, CreatedAtUTCMixin):
     __tablename__ = "smartdns_routes"
     node_id: Mapped[int] = fk_id_column("nodes.id", ondelete="RESTRICT", index=True)

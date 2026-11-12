@@ -27,6 +27,7 @@ from app.db.models import (
     ServiceAudit,
     TunnelDeployment,
 )
+from app.discovery.reservations import reserved_by_address
 from app.models.carrier import CarrierOptions
 from app.models.tunnel import TunnelCreate
 from app.models.tunnel_wizard import WizardPlanInput
@@ -107,7 +108,7 @@ def free_port(start, blocked):
     return port
 
 
-def allocate(rows, nodes, cores):
+def allocate(rows, nodes, cores, reserved=None):
     """One port triple for every candidate: only one candidate is ever enabled."""
     used = set()
     for row in rows:
@@ -116,6 +117,7 @@ def allocate(rows, nodes, cores):
     for node in nodes:
         used |= {value for value in (node.port, node.api_port, node.tunnel_api_port) if value}
         used |= {node.health_echo_port or 62053, 62051}
+        used |= (reserved or {}).get(node.address, set())
 
     def blocked(port):
         return port in used or any(occupied_port(core.config, port) for core in cores.values())
@@ -209,7 +211,12 @@ async def plan(db, body):
             blockers.append("inbound_unavailable")
     ports = None
     try:
-        ports = allocate(rows, (source, exit_node), {core.id: core for core in cores.values()})
+        ports = allocate(
+            rows,
+            (source, exit_node),
+            {core.id: core for core in cores.values()},
+            await reserved_by_address(db),
+        )
     except HTTPException:
         blockers.append("no_free_port")
     transports = sorted({CATALOG[item].transport for item in order if CATALOG[item].transport != "shadowsocks-2022"})
@@ -431,7 +438,7 @@ class Run:
                 spec,
                 name=f"wizard-{self.job.id[:8]}-{spec.id}",
                 request=self.request,
-                ports=allocate(rows, nodes, cores),
+                ports=allocate(rows, nodes, cores, await reserved_by_address(db)),
             )
             row = await operation.create(db, body, "wizard:" + self.job.actor)
             return row.id

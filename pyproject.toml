@@ -93,4 +93,5 @@ dev = [
 # Uploaded to Ubuntu 22.04/Debian targets, independent of the panel's Python.
 [tool.ruff.per-file-target-version]
 "app/provisioning/remote.py" = "py310"
+"app/discovery/collector.py" = "py310"
 "tests/fixtures/native-provision/systemctl" = "py311"
