@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_servers">Servers</string>
+    <string name="nav_subscription">Subscription</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_get_started">Get Started</string>
+    <string name="onboarding_title_1">Fast, Encrypted Freedom</string>
+    <string name="onboarding_desc_1">Powered by sing-box native TUN with VLESS Reality, VMess, Trojan, and Shadowsocks for rock-solid stability.</string>
+    <string name="onboarding_title_2">Smart Auto-Best Ping</string>
+    <string name="onboarding_desc_2">Automatically probes server latency and connects you to the fastest location with a single tap.</string>
+    <string name="onboarding_title_3">Live Sync &amp; Instant Renewal</string>
+    <string name="onboarding_desc_3">Your PasarGuard subscription stays synced automatically with quota alerts and effortless in-app renewal.</string>
+
+    <!-- Login -->
+    <string name="login_title">Activate Subscription</string>
+    <string name="login_subtitle">Paste your PasarGuard subscription link or scan the QR code from your account.</string>
+    <string name="login_input_label">Subscription URL or Token</string>
+    <string name="login_input_placeholder">https://panel.example.com/sub/...</string>
+    <string name="login_paste">Paste</string>
+    <string name="login_scan_qr">Scan QR Code</string>
+    <string name="login_connect_cta">Load Subscription</string>
+    <string name="login_validating">Verifying subscription…</string>
+    <string name="login_error_empty">Please enter a subscription link or token.</string>
+    <string name="login_error_invalid">Could not verify subscription. Check your link and internet connection.</string>
+    <string name="qr_scanner_title">Scan Subscription QR</string>
+    <string name="qr_scanner_hint">Point your camera at the PasarGuard QR code</string>
+    <string name="qr_camera_permission">Camera permission is needed to scan QR codes.</string>
+    <string name="grant_permission">Grant Permission</string>
+
+    <!-- Home -->
+    <string name="status_disconnected">Disconnected</string>
+    <string name="status_connecting">Connecting…</string>
+    <string name="status_connected">Connected</string>
+    <string name="status_disconnecting">Disconnecting…</string>
+    <string name="status_error">Connection Failed</string>
+    <string name="tap_to_connect">Tap to Connect</string>
+    <string name="tap_to_disconnect">Tap to Disconnect</string>
+    <string name="home_upload">Upload</string>
+    <string name="home_download">Download</string>
+    <string name="home_session">Session</string>
+    <string name="home_traffic_remaining">Remaining Traffic</string>
+    <string name="home_days_remaining">Remaining Time</string>
+    <string name="home_unlimited">Unlimited</string>
+    <string name="home_on_hold">On Hold</string>
+    <string name="home_expired">Expired</string>
+    <string name="home_days_unit">%1$d days</string>
+    <string name="home_hours_unit">%1$d hrs</string>
+    <string name="home_auto_best">Auto (Best Ping)</string>
+    <string name="home_select_server">Select Server</string>
+    <string name="home_no_servers">No servers synced yet. Pull to refresh.</string>
+    <string name="home_renew_banner">Your subscription is expiring soon</string>
+    <string name="home_renew_now">Renew</string>
+    <string name="cd_connect_button">Toggle VPN connection</string>
+
+    <!-- Servers -->
+    <string name="servers_title">Servers</string>
+    <string name="servers_search_hint">Search servers or countries…</string>
+    <string name="servers_test_all">Test Ping</string>
+    <string name="servers_auto_title">Auto (Best Ping)</string>
+    <string name="servers_auto_subtitle">Automatically selects the lowest-latency server</string>
+    <string name="servers_filter_all">All</string>
+    <string name="servers_filter_favorites">Favorites</string>
+    <string name="servers_empty_title">No Matching Servers</string>
+    <string name="servers_empty_desc">Try clearing your search filter or refreshing your subscription.</string>
+    <string name="servers_ping_ms">%1$d ms</string>
+    <string name="servers_ping_timeout">Timeout</string>
+    <string name="servers_ping_testing">Testing…</string>
+    <string name="servers_refresh">Refresh</string>
+
+    <!-- Subscription -->
+    <string name="sub_title">Subscription</string>
+    <string name="sub_account">Account</string>
+    <string name="sub_status_active">Active</string>
+    <string name="sub_status_on_hold">On Hold</string>
+    <string name="sub_status_limited">Traffic Limited</string>
+    <string name="sub_status_expired">Expired</string>
+    <string name="sub_status_disabled">Disabled</string>
+    <string name="sub_used_of">%1$s used of %2$s</string>
+    <string name="sub_used_unlimited">%1$s used • Unlimited</string>
+    <string name="sub_expiry_label">Expires</string>
+    <string name="sub_reset_label">Reset Cycle</string>
+    <string name="sub_hwid_label">Device Limit</string>
+    <string name="sub_last_synced">Last synced %1$s</string>
+    <string name="sub_usage_chart_title">Traffic Usage History</string>
+    <string name="sub_usage_empty">Usage history will appear once traffic is recorded.</string>
+    <string name="sub_renew_cta">Renew or Extend Plan</string>
+    <string name="sub_sync_now">Sync Now</string>
+
+    <!-- Renewal -->
+    <string name="renew_title">Renew Subscription</string>
+    <string name="renew_subtitle">Choose a plan to extend your time and traffic instantly.</string>
+    <string name="renew_popular">Most Popular</string>
+    <string name="renew_pay_cta">Continue to Payment</string>
+    <string name="renew_polling_title">Confirming Payment…</string>
+    <string name="renew_polling_desc">Checking your PasarGuard subscription for updated traffic and expiry. This usually takes a few seconds.</string>
+    <string name="renew_success_title">Subscription Renewed!</string>
+    <string name="renew_success_desc">Your account and server configs have been refreshed automatically.</string>
+    <string name="renew_done">Back to Home</string>
+    <string name="renew_check_again">Check Status Again</string>
+    <string name="renew_error_checkout">Unable to start checkout session. Please try again.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_general">Appearance &amp; Language</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_lang_fa">فارسی (RTL)</string>
+    <string name="settings_lang_en">English</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_section_vpn">VPN &amp; Routing</string>
+    <string name="settings_split_tunnel">Per-App Split Tunneling</string>
+    <string name="settings_split_tunnel_desc">Choose which apps bypass or use the VPN</string>
+    <string name="settings_auto_connect">Auto-Connect</string>
+    <string name="settings_auto_connect_desc">Connect automatically when app opens or device boots</string>
+    <string name="settings_kill_switch">Kill Switch (Always-On VPN)</string>
+    <string name="settings_kill_switch_desc">Block traffic if VPN disconnects via Android system VPN settings</string>
+    <string name="settings_section_notifications">Alerts &amp; Notifications</string>
+    <string name="settings_expiry_alert">Expiry Warnings</string>
+    <string name="settings_low_traffic_alert">Low Traffic Warnings</string>
+    <string name="settings_section_support">Support &amp; Account</string>
+    <string name="settings_telegram">Telegram Support</string>
+    <string name="settings_whatsapp">WhatsApp Support</string>
+    <string name="settings_version">App Version</string>
+    <string name="settings_logout">Sign Out</string>
+    <string name="settings_logout_title">Sign out of this subscription?</string>
+    <string name="settings_logout_desc">Your VPN will disconnect and your saved subscription token and server cache will be removed from this device.</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_confirm">Confirm</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_back">Back</string>
+
+    <!-- Split Tunneling -->
+    <string name="split_title">Split Tunneling</string>
+    <string name="split_mode_disabled">Disabled (All Apps)</string>
+    <string name="split_mode_bypass">Bypass Selected Apps</string>
+    <string name="split_mode_only">VPN Only for Selected</string>
+    <string name="split_search_apps">Search installed apps…</string>
+    <string name="split_selected_count">%1$d apps selected</string>
+
+    <!-- Notifications -->
+    <string name="notif_channel_vpn_name">VPN Connection</string>
+    <string name="notif_channel_vpn_desc">Persistent status and live speed while VPN is active</string>
+    <string name="notif_channel_alerts_name">Subscription Alerts</string>
+    <string name="notif_channel_alerts_desc">Expiry and low remaining traffic reminders</string>
+    <string name="notif_vpn_connected_title">Connected to %1$s</string>
+    <string name="notif_vpn_connecting_title">Connecting to %1$s…</string>
+    <string name="notif_vpn_speed">↓ %1$s  ↑ %2$s</string>
+    <string name="notif_action_disconnect">Disconnect</string>
+    <string name="notif_expiry_title">Subscription Expiring Soon</string>
+    <string name="notif_expiry_body">Only %1$d day(s) left on your VPN plan. Tap to renew now.</string>
+    <string name="notif_low_traffic_title">Low Remaining Traffic</string>
+    <string name="notif_low_traffic_body">Less than %1$d%% of your traffic quota remains. Tap to extend.</string>
+</resources>

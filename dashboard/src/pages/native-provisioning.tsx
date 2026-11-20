@@ -61,13 +61,15 @@ export default function NativeProvisioning({ nodes, fa }: { nodes: { id: number;
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [settings, setSettings] = useState({ core_config_id: 1, port: 62050, tunnel_api_port: 62052, health_echo_port: 62053 })
+  const jobs = Array.isArray(state.data?.items) ? state.data.items : []
+  const bundles = Array.isArray(state.data?.bundles) ? state.data.bundles : []
   useEffect(() => {
-    if (state.data?.items.some(job => job.state === 'ready')) {
+    if (jobs.some(job => job.state === 'ready')) {
       client.invalidateQueries({ queryKey: ['native-tunnels'] })
       client.invalidateQueries({ queryKey: ['nodes'] })
     }
   }, [
-    state.data?.items
+    jobs
       .filter(job => job.state === 'ready')
       .map(job => job.id)
       .join(','),
@@ -117,13 +119,13 @@ export default function NativeProvisioning({ nodes, fa }: { nodes: { id: number;
           {t('وضعیت نصب قابل دریافت نیست.', 'Installation status is unavailable.')}
         </p>
       )}
-      {state.data && state.data.bundles.length === 0 && (
+      {state.data && bundles.length === 0 && (
         <p className="text-muted-foreground text-xs">
           {t('این اجرای پنل بستهٔ نصب ندارد؛ تصویر جدید پنل بسته را هنگام build آماده می‌کند.', 'This panel runtime has no installation bundle. The current panel image includes it at build time.')}
         </p>
       )}
       <div className="space-y-3" aria-live="polite">
-        {state.data?.items.slice(0, 8).map(job => (
+        {jobs.slice(0, 8).map(job => (
           <div key={job.id} className="bg-background rounded-xl border p-4">
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
               <span dir="ltr">{job.target}</span>
@@ -367,7 +369,7 @@ export default function NativeProvisioning({ nodes, fa }: { nodes: { id: number;
                 {error}
               </p>
             )}
-            <Button type="submit" disabled={busy || !key || !state.data?.bundles.length}>
+            <Button type="submit" disabled={busy || !key || !bundles.length}>
               {t('شروع نصب خودکار روی این سرور', 'Install automatically on this server')}
             </Button>
           </form>

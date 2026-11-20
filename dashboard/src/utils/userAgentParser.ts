@@ -1,128 +1,100 @@
-/**
- * Parse user agent string to extract client information
- */
+export type ClientIconType =
+  | 'ios'
+  | 'android'
+  | 'windows'
+  | 'macos'
+  | 'linux'
+  | 'browser'
+  | 'app'
+  | 'unknown'
 
-export interface ClientInfo {
+export interface ParsedUserAgent {
   name: string
   version?: string
-  platform?: string
+  os?: string
+  iconType: ClientIconType
   isKnownClient: boolean
-  iconType: 'desktop' | 'mobile' | 'tv' | 'browser' | 'unknown'
+  raw: string
 }
 
-export function parseUserAgent(userAgent: string | null | undefined): ClientInfo {
-  if (!userAgent) {
-    return {
-      name: 'Unknown',
-      isKnownClient: false,
-      iconType: 'unknown',
-    }
+const KNOWN_CLIENTS: Array<{ match: RegExp; name: string; iconType?: ClientIconType }> = [
+  { match: /v2rayng/i, name: 'v2rayNG', iconType: 'android' },
+  { match: /v2rayn/i, name: 'v2rayN', iconType: 'windows' },
+  { match: /streisand/i, name: 'Streisand', iconType: 'ios' },
+  { match: /shadowrocket/i, name: 'Shadowrocket', iconType: 'ios' },
+  { match: /nekobox|nekoray/i, name: 'NekoBox', iconType: 'android' },
+  { match: /hiddify/i, name: 'Hiddify', iconType: 'app' },
+  { match: /happ/i, name: 'Happ', iconType: 'ios' },
+  { match: /flclash/i, name: 'FlClash', iconType: 'app' },
+  { match: /clash[-\s]?meta|mihomo/i, name: 'Mihomo', iconType: 'app' },
+  { match: /clash/i, name: 'Clash', iconType: 'app' },
+  { match: /sing-box|sfa|sfi|sfm/i, name: 'sing-box', iconType: 'app' },
+  { match: /karing/i, name: 'Karing', iconType: 'ios' },
+  { match: /v2box/i, name: 'V2Box', iconType: 'ios' },
+  { match: /foxray/i, name: 'FoXray', iconType: 'ios' },
+  { match: /loon/i, name: 'Loon', iconType: 'ios' },
+  { match: /surge/i, name: 'Surge', iconType: 'ios' },
+  { match: /quantumult/i, name: 'Quantumult X', iconType: 'ios' },
+  { match: /curl/i, name: 'curl', iconType: 'linux' },
+  { match: /mozilla/i, name: 'Browser', iconType: 'browser' },
+]
+
+export function parseUserAgent(userAgent?: string | null): ParsedUserAgent {
+  const raw = (userAgent || '').trim()
+  if (!raw) {
+    return { name: 'Unknown Client', iconType: 'unknown', isKnownClient: false, raw: '' }
   }
 
-  const ua = userAgent.toLowerCase()
+  let detectedOs: string | undefined
+  let osIcon: ClientIconType = 'unknown'
 
-  // Common VPN/Proxy clients
-  const clientPatterns = [
-    { pattern: /karing/, name: 'Karing', iconType: 'desktop' as const },
-    { pattern: /flclash/, name: 'FlClash', iconType: 'desktop' as const },
-    { pattern: /clash[\s.-]?verge|mihomo|clash/, name: 'Clash', iconType: 'desktop' as const },
-    { pattern: /v2rayng/, name: 'v2rayNG', iconType: 'mobile' as const },
-    { pattern: /v2rayn/, name: 'v2rayN', iconType: 'desktop' as const },
-    { pattern: /stash/, name: 'Stash', iconType: 'mobile' as const },
-    { pattern: /shadowrocket/, name: 'Shadowrocket', iconType: 'mobile' as const },
-    { pattern: /quantumult/, name: 'Quantumult', iconType: 'mobile' as const },
-    { pattern: /surge/, name: 'Surge', iconType: 'mobile' as const },
-    { pattern: /shadowsocks/, name: 'Shadowsocks', iconType: 'desktop' as const },
-    { pattern: /\bsf[aimt]\b|sing[\s-]?box/, name: 'sing-box', iconType: 'desktop' as const },
-    { pattern: /hiddify/, name: 'Hiddify', iconType: 'mobile' as const },
-    { pattern: /happ/, name: 'Happ', iconType: 'mobile' as const },
-    { pattern: /fairvpn/, name: 'FairVPN', iconType: 'mobile' as const },
-    { pattern: /v2box/, name: 'V2Box', iconType: 'mobile' as const },
-    { pattern: /ktor[\s-]?client/, name: 'Ktor Client', iconType: 'mobile' as const },
-    { pattern: /pharos/, name: 'Pharos', iconType: 'mobile' as const },
-    { pattern: /napsternetv/, name: 'NapsternetV', iconType: 'mobile' as const },
-    { pattern: /oneclick/, name: 'OneClick', iconType: 'mobile' as const },
-    { pattern: /streisand/, name: 'Streisand', iconType: 'desktop' as const },
-    { pattern: /outline/, name: 'Outline', iconType: 'desktop' as const },
-    { pattern: /matsuri/, name: 'Matsuri', iconType: 'mobile' as const },
-    { pattern: /sagernet/, name: 'SagerNet', iconType: 'mobile' as const },
-    { pattern: /nekobox/, name: 'NekoBox', iconType: 'mobile' as const },
-    { pattern: /foxray/, name: 'FoxRay', iconType: 'mobile' as const },
-    { pattern: /xraypb/, name: 'XrayPB', iconType: 'mobile' as const },
-  ]
+  if (/iphone|ipad|ios|darwin/i.test(raw)) {
+    detectedOs = 'iOS'
+    osIcon = 'ios'
+  } else if (/android/i.test(raw)) {
+    detectedOs = 'Android'
+    osIcon = 'android'
+  } else if (/windows/i.test(raw)) {
+    detectedOs = 'Windows'
+    osIcon = 'windows'
+  } else if (/mac os x|macintosh|macos/i.test(raw)) {
+    detectedOs = 'macOS'
+    osIcon = 'macos'
+  } else if (/linux/i.test(raw)) {
+    detectedOs = 'Linux'
+    osIcon = 'linux'
+  }
 
-  // Check for known clients
-  for (const client of clientPatterns) {
-    if (client.pattern.test(ua)) {
-      // Try to extract version
-      const versionMatch = userAgent.match(new RegExp(`${client.name.toLowerCase()}[/\\s]([\\d.]+)`, 'i'))
+  const versionMatch = raw.match(/\/([0-9]+(?:\.[0-9]+)*)/)
+  const version = versionMatch?.[1]
 
+  for (const client of KNOWN_CLIENTS) {
+    if (client.match.test(raw)) {
       return {
         name: client.name,
-        version: versionMatch?.[1],
+        version,
+        os: detectedOs,
+        iconType: osIcon !== 'unknown' ? osIcon : client.iconType ?? 'app',
         isKnownClient: true,
-        iconType: client.iconType,
+        raw,
       }
     }
   }
 
-  // Check for common browsers (less likely but possible)
-  if (ua.includes('chrome')) {
-    return { name: 'Chrome', isKnownClient: false, iconType: 'browser' }
-  }
-  if (ua.includes('firefox')) {
-    return { name: 'Firefox', isKnownClient: false, iconType: 'browser' }
-  }
-  if (ua.includes('safari')) {
-    return { name: 'Safari', isKnownClient: false, iconType: 'browser' }
-  }
-  if (ua.includes('edge')) {
-    return { name: 'Edge', isKnownClient: false, iconType: 'browser' }
-  }
-
-  // Check for mobile platforms
-  if (ua.includes('tvos') || ua.includes('apple tv') || ua.includes('appletv')) {
-    return { name: 'Apple TV App', platform: 'Apple TV', isKnownClient: false, iconType: 'tv' }
-  }
-  if (ua.includes('android tv') || ua.includes('google tv') || ua.includes('googletv')) {
-    return { name: 'Android TV App', platform: 'Android TV', isKnownClient: false, iconType: 'tv' }
-  }
-  if (ua.includes('android')) {
-    return { name: 'Android App', platform: 'Android', isKnownClient: false, iconType: 'mobile' }
-  }
-  if (ua.includes('ios') || ua.includes('iphone') || ua.includes('ipad')) {
-    return { name: 'iOS App', platform: 'iOS', isKnownClient: false, iconType: 'mobile' }
-  }
-
-  // Fallback: try to extract first word that looks like an app name
-  const appMatch = userAgent.match(/^([a-zA-Z0-9]+)/i)
-  if (appMatch) {
-    return {
-      name: appMatch[1],
-      isKnownClient: false,
-      iconType: 'unknown',
-    }
-  }
-
+  const firstToken = raw.split(/[\s/]+/)[0]
   return {
-    name: 'Unknown',
+    name: firstToken || 'Unknown Client',
+    version,
+    os: detectedOs,
+    iconType: osIcon !== 'unknown' ? osIcon : 'app',
     isKnownClient: false,
-    iconType: 'unknown',
+    raw,
   }
 }
 
-export function formatClientInfo(clientInfo: ClientInfo): string {
-  if (!clientInfo.isKnownClient && clientInfo.name === 'Unknown') {
-    return 'Unknown client'
-  }
-
-  let result = clientInfo.name
-  if (clientInfo.version) {
-    result += ` ${clientInfo.version}`
-  }
-  if (clientInfo.platform) {
-    result += ` (${clientInfo.platform})`
-  }
-
-  return result
+export function formatClientInfo(info: ParsedUserAgent): string {
+  const parts = [info.name]
+  if (info.version) parts.push(`v${info.version}`)
+  if (info.os) parts.push(`(${info.os})`)
+  return parts.join(' ')
 }

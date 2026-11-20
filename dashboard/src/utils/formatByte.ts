@@ -1,72 +1,65 @@
-type ByteUnit = 'B' | 'KB' | 'MB' | 'GB' | 'TB' | 'PB' | 'EB' | 'ZB' | 'YB'
+const BYTES_PER_KB = 1024
+const BYTES_PER_GB = 1024 * 1024 * 1024
+const SIZE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'] as const
 
-export function formatBytes(bytes: number, decimals?: number, size?: boolean, asArray?: false, forceUnit?: ByteUnit): string
-export function formatBytes(bytes: number, decimals: number | undefined, size: boolean | undefined, asArray: true, forceUnit?: ByteUnit): [number, ByteUnit]
-export function formatBytes(bytes: number, decimals = 2, size: boolean = true, asArray = false, forceUnit?: ByteUnit) {
-  if (!+bytes) return size ? '0 B' : '0'
-
-  const k = 1024
+export function formatBytes(
+  bytes: number | null | undefined,
+  decimals = 2,
+  includeUnit = true,
+  _usePersianNumerals = false,
+  forceUnit?: (typeof SIZE_UNITS)[number],
+): string {
+  const num = Number(bytes ?? 0)
+  if (!Number.isFinite(num) || num <= 0) {
+    return includeUnit ? `0 ${forceUnit ?? 'B'}` : '0'
+  }
   const dm = decimals < 0 ? 0 : decimals
-  const sizes: ByteUnit[] = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+  const forcedIdx = forceUnit ? SIZE_UNITS.indexOf(forceUnit) : -1
+  const i =
+    forcedIdx !== -1
+      ? forcedIdx
+      : Math.min(Math.floor(Math.log(num) / Math.log(BYTES_PER_KB)), SIZE_UNITS.length - 1)
+  const val = num / Math.pow(BYTES_PER_KB, i)
+  const formatted = String(parseFloat(val.toFixed(dm)))
+  return includeUnit ? `${formatted} ${SIZE_UNITS[i]}` : formatted
+}
 
-  if (forceUnit && sizes.includes(forceUnit)) {
-    const i = sizes.indexOf(forceUnit)
-    const value = parseFloat((bytes / Math.pow(k, i)).toFixed(dm))
-    if (asArray) return [value, forceUnit]
-    return size ? `${value} ${forceUnit}` : `${value}`
+export function formatGigabytes(gb: number | null | undefined, decimals = 2): string {
+  const num = Number(gb ?? 0)
+  if (!Number.isFinite(num) || num <= 0) return '0 GB'
+  return formatBytes(num * BYTES_PER_GB, decimals)
+}
+
+export function gbToBytes(gb: number | string | null | undefined): number {
+  const num = Number(gb ?? 0)
+  if (!Number.isFinite(num) || num <= 0) return 0
+  return Math.round(num * BYTES_PER_GB)
+}
+
+export function bytesToFormGigabytes(bytes: number | string | null | undefined): number {
+  const num = Number(bytes ?? 0)
+  if (!Number.isFinite(num) || num <= 0) return 0
+  return parseFloat((num / BYTES_PER_GB).toFixed(4))
+}
+
+export function formGigabytesToBytes(gb: number | string | null | undefined, originalBytes?: number | null): number {
+  const num = Number(gb ?? 0)
+  if (!Number.isFinite(num) || num <= 0) return 0
+  if (originalBytes != null && Number.isFinite(originalBytes) && bytesToFormGigabytes(originalBytes) === num) {
+    return originalBytes
   }
-
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  const value = parseFloat((bytes / Math.pow(k, i)).toFixed(dm))
-
-  if (asArray) return [value, sizes[i]]
-  return size ? `${value} ${sizes[i]}` : `${value}`
+  return Math.round(num * BYTES_PER_GB)
 }
 
-export function formatGigabytes(gb: number, decimals = 2): string {
-  return formatBytes(gb * 1024 * 1024 * 1024, decimals)
+export function numberWithCommas(value: number | string | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '0'
+  const num = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(num)) return String(value)
+  return num.toLocaleString('en-US')
 }
 
-export const numberWithCommas = (x: number | undefined | null) => {
-  if (x === undefined || x === null) return '0'
-  return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-}
+const PERSIAN_DIGITS = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹']
 
-export const toPersianNumerals = (num: number | string): string => {
-  const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹']
-  return num.toString().replace(/\d/g, digit => persianDigits[parseInt(digit)])
-}
-
-/**
- * Converts API `data_limit` (bytes) to gigabytes for user forms.
- * Two-decimal rounding alone would collapse small limits (under ~5.37 MB) to 0; this keeps enough precision to round-trip with {@link gbToBytes}.
- */
-export function bytesToFormGigabytes(bytes: number | null | undefined): number {
-  if (bytes === undefined || bytes === null || !Number(bytes)) return 0
-  const gb = Number(bytes) / (1024 * 1024 * 1024)
-  const rounded2 = Math.round(gb * 100) / 100
-  if (rounded2 === 0 && gb > 0) {
-    return Number(gb.toFixed(9))
-  }
-  return rounded2
-}
-
-/**
- * Converts GB to bytes
- * @param gb - The value in GB (can be string, number, null, or undefined)
- * @returns The value in bytes as a number, or undefined if input is invalid
- */
-export function gbToBytes(gb: string | number | null | undefined): number | undefined {
-  if (gb === undefined || gb === null || gb === '') return undefined
-  return Math.round(Number(gb) * 1024 * 1024 * 1024)
-}
-
-/**
- * Converts a form data limit (GB) back to bytes on submit.
- * The form shows a stored limit rounded by {@link bytesToFormGigabytes}, so while the value still equals that rounded
- * prefill the stored bytes are kept; otherwise saving an unrelated change would rewrite the limit (1500000000 -> 1503238554).
- */
-export function formGigabytesToBytes(gb: string | number | null | undefined, storedBytes?: number | null): number | undefined {
-  if (storedBytes && Number(gb) === bytesToFormGigabytes(storedBytes)) return Number(storedBytes)
-  return gbToBytes(gb)
+export function toPersianNumerals(value: string | number): string {
+  return String(value).replace(/\d/g, d => PERSIAN_DIGITS[Number(d)] ?? d)
 }

@@ -1,96 +1,96 @@
-/** List vs grid for {@link CoreEditorDataTable} sections (inbounds, outbounds, routing, …). */
-export type CoreEditorViewMode = 'list' | 'grid'
-
-export const CORE_EDITOR_VIEW_MODE_STORAGE_KEY = 'view-mode:core-editor-lists'
-
-export const DEFAULT_CORE_EDITOR_VIEW_MODE: CoreEditorViewMode = 'list'
-
-const NUM_USERS_PER_PAGE_LOCAL_STORAGE_KEY = 'pasarguard-num-users-per-page'
-const NUM_ADMINS_PER_PAGE_LOCAL_STORAGE_KEY = 'pasarguard-num-admins-per-page'
-const NUM_ITEMS_PER_PAGE_DEFAULT = 10
-
-const USERS_AUTO_REFRESH_INTERVAL_KEY = 'pasarguard-users-auto-refresh-interval'
-const DEFAULT_USERS_AUTO_REFRESH_INTERVAL_SECONDS = 15
-const CHART_VIEW_TYPE_KEY = 'pasarguard-chart-view-type'
-
-const CORES_LIST_USE_CONFIG_MODAL_KEY = 'pasarguard-cores-list-use-config-modal'
-const DEFAULT_CORES_LIST_USE_CONFIG_MODAL = false
-
-export const DATE_PICKER_PREFERENCE_KEY = 'pasarguard-date-picker-preference'
-export type DatePickerPreference = 'locale' | 'gregorian' | 'persian'
-const DEFAULT_DATE_PICKER_PREFERENCE: DatePickerPreference = 'locale'
-
-export const CHART_VIEW_TYPE_CHANGE_EVENT = 'pasarguard-chart-view-type-change'
 export type ChartViewType = 'bar' | 'area'
-const DEFAULT_CHART_VIEW_TYPE: ChartViewType = 'bar'
+export type DatePickerPreference = 'locale' | 'gregorian' | 'persian'
 
-// Generic function for any table type
-export const getItemsPerPageLimitSize = (tableType: 'users' | 'admins' = 'users') => {
-  const storageKey = tableType === 'users' ? NUM_USERS_PER_PAGE_LOCAL_STORAGE_KEY : NUM_ADMINS_PER_PAGE_LOCAL_STORAGE_KEY
-  const numItemsPerPage = (typeof localStorage !== 'undefined' && localStorage.getItem(storageKey)) || NUM_ITEMS_PER_PAGE_DEFAULT.toString() // this catches `null` values
-  return parseInt(numItemsPerPage) || NUM_ITEMS_PER_PAGE_DEFAULT // this catches NaN values
-}
+export const CHART_VIEW_TYPE_CHANGE_EVENT = 'pg-chart-view-type-change'
+export const DATE_PICKER_PREFERENCE_KEY = 'pg-date-picker-preference'
+export const CORE_EDITOR_VIEW_MODE_STORAGE_KEY = 'pg-core-editor-view-mode'
+export const DEFAULT_CORE_EDITOR_VIEW_MODE = 'list' as const
 
-export const setItemsPerPageLimitSize = (value: string, tableType: 'users' | 'admins' = 'users') => {
-  const storageKey = tableType === 'users' ? NUM_USERS_PER_PAGE_LOCAL_STORAGE_KEY : NUM_ADMINS_PER_PAGE_LOCAL_STORAGE_KEY
-  return typeof localStorage !== 'undefined' && localStorage.setItem(storageKey, value)
-}
+const CHART_VIEW_TYPE_KEY = 'pg-chart-view-type'
+const CORES_USE_CONFIG_MODAL_KEY = 'pg-cores-use-config-modal'
+const USERS_PER_PAGE_KEY = 'pg-users-per-page'
+const ADMINS_PER_PAGE_KEY = 'pg-admins-per-page'
+const USERS_AUTO_REFRESH_KEY = 'pg-users-auto-refresh-seconds'
 
-// Legacy functions for backward compatibility
-export const getUsersPerPageLimitSize = () => getItemsPerPageLimitSize('users')
-export const setUsersPerPageLimitSize = (value: string) => setItemsPerPageLimitSize(value, 'users')
-
-export const getAdminsPerPageLimitSize = () => getItemsPerPageLimitSize('admins')
-export const setAdminsPerPageLimitSize = (value: string) => setItemsPerPageLimitSize(value, 'admins')
-
-export const getUsersAutoRefreshIntervalSeconds = () => {
-  const storedValue = typeof localStorage !== 'undefined' && localStorage.getItem(USERS_AUTO_REFRESH_INTERVAL_KEY)
-  const parsed = storedValue ? parseInt(storedValue, 10) : DEFAULT_USERS_AUTO_REFRESH_INTERVAL_SECONDS
-  return Number.isNaN(parsed) ? DEFAULT_USERS_AUTO_REFRESH_INTERVAL_SECONDS : parsed
-}
-
-export const setUsersAutoRefreshIntervalSeconds = (seconds: number) => {
-  if (typeof localStorage === 'undefined') return
-  localStorage.setItem(USERS_AUTO_REFRESH_INTERVAL_KEY, seconds.toString())
-}
-
-export const getDatePickerPreference = (): DatePickerPreference => {
-  if (typeof localStorage === 'undefined') return DEFAULT_DATE_PICKER_PREFERENCE
-  const storedValue = localStorage.getItem(DATE_PICKER_PREFERENCE_KEY)
-  if (storedValue === 'locale' || storedValue === 'gregorian' || storedValue === 'persian') {
-    return storedValue
+function safeGetItem(key: string): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    return window.localStorage.getItem(key)
+  } catch {
+    return null
   }
-  return DEFAULT_DATE_PICKER_PREFERENCE
 }
 
-export const setDatePickerPreference = (preference: DatePickerPreference) => {
-  if (typeof localStorage === 'undefined') return
-  localStorage.setItem(DATE_PICKER_PREFERENCE_KEY, preference)
-}
-
-export const getChartViewTypePreference = (): ChartViewType => {
-  if (typeof localStorage === 'undefined') return DEFAULT_CHART_VIEW_TYPE
-  const storedValue = localStorage.getItem(CHART_VIEW_TYPE_KEY)
-  if (storedValue === 'bar' || storedValue === 'area') {
-    return storedValue
+function safeSetItem(key: string, value: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(key, value)
+  } catch {
+    // ignore storage errors
   }
-  return DEFAULT_CHART_VIEW_TYPE
 }
 
-export const setChartViewTypePreference = (viewType: ChartViewType) => {
-  if (typeof localStorage === 'undefined') return
-  localStorage.setItem(CHART_VIEW_TYPE_KEY, viewType)
+export function getChartViewTypePreference(): ChartViewType {
+  const raw = safeGetItem(CHART_VIEW_TYPE_KEY)
+  return raw === 'area' ? 'area' : 'bar'
+}
+
+export function setChartViewTypePreference(viewType: ChartViewType): void {
+  safeSetItem(CHART_VIEW_TYPE_KEY, viewType)
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent<ChartViewType>(CHART_VIEW_TYPE_CHANGE_EVENT, { detail: viewType }))
+    window.dispatchEvent(new CustomEvent(CHART_VIEW_TYPE_CHANGE_EVENT, { detail: viewType }))
   }
 }
 
-export const getCoresListUseConfigModal = (): boolean => {
-  if (typeof localStorage === 'undefined') return DEFAULT_CORES_LIST_USE_CONFIG_MODAL
-  return localStorage.getItem(CORES_LIST_USE_CONFIG_MODAL_KEY) === 'true'
+export function getDatePickerPreference(): DatePickerPreference {
+  const raw = safeGetItem(DATE_PICKER_PREFERENCE_KEY)
+  if (raw === 'gregorian' || raw === 'persian' || raw === 'locale') return raw
+  return 'locale'
 }
 
-export const setCoresListUseConfigModal = (value: boolean) => {
-  if (typeof localStorage === 'undefined') return
-  localStorage.setItem(CORES_LIST_USE_CONFIG_MODAL_KEY, value ? 'true' : 'false')
+export function setDatePickerPreference(pref: DatePickerPreference): void {
+  safeSetItem(DATE_PICKER_PREFERENCE_KEY, pref)
+}
+
+export function getCoresListUseConfigModal(): boolean {
+  return safeGetItem(CORES_USE_CONFIG_MODAL_KEY) === 'true'
+}
+
+export function setCoresListUseConfigModal(enabled: boolean): void {
+  safeSetItem(CORES_USE_CONFIG_MODAL_KEY, String(enabled))
+}
+
+export function getUsersPerPageLimitSize(): number {
+  const raw = Number(safeGetItem(USERS_PER_PAGE_KEY))
+  return Number.isFinite(raw) && raw > 0 ? raw : 10
+}
+
+export function setUsersPerPageLimitSize(size: number | string): void {
+  const num = Number(size)
+  if (Number.isFinite(num) && num > 0) {
+    safeSetItem(USERS_PER_PAGE_KEY, String(num))
+  }
+}
+
+export function getAdminsPerPageLimitSize(): number {
+  const raw = Number(safeGetItem(ADMINS_PER_PAGE_KEY))
+  return Number.isFinite(raw) && raw > 0 ? raw : 10
+}
+
+export function setAdminsPerPageLimitSize(size: number | string): void {
+  const num = Number(size)
+  if (Number.isFinite(num) && num > 0) {
+    safeSetItem(ADMINS_PER_PAGE_KEY, String(num))
+  }
+}
+
+export function getUsersAutoRefreshIntervalSeconds(): number {
+  const raw = Number(safeGetItem(USERS_AUTO_REFRESH_KEY))
+  return Number.isFinite(raw) && raw >= 0 ? raw : 0
+}
+
+export function setUsersAutoRefreshIntervalSeconds(seconds: number): void {
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    safeSetItem(USERS_AUTO_REFRESH_KEY, String(seconds))
+  }
 }

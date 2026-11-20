@@ -1,157 +1,79 @@
-export type LogType = 'error' | 'warning' | 'info' | 'debug'
-export type LogVariant = 'red' | 'yellow' | 'blue' | 'orange'
+export type LogLevel = 'info' | 'warning' | 'debug' | 'error'
 
 export interface LogLine {
   id: string
-  rawTimestamp: string | null
   timestamp: Date | null
-  type: LogType
+  rawTimestamp: string | null
+  type: LogLevel
   message: string
 }
 
-interface LogStyle {
-  type: LogType
-  variant: LogVariant
+export function appendTrim<T>(prev: T[], batch: T[], maxItems: number): T[] {
+  if (batch.length === 0) return prev
+  const combined = [...prev, ...batch]
+  if (combined.length <= maxItems) return combined
+  return combined.slice(combined.length - maxItems)
+}
+
+function detectLogLevel(line: string): LogLevel {
+  const lower = line.toLowerCase()
+  if (/\b(error|err|fatal|panic|crit|critical|exception)\b|\[error\]/i.test(lower)) return 'error'
+  if (/\b(warn|warning)\b|\[warn(ing)?\]/i.test(lower)) return 'warning'
+  if (/\b(debug|trace)\b|\[debug\]/i.test(lower)) return 'debug'
+  return 'info'
+}
+
+export function parseLogs(rawData: string): LogLine[] {
+  if (!rawData || typeof rawData !== 'string') return []
+  const lines = rawData.split(/\r?\n/).filter(l => l.trim().length > 0)
+  return lines.map((line, index) => {
+    // Try extracting leading ISO / datetime timestamp
+    const isoMatch = line.match(
+      /^(\d{4}[-/]\d{2}[-/]\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)\s+(.*)$/,
+    )
+    let timestamp: Date | null = null
+    let rawTimestamp: string | null = null
+    let message = line
+
+    if (isoMatch) {
+      rawTimestamp = isoMatch[1]
+      const parsed = new Date(isoMatch[1])
+      if (!Number.isNaN(parsed.getTime())) {
+        timestamp = parsed
+      }
+      message = isoMatch[2]
+    } else {
+      const timeMatch = line.match(/^(\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+(.*)$/)
+      if (timeMatch) {
+        rawTimestamp = timeMatch[1]
+        message = timeMatch[2]
+      }
+    }
+
+    return {
+      id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+      timestamp,
+      rawTimestamp,
+      type: detectLogLevel(message),
+      message,
+    }
+  })
+}
+
+export function getLogStyle(level: LogLevel): {
+  type: LogLevel
+  variant: 'default' | 'secondary' | 'destructive' | 'outline'
   color: string
+} {
+  switch (level) {
+    case 'error':
+      return { type: 'error', variant: 'destructive', color: 'bg-red-500' }
+    case 'warning':
+      return { type: 'warning', variant: 'outline', color: 'bg-amber-500' }
+    case 'debug':
+      return { type: 'debug', variant: 'secondary', color: 'bg-orange-400' }
+    case 'info':
+    default:
+      return { type: 'info', variant: 'default', color: 'bg-emerald-500' }
+  }
 }
-
-const LOG_STYLES: Record<LogType, LogStyle> = {
-  error: {
-    type: 'error',
-    variant: 'red',
-    color: 'bg-red-500/40',
-  },
-  warning: {
-    type: 'warning',
-    variant: 'orange',
-    color: 'bg-orange-500/40',
-  },
-  info: {
-    type: 'info',
-    variant: 'blue',
-    color: 'bg-blue-600/40',
-  },
-  debug: {
-    type: 'debug',
-    variant: 'yellow',
-    color: 'bg-yellow-500/40',
-  },
-} as const
-
-let logSeq = 0
-
-function nextLogId(): string {
-  logSeq += 1
-  return String(logSeq)
-}
-
-export function appendTrim<T>(prev: T[], next: T[], max: number): T[] {
-  if (next.length === 0) return prev
-  const total = prev.length + next.length
-  if (total <= max) return prev.length === 0 ? next : prev.concat(next)
-  return prev.concat(next).slice(-max)
-}
-
-export function parseLogs(logString: string): LogLine[] {
-  // Regex to match the log line format
-  // Example of return :
-  // 1 2024-12-10T10:00:00.000Z The server is running on port 8080
-  // Should return :
-  // { timestamp: new Date("2024-12-10T10:00:00.000Z"),
-  // message: "The server is running on port 8080" }
-  const logRegex = /^(?:(\d+)\s+)?(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z|\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} UTC)?\s*(.*)$/
-
-  return logString
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line !== '')
-    .map(line => {
-      const match = line.match(logRegex)
-      if (!match) return null
-
-      const [, , timestamp, message] = match
-
-      if (!message?.trim()) return null
-
-      let parsedTimestamp: Date | null = null
-      if (timestamp) {
-        try {
-          // Handle Xray format: 2025/09/27 13:26:58.279079 (assume UTC)
-          if (timestamp.includes('/')) {
-            parsedTimestamp = new Date(timestamp + 'Z') // Treat as UTC
-          } else {
-            // Handle other formats
-            parsedTimestamp = new Date(timestamp.replace(' UTC', 'Z'))
-          }
-          // Validate the parsed date is valid
-          if (isNaN(parsedTimestamp.getTime())) {
-            parsedTimestamp = null
-          }
-        } catch {
-          // If date parsing fails, set to null
-          parsedTimestamp = null
-        }
-      }
-
-      const type = getLogType(message).type
-
-      // Remove duplicate status indicators from message text since they're shown in badges
-      let cleanedMessage = message.trim()
-      cleanedMessage = cleanedMessage.replace(/^\[(Debug|Info|Warn|Warning|Error)\]\s*/i, '')
-      cleanedMessage = cleanedMessage.replace(/^(Debug|Info|Warn|Warning|Error):\s*/i, '')
-
-      return {
-        id: nextLogId(),
-        rawTimestamp: timestamp ?? null,
-        timestamp: parsedTimestamp,
-        type,
-        message: cleanedMessage,
-      }
-    })
-    .filter(log => log !== null) as LogLine[]
-}
-
-// Detect log type based on Xray core message content
-export const getLogType = (message: string): LogStyle => {
-  if (/\[error\]/i.test(message)) {
-    return LOG_STYLES.error
-  }
-
-  if (/^\s*(error|fatal)\b/i.test(message)) {
-    return LOG_STYLES.error
-  }
-
-  if (/\[warning\]/i.test(message) || /\[warn\]/i.test(message)) {
-    return LOG_STYLES.warning
-  }
-
-  if (/^\s*(warning|warn)\b/i.test(message)) {
-    return LOG_STYLES.warning
-  }
-
-  if (/\[info\]/i.test(message)) {
-    return LOG_STYLES.info
-  }
-
-  if (/^\s*info\b/i.test(message)) {
-    return LOG_STYLES.info
-  }
-
-  if (/\[debug\]/i.test(message)) {
-    return LOG_STYLES.debug
-  }
-
-  if (/^\s*debug\b/i.test(message)) {
-    return LOG_STYLES.debug
-  }
-
-  // Xray access logs: "from IP:port accepted tcp/udp:destination:port [info] email: user@example.com"
-  if (/from\s+.+:\d+\s+accepted\s+(tcp|udp):.+:\d+\s+\[.+\]\s+email:\s+.+/i.test(message)) {
-    return LOG_STYLES.info
-  }
-
-  // Default to info
-  return LOG_STYLES.info
-}
-
-export const getLogStyle = (type: LogType): LogStyle => LOG_STYLES[type]

@@ -1,4 +1,4 @@
-export function isEmptyObject(obj: Record<string, any> | null | undefined): boolean {
-  if (!obj) return false
-  return Object.keys(obj).length === 0 && obj.constructor === Object
+export function isEmptyObject(value: unknown): boolean {
+  if (value == null || typeof value !== 'object' || Array.isArray(value)) return true
+  return Object.keys(value).length === 0
 }

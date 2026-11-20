@@ -1,22 +1,24 @@
-type Translate = (key: string, options?: { defaultValue?: string }) => string
+import type { TFunction } from 'i18next'
 
-const formatUnit = (value: number, singular: string, plural: string, t: Translate) => {
-  const key = value === 1 ? singular : plural
-  return `${value} ${t(`time.${key}`, { defaultValue: key })}`
-}
+export function formatDuration(seconds: number | null | undefined, t?: TFunction): string {
+  const total = Math.max(0, Math.floor(Number(seconds ?? 0)))
+  if (!Number.isFinite(total)) return '0s'
 
-export const formatDuration = (seconds: number | null | undefined, t: Translate) => {
-  const totalSeconds = Math.max(0, Math.floor(Number(seconds) || 0))
-  const days = Math.floor(totalSeconds / 86400)
-  const hours = Math.floor((totalSeconds % 86400) / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const remainingSeconds = totalSeconds % 60
+  const days = Math.floor(total / 86400)
+  const hours = Math.floor((total % 86400) / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const secs = total % 60
+
+  const unitLabel = (key: string, count: number, fallback: string) => {
+    if (!t) return fallback
+    return t(`time.${count === 1 ? key : `${key}s`}`, { defaultValue: fallback })
+  }
 
   const parts: string[] = []
-  if (days > 0) parts.push(formatUnit(days, 'day', 'days', t))
-  if (hours > 0) parts.push(formatUnit(hours, 'hour', 'hours', t))
-  if (minutes > 0 && parts.length < 2) parts.push(formatUnit(minutes, 'min', 'mins', t))
-  if (parts.length === 0) parts.push(formatUnit(remainingSeconds, 'second', 'seconds', t))
+  if (days > 0) parts.push(`${days}${t ? ` ${unitLabel('day', days, 'd')}` : 'd'}`)
+  if (hours > 0) parts.push(`${hours}${t ? ` ${unitLabel('hour', hours, 'h')}` : 'h'}`)
+  if (minutes > 0 && parts.length < 2) parts.push(`${minutes}${t ? ` ${unitLabel('minute', minutes, 'm')}` : 'm'}`)
+  if (parts.length === 0) parts.push(`${secs}${t ? ` ${unitLabel('second', secs, 's')}` : 's'}`)
 
-  return parts.slice(0, 2).join(', ')
+  return parts.join(' ')
 }
