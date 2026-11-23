@@ -59,30 +59,85 @@ jobs:
       - name: Run Unit Tests
         run: gradle :app:testDebugUnitTest --stacktrace
 
-      - name: Build Debug APKs (Universal + ABI Splits)
+      - name: Build optimized Debug APKs by ABI
         env:
           PASARGUARD_BASE_URL: ${{ github.event.inputs.panel_base_url || vars.PASARGUARD_BASE_URL || 'https://panel.example.com' }}
           PASARGUARD_BILLING_URL: ${{ inputs.billing_base_url || vars.PASARGUARD_BILLING_URL }}
           PASARGUARD_APP_NAME: ${{ github.event.inputs.app_name || vars.PASARGUARD_APP_NAME || 'PasarGuard VPN' }}
-        run: gradle :app:assembleDebug --stacktrace
+        run: gradle :app:assembleDebug -PpasarguardOptimizeDebug=true --stacktrace
 
-      - name: Build Release APKs (Unsigned)
+      - name: Build Release APKs by ABI
         env:
           PASARGUARD_BASE_URL: ${{ github.event.inputs.panel_base_url || vars.PASARGUARD_BASE_URL || 'https://panel.example.com' }}
           PASARGUARD_BILLING_URL: ${{ inputs.billing_base_url || vars.PASARGUARD_BILLING_URL }}
           PASARGUARD_APP_NAME: ${{ github.event.inputs.app_name || vars.PASARGUARD_APP_NAME || 'PasarGuard VPN' }}
         run: gradle :app:assembleRelease --stacktrace
 
-      - name: Upload Debug APK Artifacts
-        uses: actions/upload-artifact@v4
+      - name: Verify APK architectures and report sizes
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          print("### Android installation files")
+          print("| Build | ABI | APK size (MB) |")
+          print("| --- | --- | ---: |")
+          for build in ("debug", "release"):
+              for abi in ("arm64-v8a", "armeabi-v7a", "x86_64"):
+                  apk = Path(f"app/build/outputs/apk/{build}/app-{abi}-{build}.apk")
+                  with ZipFile(apk) as archive:
+                      paths = archive.namelist()
+                      native_abis = {p.split("/")[1] for p in paths if p.startswith("lib/") and p.endswith(".so")}
+                      assert native_abis == {abi}, (apk.name, native_abis)
+                      assert f"lib/{abi}/libgojni.so" in paths, f"{apk.name} is missing the Xray VPN core"
+                      assert not any("barhopper" in path for path in paths), f"{apk.name} includes the old scanner"
+                  print(f"| {build} | {abi} | {apk.stat().st_size / 1_000_000:.2f} |")
+          PY
+
+      - uses: actions/upload-artifact@v4
         with:
-          name: PasarGuardVPN-debug-apks
-          path: android-client/app/build/outputs/apk/debug/*.apk
+          name: PasarGuardVPN-debug-arm64-v8a
+          path: android-client/app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
+          if-no-files-found: error
+          compression-level: 0
           retention-days: 30
 
-      - name: Upload Release APK Artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: PasarGuardVPN-release-apks
-          path: android-client/app/build/outputs/apk/release/*.apk
+          name: PasarGuardVPN-debug-armeabi-v7a
+          path: android-client/app/build/outputs/apk/debug/app-armeabi-v7a-debug.apk
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PasarGuardVPN-debug-x86_64
+          path: android-client/app/build/outputs/apk/debug/app-x86_64-debug.apk
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PasarGuardVPN-release-arm64-v8a
+          path: android-client/app/build/outputs/apk/release/app-arm64-v8a-release.apk
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PasarGuardVPN-release-armeabi-v7a
+          path: android-client/app/build/outputs/apk/release/app-armeabi-v7a-release.apk
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PasarGuardVPN-release-x86_64
+          path: android-client/app/build/outputs/apk/release/app-x86_64-release.apk
+          if-no-files-found: error
+          compression-level: 0
           retention-days: 30

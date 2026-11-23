@@ -21,6 +21,9 @@ fun resolveConfig(key: String, defaultValue: String): String {
         ?: defaultValue
 }
 
+val optimizeDebugApks = providers.gradleProperty("pasarguardOptimizeDebug").orNull == "true"
+val buildUniversalApk = providers.gradleProperty("pasarguardUniversalApk").orNull == "true"
+
 android {
     namespace = "com.pasarguard.vpn"
     compileSdk = 35
@@ -29,6 +32,7 @@ android {
         applicationId = "com.pasarguard.vpn"
         minSdk = 24
         targetSdk = 35
+        resourceConfigurations += listOf("en", "fa")
         versionCode = 4
         versionName = "1.3.0"
 
@@ -61,14 +65,21 @@ android {
             isEnable = true
             reset()
             include("arm64-v8a", "armeabi-v7a", "x86_64")
-            isUniversalApk = true
+            isUniversalApk = buildUniversalApk
         }
     }
 
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
-            isMinifyEnabled = false
+            isMinifyEnabled = optimizeDebugApks
+            isShrinkResources = optimizeDebugApks
+            if (optimizeDebugApks) {
+                proguardFiles(
+                    getDefaultProguardFile("proguard-android-optimize.txt"),
+                    "proguard-rules.pro"
+                )
+            }
         }
         release {
             isMinifyEnabled = true
@@ -160,7 +171,6 @@ dependencies {
     implementation(libs.camerax.camera2)
     implementation(libs.camerax.lifecycle)
     implementation(libs.camerax.view)
-    implementation(libs.mlkit.barcode)
     implementation(libs.accompanist.permissions)
     implementation(libs.zxing.core)
 

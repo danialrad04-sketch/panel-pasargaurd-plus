@@ -38,7 +38,7 @@ The app uses a clean `VpnCore` abstraction (`vpn/core/VpnCore.kt`) with automati
   - **How to update Xray-core**:
     1. Download the newest `libv2ray.aar` from [`2dust/AndroidLibXrayLite/releases`](https://github.com/2dust/AndroidLibXrayLite/releases).
     2. Replace `android-client/app/libs/libv2ray.aar`.
-    3. Run `./gradlew :app:testDebugUnitTest :app:assembleDebug` to verify JNI compatibility and build fresh universal + ABI-split APKs.
+    3. Run `./gradlew :app:testDebugUnitTest :app:assembleDebug` to verify JNI compatibility and build fresh per-ABI APKs.
 
 - **Secondary Core — `SingBoxCore` (optional `app/libs/libbox.aar`)**:
   - Used automatically for protocols Xray-core does not support (`Hysteria2`, `TUIC`, `WireGuard`) or when manually selected in **Settings -> VPN Core Engine**.
@@ -93,3 +93,12 @@ cd android-client
 ```
 
 Outputs are generated under `app/build/outputs/apk/` and `app/build/outputs/bundle/`.
+
+GitHub Actions publishes one APK per download. Most current Android phones use
+`arm64-v8a`, older 32-bit ARM phones use `armeabi-v7a`, and x86-64 Android
+devices use `x86_64`. Use the APK matching the device.
+
+The GitHub Debug downloads use R8 and resource shrinking. Local Debug builds
+stay debuggable, and can use the same optimization with
+`-PpasarguardOptimizeDebug=true`. For a larger APK that includes every
+supported architecture, opt in with `-PpasarguardUniversalApk=true`.
