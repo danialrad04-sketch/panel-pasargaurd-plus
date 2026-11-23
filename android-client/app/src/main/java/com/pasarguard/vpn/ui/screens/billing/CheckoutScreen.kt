@@ -66,6 +66,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -476,8 +477,10 @@ fun CheckoutScreen(
     }
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    LaunchedEffect(state.purchaseConnected, state.selectedReceiptPath, state.isPreparingReceipt, state.isSubmittingReceipt) {
-        if (state.purchaseConnected && state.selectedReceiptPath == null && !state.isPreparingReceipt && !state.isSubmittingReceipt) {
+    var pickingPhoto by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(state.purchaseConnected, state.selectedReceiptPath, state.isPreparingReceipt, state.isSubmittingReceipt, pickingPhoto) {
+        if (state.purchaseConnected && state.selectedReceiptPath == null &&
+            !state.isPreparingReceipt && !state.isSubmittingReceipt && !pickingPhoto) {
             onDoneHome()
         }
     }
@@ -489,10 +492,14 @@ fun CheckoutScreen(
     val currency = stringResource(R.string.currency_toman)
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) viewModel.chooseReceipt(uri)
+        pickingPhoto = false
     }
     val receiptContent: @Composable () -> Unit = {
         ReceiptAttachment(
-            state, { photoPicker.launch("image/*") }, viewModel::removeReceipt,
+            state, {
+                pickingPhoto = true
+                photoPicker.launch("image/*")
+            }, viewModel::removeReceipt,
             onSubmit = if (state.step == CheckoutStep.CARD_TO_CARD) null else viewModel::submitReceipt
         )
     }
