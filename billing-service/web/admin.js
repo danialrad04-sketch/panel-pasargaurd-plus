@@ -458,8 +458,12 @@ get("apk-upload").addEventListener("click", async (event) => {
 
 get("release-platform").addEventListener("change", fillReleaseEditor);
 get("release-github").addEventListener("click", async (event) => {
-  if (!window.confirm("تنظیم دستی نسخه حذف و انتشار GitHub استفاده شود؟")) return;
   const trigger = event.currentTarget;
+  const dialog = get("source-dialog");
+  dialog.returnValue = "";
+  const answer = new Promise(resolve => dialog.addEventListener("close", () => resolve(dialog.returnValue), { once: true }));
+  dialog.showModal();
+  if (await answer !== "apply") return;
   trigger.disabled = true;
   try {
     await request("/api/releases/android", { method: "DELETE" });
@@ -843,3 +847,32 @@ get("plan-form").addEventListener("submit", async (event) => {
 });
 
 navigate();
+
+const sectionsDialog = get("sections-dialog");
+const sectionQuery = get("section-query");
+function filterSections() {
+  const links = [...get("section-links").children];
+  for (const link of links) link.hidden = !link.textContent.includes(sectionQuery.value.trim());
+  get("no-section").hidden = links.some(link => !link.hidden);
+}
+function openSections() {
+  sectionQuery.value = "";
+  filterSections();
+  sectionsDialog.showModal();
+  sectionQuery.focus();
+}
+for (const source of document.querySelectorAll(".navigation a")) {
+  const link = source.cloneNode(true);
+  link.removeAttribute("data-tab");
+  link.removeAttribute("aria-current");
+  link.addEventListener("click", () => sectionsDialog.close());
+  get("section-links").append(link);
+}
+sectionQuery.addEventListener("input", filterSections);
+get("open-sections").addEventListener("click", openSections);
+document.addEventListener("keydown", event => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k" && !document.querySelector("dialog[open]")) {
+    event.preventDefault();
+    openSections();
+  }
+});

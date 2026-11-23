@@ -33,7 +33,7 @@
     </aside>
     <main id="main" tabindex="-1">
       <header class="topbar">
-        <div class="crumb">مدیریت پرداخت <span aria-hidden="true">/</span> <strong id="title">نمای کلی</strong></div>
+        <button id="open-sections" class="button subtle" aria-haspopup="dialog" aria-controls="sections-dialog">بخش‌ها</button><div class="crumb">مدیریت پرداخت <span aria-hidden="true">/</span> <strong id="title">نمای کلی</strong></div>
         <form id="global-search-form" class="top-search" role="search">
           <label class="sr-only" for="global-search">جست‌وجوی سفارش</label>
           <button class="button icon-button" type="submit" aria-label="جست‌وجوی سفارش"><i class="icon i-search" aria-hidden="true"></i></button>
@@ -206,6 +206,11 @@
       </div>
     </main>
   </div>
+  <dialog id="sections-dialog" aria-labelledby="sections-title">
+    <header class="dialog-head"><h2 id="sections-title">رفتن به بخش</h2><form method="dialog"><button class="button subtle">بستن</button></form></header>
+    <div class="switcher"><label class="field">جست‌وجوی بخش<input id="section-query" type="search" autofocus></label><nav id="section-links" aria-label="انتخاب بخش"></nav><p id="no-section" hidden>بخشی پیدا نشد.</p></div>
+  </dialog>
+  <dialog id="source-dialog" aria-labelledby="source-title"><header class="dialog-head"><h2 id="source-title">تغییر منبع نسخهٔ اندروید</h2></header><form method="dialog" class="switcher"><p>تنظیم دستی نسخه حذف می‌شود و برنامه نسخهٔ منتشرشده در GitHub را پیشنهاد می‌دهد.</p><div class="dialog-actions"><button value="cancel" class="button subtle" autofocus>انصراف</button><button class="button primary" value="apply">استفاده از GitHub</button></div></form></dialog>
   <dialog id="order-dialog" aria-labelledby="detail-title">
     <div class="dialog-head"><div><h2 id="detail-title">جزئیات سفارش</h2><p id="detail-id" dir="ltr"></p></div><form method="dialog"><button class="button subtle" type="submit" aria-label="بستن جزئیات سفارش">بستن</button></form></div>
     <div id="detail-content"></div>
@@ -214,7 +219,7 @@
     <div class="dialog-head"><h2 id="plan-dialog-title">پلن</h2><button type="button" id="close-plan" class="button subtle">بستن</button></div>
     <form id="plan-form" class="settings-form plan-editor">
       <p id="plan-notice" role="status" class="notice" hidden></p>
-      <label class="field">شناسهٔ ثابت پلن<input name="id" dir="ltr" maxlength="80" pattern="[a-z0-9_][a-z0-9_\-]{0,79}" required></label>
+      <fieldset><legend>مشخصات و ترتیب نمایش</legend><label class="field">شناسهٔ ثابت پلن<input name="id" dir="ltr" maxlength="80" pattern="[a-z0-9_][a-z0-9_\-]{0,79}" required></label>
       <div class="field-pair">
         <label class="field">نام فارسی<input name="title_fa" maxlength="100" required></label>
         <label class="field">نام انگلیسی<input name="title_en" dir="ltr" maxlength="100" required></label>
@@ -223,7 +228,7 @@
         <label class="field">نوع پلن<select name="category"><option value="RENEW">اشتراک یا تمدید</option><option value="UPGRADE">ارتقا</option><option value="EXTRA_TRAFFIC">حجم اضافه</option><option value="EXTRA_DAYS">زمان اضافه</option></select></label>
         <label class="field">ترتیب نمایش<input name="sort_order" type="number" inputmode="numeric" min="0" max="100000" required></label>
       </div>
-      <div class="field-pair">
+      </fieldset><fieldset><legend>تعرفه و محدودیت‌ها</legend><div class="field-pair">
         <label class="field">قیمت (تومان)<input name="price_toman" type="number" inputmode="numeric" min="100" max="1000000000" required></label>
         <label class="field">قیمت قبلی (تومان)<input name="old_price_toman" type="number" inputmode="numeric" min="100" max="1000000000"></label>
       </div>
@@ -232,7 +237,7 @@
         <label class="field">مدت (روز)<input name="duration_days" type="number" min="0" max="3650" required></label>
       </div>
       <label class="field">تعداد دستگاه<input name="max_devices" type="number" min="1" max="1000" placeholder="پیش‌فرض پنل"></label>
-      <div class="field-pair">
+      </fieldset><fieldset><legend>نمایش در برنامه</legend><div class="field-pair">
         <label class="field">برچسب فارسی<input name="tag_fa" maxlength="50"></label>
         <label class="field">برچسب انگلیسی<input name="tag_en" dir="ltr" maxlength="50"></label>
       </div>
@@ -241,7 +246,7 @@
       <label class="check"><input name="is_popular" type="checkbox"> محبوب</label>
       <label class="check"><input name="is_best_value" type="checkbox"> ارزش خرید</label>
       <label class="check"><input name="visible" type="checkbox" checked> نمایش برای مشتری</label>
-      <button class="button primary" type="submit">ذخیرهٔ پلن</button>
+      </fieldset><button class="button primary" type="submit">ذخیرهٔ پلن</button>
     </form>
   </dialog>
 </body>

@@ -525,3 +525,24 @@ a.metric:hover { border-color: var(--focus); }
   .table-area td:has(strong,p) { flex-wrap:wrap; }
   .table-area td button { min-height:44px; }
 }
+
+dialog { inset:0; margin:auto; width:min(640px,94vw); height:fit-content; max-height:88dvh; border:1px solid var(--line); border-radius:20px; box-shadow:0 28px 90px #081e2760; }
+dialog::backdrop { background:#091e29aa; backdrop-filter:blur(4px); }
+.dialog-head { align-items:center; padding:1rem 1.35rem; border-block-start:4px solid #9c8053; }
+.switcher, .plan-editor fieldset { display:grid; gap:.85rem; padding:1.15rem; }
+.plan-editor fieldset { min-width:0; margin:0; border:1px solid var(--line); border-radius:14px; }
+.plan-editor legend { padding-inline:.5rem; font-weight:700; }
+#section-links { display:grid; grid-template-columns:1fr 1fr; gap:.6rem; }
+#section-links a { display:flex; align-items:center; gap:.7rem; min-height:48px; border:1px solid var(--line); padding:.65rem; border-radius:12px; background:var(--surface-alt); }
+#section-links a:hover { border-color:var(--focus); }
+.listing .filters { padding:.85rem; background:var(--surface-alt); border-radius:12px; }
+.activity li { padding-block:.35rem; }
+#detail-content .confirmation { border-inline-start:3px solid var(--amber); }
+@media(max-width:740px) {
+  .sidebar { display:none; }
+  .shell { padding-block-end:env(safe-area-inset-bottom); }
+  .topbar { gap:.35rem; padding-inline:.45rem; }
+  dialog { width:100%; margin:auto auto 0; inset:0; max-height:92dvh; border-radius:22px 22px 0 0; padding-block-end:env(safe-area-inset-bottom); }
+  .dialog-actions .button { flex:1; min-height:46px; }
+  #open-sections { flex:none; min-height:44px; }
+}
