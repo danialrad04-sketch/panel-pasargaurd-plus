@@ -23,6 +23,7 @@ from urllib.request import Request, build_opener
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
+import customer_accounts
 import provisioning
 from cryptography.fernet import Fernet, InvalidToken
 from fastapi import (
@@ -117,6 +118,7 @@ def initialize():
         ZoneInfo("Asia/Tehran")
     catalog()
     with transaction() as db:
+        customer_accounts.initialize(db)
         db.execute("""CREATE TABLE IF NOT EXISTS orders (
             id TEXT PRIMARY KEY, owner TEXT NOT NULL, request_key TEXT NOT NULL,
             amount INTEGER NOT NULL UNIQUE, status TEXT NOT NULL,
@@ -164,6 +166,27 @@ def initialize():
         )""")
         db.execute("CREATE INDEX IF NOT EXISTS decisions_timestamp ON decisions(timestamp)")
         db.execute("CREATE INDEX IF NOT EXISTS admin_activity_timestamp ON admin_activity(timestamp)")
+        db.execute("""CREATE TABLE IF NOT EXISTS customer_refunds (
+            order_id TEXT PRIMARY KEY REFERENCES orders(id), customer_id TEXT NOT NULL REFERENCES customer_accounts(id),
+            requested INTEGER NOT NULL, next_run INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0,
+            amount INTEGER, finished INTEGER
+        )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS wallet_entries (
+            order_id TEXT PRIMARY KEY REFERENCES customer_refunds(order_id),
+            customer_id TEXT NOT NULL REFERENCES customer_accounts(id), amount INTEGER NOT NULL CHECK (amount>=0),
+            created INTEGER NOT NULL
+        )""")
+        db.execute("CREATE INDEX IF NOT EXISTS wallet_entries_customer ON wallet_entries(customer_id, created)")
+        db.execute("""CREATE TABLE IF NOT EXISTS wallet_debits (
+            order_id TEXT PRIMARY KEY REFERENCES orders(id),
+            customer_id TEXT NOT NULL REFERENCES customer_accounts(id), amount INTEGER NOT NULL CHECK (amount>0),
+            created INTEGER NOT NULL
+        )""")
+        db.execute("CREATE INDEX IF NOT EXISTS wallet_debits_customer ON wallet_debits(customer_id)")
+        db.execute("""CREATE TABLE IF NOT EXISTS customer_order_transfers (
+            order_id TEXT PRIMARY KEY REFERENCES orders(id), owner TEXT NOT NULL, digest TEXT NOT NULL UNIQUE,
+            expires INTEGER NOT NULL
+        )""")
         db.execute("""CREATE TABLE IF NOT EXISTS billing_plan_overrides (
             id TEXT PRIMARY KEY, config TEXT NOT NULL
         )""")
@@ -210,7 +233,71 @@ def process_provisioning_job():
         row = db.execute("SELECT details FROM orders WHERE id=?", (order_id,)).fetchone()
         details = json.loads(row["details"])
         details["activation_status"] = "READY"
+        details["activation_started_at_ms"] = now()
         db.execute("UPDATE orders SET details=? WHERE id=?", (json.dumps(details), order_id))
+
+
+def refundable_amount(amount, purchased, request_time, panel_expire):
+    duration = purchased["purchased_plan"]["duration_days"] * 86_400_000
+    if duration <= 0:
+        return 0
+    starts = purchased.get("activation_started_at_ms") or purchased["reviewed_at_ms"]
+    try:
+        if isinstance(panel_expire, str):
+            expiration = datetime.fromisoformat(panel_expire)
+            if expiration.tzinfo is None:
+                raise ValueError
+            expire_ms = int(expiration.timestamp() * 1000)
+        elif type(panel_expire) is int:
+            expire_ms = panel_expire if panel_expire >= 1_000_000_000_000 else panel_expire * 1000
+        else:
+            raise ValueError
+    except (ValueError, OverflowError):
+        raise provisioning.PanelError() from None
+    remaining = max(0, min(duration, min(starts + duration, expire_ms) - request_time))
+    return amount * remaining // duration
+
+
+def process_refund_job():
+    current = now()
+    with transaction() as db:
+        job = db.execute(
+            """SELECT r.*, COALESCE(json_extract(o.details, '$.wallet_paid_toman'), o.amount) AS order_amount,
+               o.details FROM customer_refunds r
+               JOIN orders o ON o.id=r.order_id WHERE r.finished IS NULL AND r.next_run<=?
+               ORDER BY r.next_run LIMIT 1""", (current,),
+        ).fetchone()
+        if not job:
+            return
+        db.execute("UPDATE customer_refunds SET attempts=attempts+1, next_run=? WHERE order_id=?",
+                   (current + 120_000, job["order_id"]))
+    order_id = job["order_id"]
+    try:
+        config = provision_config()
+        account = provisioning.refund_account(order_id, config)
+        amount = job["amount"]
+        if amount is None:
+            amount = refundable_amount(job["order_amount"], json.loads(job["details"]), job["requested"],
+                                       account.get("expire"))
+            with transaction() as db:
+                db.execute("UPDATE customer_refunds SET amount=? WHERE order_id=? AND amount IS NULL",
+                           (amount, order_id))
+        provisioning.disable_for_refund(order_id, config, account)
+    except provisioning.PanelError:
+        delay = min(300_000, 10_000 * 2**min(job["attempts"], 5))
+        with transaction() as db:
+            db.execute("UPDATE customer_refunds SET next_run=? WHERE order_id=? AND finished IS NULL",
+                       (now() + delay, order_id))
+        return
+    with transaction() as db:
+        completed = now()
+        result = db.execute("UPDATE customer_refunds SET finished=? WHERE order_id=? AND finished IS NULL",
+                            (completed, order_id))
+        if result.rowcount:
+            db.execute("""INSERT INTO wallet_entries (order_id, customer_id, amount, created)
+                          SELECT order_id, customer_id, amount, ? FROM customer_refunds WHERE order_id=?""",
+                       (completed, order_id))
+            db.execute("INSERT INTO decisions VALUES (?, ?, ?)", (order_id, "CUSTOMER_CANCELLED", completed))
 
 
 @app.on_event("startup")
@@ -219,6 +306,7 @@ async def start_provisioning_worker():
         while True:
             try:
                 await asyncio.to_thread(process_provisioning_job)
+                await asyncio.to_thread(process_refund_job)
             except Exception:
                 logging.getLogger(__name__).exception("Subscription provisioning worker failed")
             await asyncio.sleep(3)
@@ -237,7 +325,7 @@ async def stop_provisioning_worker():
 @app.middleware("http")
 async def prevent_billing_cache(request, call_next):
     response = await call_next(request)
-    if request.url.path.startswith(("/v1/billing/", "/admin")):
+    if request.url.path.startswith(("/v1/billing/", "/v1/customer/", "/account", "/admin")):
         response.headers["Cache-Control"] = "no-store"
     return response
 
@@ -296,13 +384,18 @@ def customer(x_subscription_token: str = Header(default="")):
 class BillingActor:
     owner: str
     subscriber: str | None
+    account_id: str | None = None
 
     @property
     def is_guest(self):
         return self.subscriber is None
 
 
-def billing_actor(x_subscription_token: str = Header(default=""), x_purchase_token: str = Header(default="")):
+def billing_actor(request: IncomingRequest, x_subscription_token: str = Header(default=""), x_purchase_token: str = Header(default="")):
+    if not x_subscription_token and (account := customers.current(request)):
+        if request.method not in ("GET", "HEAD"):
+            verify_admin_origin(request)
+        return BillingActor(account_owner(account["id"]), None, account["id"])
     if x_purchase_token:
         if x_subscription_token or not re.fullmatch(r"[0-9a-f]{64}", x_purchase_token):
             raise HTTPException(401)
@@ -374,12 +467,13 @@ def catalog(db=None):
 def present(row, *, admin=False):
     data = json.loads(row["details"])
     data.pop("purchased_plan", None)
+    amount = data.pop("wallet_paid_toman", row["amount"])
     if not admin:
         data.pop("subscriber", None)
     status = row["status"]
     if status == "AWAITING_RECEIPT" and row["expires"] <= now():
         status = "EXPIRED"
-    return dict(data, id=row["id"], status=status, final_price_toman=row["amount"],
+    return dict(data, id=row["id"], status=status, final_price_toman=amount,
                 created_at_ms=row["created"], expires_at_ms=row["expires"])
 
 
@@ -404,8 +498,11 @@ class OrderRequest(BaseModel):
 def create_order(body: OrderRequest, idempotency_key: Annotated[UUID, Header()], request: IncomingRequest,
                  actor=Depends(billing_actor)):
     owner = actor.owner
-    if body.payment_method != "CARD_TO_CARD" or body.discount_code:
-        raise HTTPException(422, "Only card-to-card orders without a discount are supported")
+    if body.payment_method not in ("CARD_TO_CARD", "WALLET") or body.discount_code:
+        raise HTTPException(422, "Unsupported payment method or discount")
+    with_wallet = body.payment_method == "WALLET"
+    if with_wallet and not actor.account_id:
+        raise HTTPException(401)
     if actor.is_guest:
         ensure_guest_checkout()
     with transaction() as db:
@@ -414,7 +511,8 @@ def create_order(body: OrderRequest, idempotency_key: Annotated[UUID, Header()],
             "SELECT * FROM orders WHERE owner=? AND request_key=?", (owner, key)
         ).fetchone()
         if previous:
-            if json.loads(previous["details"])["plan_id"] != body.plan_id:
+            details = json.loads(previous["details"])
+            if details["plan_id"] != body.plan_id or details["payment_method"] != body.payment_method:
                 raise HTTPException(409)
             return present(previous)
         current = now()
@@ -443,19 +541,28 @@ def create_order(body: OrderRequest, idempotency_key: Annotated[UUID, Header()],
         if actor.is_guest and plan["category"] != "RENEW":
             raise HTTPException(422)
         price = plan["price_toman"]
-        used = {r[0] for r in db.execute(
-            "SELECT amount FROM orders WHERE amount BETWEEN ? AND ? UNION SELECT amount FROM deposits WHERE amount BETWEEN ? AND ?",
-            (price, price + 999, price, price + 999)
-        )}
-        amount = next((n for n in range(price, price + 1000) if n not in used), None)
-        if amount is None:
-            raise HTTPException(503, "Payment amount range exhausted")
+        if with_wallet:
+            if wallet_balance(db, actor.account_id) < price:
+                raise HTTPException(409, "INSUFFICIENT_WALLET")
+            # Wallet orders cannot match a positive bank deposit. The amount column remains
+            # unique for existing installations. Display and ledgers use the debit amount.
+            lowest = db.execute("SELECT MIN(amount) FROM orders").fetchone()[0]
+            amount = min(lowest or 0, 0) - 1
+        else:
+            used = {r[0] for r in db.execute(
+                """SELECT amount FROM orders WHERE amount BETWEEN ? AND ?
+                   UNION SELECT amount FROM deposits WHERE amount BETWEEN ? AND ?""",
+                (price, price + 999, price, price + 999),
+            )}
+            amount = next((n for n in range(price, price + 1000) if n not in used), None)
+            if amount is None:
+                raise HTTPException(503, "Payment amount range exhausted")
         details = {
             "plan_id": plan["id"],
             "plan_title_fa": plan["title_fa"],
             "plan_title_en": plan["title_en"],
             "plan_category": plan["category"],
-            "payment_method": "CARD_TO_CARD",
+            "payment_method": body.payment_method,
             "base_price_toman": price,
             "destination_card": config["destination_card"],
             "subscriber": actor.subscriber or "خرید اشتراک جدید",
@@ -463,6 +570,8 @@ def create_order(body: OrderRequest, idempotency_key: Annotated[UUID, Header()],
         if actor.is_guest:
             details["new_subscription"] = True
             details["purchased_plan"] = {key: plan[key] for key in ("duration_days", "data_limit_gb", "max_devices")}
+        if with_wallet:
+            details["wallet_paid_toman"] = price
         order_id = uuid4().hex
         db.execute("INSERT INTO orders VALUES (?,?,?,?,?,?,?,?)", (
             order_id, owner, key, amount, "AWAITING_RECEIPT", current,
@@ -470,6 +579,9 @@ def create_order(body: OrderRequest, idempotency_key: Annotated[UUID, Header()],
         ))
         if actor.is_guest:
             db.execute("INSERT INTO guest_reservations VALUES (?,?,?)", (order_id, source, current))
+        if with_wallet:
+            db.execute("INSERT INTO wallet_debits VALUES (?, ?, ?, ?)", (order_id, actor.account_id, price, current))
+            decide(db, order_id, "APPROVED", "WALLET_PAID")
         return present(db.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone())
 
 
@@ -498,11 +610,14 @@ def get_purchased_subscription(order_id: str, actor=Depends(billing_actor)):
         raise HTTPException(404)
     with transaction(write=False) as db:
         row = db.execute(
-            """SELECT o.status, j.ready FROM orders o LEFT JOIN provisioning_jobs j ON j.order_id=o.id
-               WHERE o.id=? AND o.owner=?""", (order_id, actor.owner),
+            """SELECT o.status, j.ready, r.order_id AS cancelled FROM orders o
+               LEFT JOIN provisioning_jobs j ON j.order_id=o.id
+               LEFT JOIN customer_refunds r ON r.order_id=o.id WHERE o.id=? AND o.owner=?""", (order_id, actor.owner),
         ).fetchone()
         if not row:
             raise HTTPException(404)
+        if row["cancelled"]:
+            raise HTTPException(409, "SUBSCRIPTION_CANCELLED")
         if row["status"] != "APPROVED" or not row["ready"]:
             raise HTTPException(409, "SUBSCRIPTION_PENDING")
     try:
@@ -667,6 +782,99 @@ def verify_admin_origin(request):
         raise HTTPException(403)
 
 
+customers = customer_accounts.CustomerAccounts(transaction, secret_digest, now, reservation_source, verify_admin_origin)
+app.include_router(customers.router)
+
+
+def account_owner(account_id):
+    return secret_digest("customer-account:" + account_id)
+
+
+def wallet_balance(db, account_id):
+    return db.execute("""SELECT
+        (SELECT COALESCE(SUM(amount), 0) FROM wallet_entries WHERE customer_id=?) -
+        (SELECT COALESCE(SUM(amount), 0) FROM wallet_debits WHERE customer_id=?)
+    """, (account_id, account_id)).fetchone()[0]
+
+
+@app.get("/v1/customer/wallet")
+def customer_wallet(request: IncomingRequest):
+    account = customers.require(request)
+    with transaction(write=False) as db:
+        balance = wallet_balance(db, account["id"])
+        refunds = [dict(row) for row in db.execute(
+            """SELECT order_id, CASE WHEN finished IS NULL THEN NULL ELSE amount END AS amount,
+               requested, finished FROM customer_refunds WHERE customer_id=? ORDER BY requested DESC LIMIT 100""",
+            (account["id"],),
+        )]
+    return {"balance_toman": balance, "refunds": refunds}
+
+
+@app.post("/v1/billing/orders/{order_id}/transfer-ticket")
+def order_transfer_ticket(order_id: str, x_purchase_token: str = Header(default="")):
+    if not re.fullmatch(r"[0-9a-f]{64}", x_purchase_token):
+        raise HTTPException(401)
+    owner = secret_digest("purchase:" + x_purchase_token)
+    ticket = secrets.token_urlsafe(32)
+    with transaction() as db:
+        row = db.execute("""SELECT 1 FROM orders o JOIN provisioning_jobs j ON j.order_id=o.id
+                            WHERE o.id=? AND o.owner=? AND j.ready=1 AND o.status='APPROVED'""",
+                         (order_id, owner)).fetchone()
+        if not row:
+            raise HTTPException(404)
+        db.execute("DELETE FROM customer_order_transfers WHERE expires<=?", (now(),))
+        db.execute("INSERT OR REPLACE INTO customer_order_transfers VALUES (?, ?, ?, ?)",
+                   (order_id, owner, secret_digest("transfer:" + ticket), now() + 15 * MINUTE_MS))
+    return {"ticket": ticket}
+
+
+class TransferRequest(BaseModel):
+    ticket: str = Field(pattern=r"^[A-Za-z0-9_-]{43}$")
+
+
+@app.post("/v1/customer/claim")
+def claim_customer_order(body: TransferRequest, request: IncomingRequest):
+    verify_admin_origin(request)
+    account = customers.require(request)
+    with transaction() as db:
+        ticket = db.execute("SELECT * FROM customer_order_transfers WHERE digest=? AND expires>?",
+                            (secret_digest("transfer:" + body.ticket), now())).fetchone()
+        if not ticket:
+            raise HTTPException(404, "TRANSFER_EXPIRED")
+        updated = db.execute("UPDATE orders SET owner=? WHERE id=? AND owner=?",
+                             (account_owner(account["id"]), ticket["order_id"], ticket["owner"]))
+        if updated.rowcount != 1:
+            raise HTTPException(409)
+        db.execute("DELETE FROM customer_order_transfers WHERE order_id=?", (ticket["order_id"],))
+    return Response(status_code=204)
+
+
+@app.post("/v1/customer/orders/{order_id}/cancel")
+def cancel_customer_subscription(order_id: str, request: IncomingRequest):
+    verify_admin_origin(request)
+    account = customers.require(request)
+    with transaction() as db:
+        order = db.execute(
+            """SELECT o.status, o.details, j.ready FROM orders o
+               LEFT JOIN provisioning_jobs j ON j.order_id=o.id WHERE o.id=? AND o.owner=?""",
+            (order_id, account_owner(account["id"])),
+        ).fetchone()
+        if not order:
+            raise HTTPException(404)
+        if order["status"] != "APPROVED" or not order["ready"]:
+            raise HTTPException(409, "SUBSCRIPTION_NOT_READY")
+        current = now()
+        details = json.loads(order["details"])
+        started = details.get("activation_started_at_ms") or details["reviewed_at_ms"]
+        if (db.execute("SELECT 1 FROM customer_refunds WHERE order_id=?", (order_id,)).fetchone() is None
+                and started + details["purchased_plan"]["duration_days"] * 86_400_000 <= current):
+            raise HTTPException(409, "SUBSCRIPTION_EXPIRED")
+        db.execute("""INSERT INTO customer_refunds (order_id, customer_id, requested, next_run)
+                      VALUES (?, ?, ?, ?) ON CONFLICT(order_id) DO NOTHING""",
+                   (order_id, account["id"], current, current))
+    return Response(status_code=202)
+
+
 def admin_session_digest(token):
     return secret_digest("admin-session:" + setting("ADMIN_PASSWORD") + ":" + token)
 
@@ -699,6 +907,16 @@ def login_page(message="", status_code=200, headers=None):
     if message:
         html = html.replace("<!-- login-error -->", f'<p class="login-error" role="alert">{message}</p>')
     return HTMLResponse(html, status_code=status_code, headers={**ADMIN_HEADERS, **(headers or {})})
+
+
+@app.get("/account")
+def customer_portal():
+    return FileResponse(WEB / "account.html", headers=ADMIN_HEADERS)
+
+
+@app.get("/account/app.js")
+def customer_portal_script():
+    return FileResponse(WEB / "account.js", media_type="text/javascript", headers=ADMIN_HEADERS)
 
 
 @app.get("/admin/login")
@@ -801,10 +1019,11 @@ def admin_overview(days: int = 7):
     boundaries = [int((today - timedelta(days=i)).timestamp() * 1000) for i in range(days - 1, -2, -1)]
     with transaction(write=False) as db:
         approved = db.execute(
-            """SELECT o.amount, d.timestamp, d.decision FROM decisions d
+            """SELECT COALESCE(json_extract(o.details, '$.wallet_paid_toman'), o.amount) AS amount,
+                      d.timestamp, d.decision FROM decisions d
                JOIN orders o ON o.id=d.order_id
                WHERE d.timestamp>=? AND d.timestamp<=?
-               AND d.decision IN ('SMS_APPROVED', 'ADMIN_APPROVED') AND o.status='APPROVED'""",
+               AND d.decision IN ('SMS_APPROVED', 'ADMIN_APPROVED', 'WALLET_PAID') AND o.status='APPROVED'""",
             (boundaries[0], current),
         ).fetchall()
         pending = db.execute("SELECT count(*) FROM orders WHERE status='PENDING_REVIEW'").fetchone()[0]
@@ -831,7 +1050,7 @@ def admin_overview(days: int = 7):
         "series": series,
         "approved_amount": sum(row["amount"] for row in approved),
         "approved_count": len(approved),
-        "automatic_count": sum(row["decision"] == "SMS_APPROVED" for row in approved),
+        "automatic_count": sum(row["decision"] in ("SMS_APPROVED", "WALLET_PAID") for row in approved),
         "pending_count": pending,
         "unmatched_count": unmatched,
         "orders": recent_orders,
@@ -886,7 +1105,8 @@ def export_orders(status: str = "", q: str = Query(default="", max_length=100), 
     writer.writerow(("order_id", "amount_toman", "status", "created_at_utc", "has_receipt_image"))
     with transaction(write=False) as db:
         rows = db.execute(
-            """SELECT id, amount, shown_status, created, json_extract(details, '$.has_receipt_image') AS image """
+            """SELECT id, COALESCE(json_extract(details, '$.wallet_paid_toman'), amount) AS amount,
+                      shown_status, created, json_extract(details, '$.has_receipt_image') AS image """
             + query + " ORDER BY created DESC, id DESC LIMIT ?",
             (*values, EXPORT_MAX_ROWS + 1),
         )

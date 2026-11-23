@@ -162,6 +162,14 @@ private struct MainView: View {
 
     private var account: some View {
         List {
+            Section("حساب و خرید") {
+                NavigationLink { PlanCatalogView() } label: { Label("پلن‌های اشتراک", systemImage: "list.bullet") }
+                if let billing = BillingOrigin.url {
+                    Link(destination: billing.appendingPathComponent("account")) {
+                        Label("حساب کاربری و کیف پول", systemImage: "wallet.pass")
+                    }
+                }
+            }
             Section("اطلاعات اشتراک") {
                 if let info = subscription.info {
                     if let username = info.username { LabeledContent("نام اشتراک", value: username) }

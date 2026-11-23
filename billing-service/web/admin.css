@@ -444,3 +444,14 @@ a.metric:hover { border-color: var(--focus); }
 
 .plan-editor { padding: 1rem 1.05rem 1.6rem; }
 .plan-editor textarea { resize: vertical; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: .5rem .65rem; }
+
+.account-content { max-width: 850px; }
+.account-content .settings-form { margin-block-start: 1rem; }
+.account-wallet > p { margin-block: .3rem .9rem; }
+.account-wallet strong { font: 740 2.25rem/1.45 Estedad, Vazirmatn, sans-serif; }
+.account-block { margin-block-start: 1rem; }
+.account-list { display: grid; gap: .65rem; }
+.account-item { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .55rem; padding: .65rem; border: 1px solid var(--line); border-radius: 10px; }
+.account-item > div { min-width: 0; overflow-wrap: anywhere; }
+.account-item p { color: var(--muted); font-size: .85rem; }
+.account-item .button { margin-inline-end: .35rem; }

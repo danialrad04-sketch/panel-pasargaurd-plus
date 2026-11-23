@@ -82,6 +82,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.pasarguard.vpn.BuildConfig
 import com.pasarguard.vpn.BrandConfig
 import com.pasarguard.vpn.R
 import com.pasarguard.vpn.domain.model.AppLanguage
@@ -776,6 +777,13 @@ fun SubscriptionScreen(
                         Spacer(Modifier.width(Spacing.sm))
                         Text(stringResource(R.string.sub_contact_support))
                     }
+                }
+
+                if (BuildConfig.BILLING_BASE_URL.isNotBlank()) {
+                    OutlinedButton(
+                        onClick = { Formatters.openExternalUrl(context, BuildConfig.BILLING_BASE_URL.trimEnd('/') + "/account") },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(stringResource(R.string.customer_portal)) }
                 }
 
                 Spacer(Modifier.height(Spacing.lg))

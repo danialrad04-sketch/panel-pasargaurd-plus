@@ -25,6 +25,7 @@ targets:
       properties:
         CFBundleDisplayName: PasarGuard VPN
         AppGroupIdentifier: $(APP_GROUP_ID)
+        BillingOrigin: https://pay.esfahanmarket.shop
         PacketTunnelIdentifier: $(APP_BUNDLE_ID).PacketTunnel
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]

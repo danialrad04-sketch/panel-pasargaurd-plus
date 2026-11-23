@@ -468,4 +468,7 @@
     <string name="checkout_receipt_preparing">Preparing photo…</string>
     <string name="checkout_receipt_image_saved">Receipt photo received by the payment panel.</string>
     <string name="checkout_receipt_image_problem">The receipt could not be sent. Try another photo or send it again.</string>
+    <string name="customer_portal">Account and wallet</string>
+    <string name="order_transfer_to_account">Transfer order to account</string>
+    <string name="order_transfer_unavailable">Order transfer is currently unavailable.</string>
 </resources>

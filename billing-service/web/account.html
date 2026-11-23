@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>حساب پاسارگارد پلاس</title>
+  <link rel="stylesheet" href="/admin/dashboard.css">
+  <script src="/account/app.js" defer></script>
+</head>
+<body>
+  <main class="content account-content">
+    <header class="page-heading page-heading-row">
+      <div><h1>حساب پاسارگارد</h1><p id="email-display"></p></div>
+      <button class="button subtle" id="logout" type="button" hidden>خروج</button>
+    </header>
+    <p class="notice" id="notice" role="status" hidden></p>
+    <section class="surface" id="auth" hidden>
+      <h2>ورود یا ساخت حساب</h2>
+      <form id="auth-form" class="settings-form">
+        <label class="field">نشانی Gmail<input type="email" name="email" dir="ltr" autocomplete="email" maxlength="128" required></label>
+        <label class="field">رمز حساب پاسارگارد<input type="password" name="password" dir="ltr" maxlength="128" autocomplete="current-password"></label>
+        <div class="field-pair">
+          <button type="submit" class="button primary" id="sign-in">ورود</button>
+          <button type="button" class="button subtle" id="send-code">ساخت حساب یا بازیابی رمز</button>
+        </div>
+        <fieldset class="settings-form" id="verification" hidden>
+          <legend>تأیید نشانی ایمیل</legend>
+          <label class="field">کد ۶ رقمی<input name="code" dir="ltr" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></label>
+          <label class="field">رمز جدید پاسارگارد (حداقل ۱۲ نویسه)<input type="password" name="new_password" dir="ltr" maxlength="128" autocomplete="new-password"></label>
+          <button type="button" class="button primary" id="verify">ثبت رمز و ورود</button>
+        </fieldset>
+      </form>
+    </section>
+    <section id="account" hidden>
+      <article class="surface account-block" id="transfer" hidden>
+        <h2>انتقال سفارش به این حساب</h2>
+        <p>با تأیید، مدیریت سفارش و اعتبار احتمالی لغو به همین حساب منتقل می‌شود.</p>
+        <button type="button" class="button primary" id="claim-order">تأیید انتقال</button>
+      </article>
+      <article class="surface account-wallet">
+        <h2>کیف پول</h2>
+        <p><strong id="balance">—</strong> تومان</p>
+        <div id="refunds"></div>
+      </article>
+      <article class="surface account-block">
+        <div class="section-head"><h2>اشتراک‌ها و سفارش‌ها</h2><button type="button" id="refresh" class="button subtle">به‌روزرسانی</button></div>
+        <div id="orders" class="account-list"></div>
+      </article>
+      <article class="surface account-block">
+        <div class="section-head"><h2>خرید اشتراک</h2></div>
+        <div id="plans" class="account-list"></div>
+      </article>
+    </section>
+  </main>
+  <dialog id="order-sheet" aria-labelledby="sheet-title">
+    <div class="dialog-head"><h2 id="sheet-title">اطلاعات پرداخت</h2><form method="dialog"><button type="submit" class="button subtle">بستن</button></form></div>
+    <div class="plan-editor settings-form" id="sheet-content"></div>
+    <p id="sheet-notice" class="notice plan-editor" role="status" hidden></p>
+  </dialog>
+</body>
+</html>

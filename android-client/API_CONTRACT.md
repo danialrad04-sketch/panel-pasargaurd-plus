@@ -28,7 +28,7 @@ This document defines the HTTP API contract expected by the Android client (`Bil
 - `POST /v1/billing/orders`: **5 requests / 10 minutes / subscriber**.
 - `POST /v1/billing/orders/{id}/receipt`: **5 uploads / 10 minutes / order** (max payload **2 MB**; client pre-compresses JPEG to `<= 350 KB`).
 - `GET /v1/billing/orders/{id}`: **30 requests / minute / subscriber** (client uses exponential backoff: 3s → 4s → 6s → 10s → 15s → 20s).
-- `POST /v1/account/reset-traffic` & `POST /v1/account/regenerate-link`: **2 requests / hour / subscriber**.
+- `POST /v1/account/regenerate-link`: **2 requests / hour / subscriber**.
 
 ---
 
@@ -163,7 +163,6 @@ Statuses: `AWAITING_RECEIPT`, `PENDING_REVIEW`, `APPROVED`, `REJECTED`, `EXPIRED
 - `DELETE /v1/account/devices/{deviceId}` → `AccountActionResponseDto`
 
 ### 4.8 Account Self-Service Actions
-- `POST /v1/account/reset-traffic` → `AccountActionResponseDto`
 - `POST /v1/account/regenerate-link` → `AccountActionResponseDto` (optionally returns `new_subscription_url`)
 - `POST /v1/support/tickets` → `{ "subject", "message", "order_id" }` → `AccountActionResponseDto`
 
@@ -190,3 +189,5 @@ Statuses: `AWAITING_RECEIPT`, `PENDING_REVIEW`, `APPROVED`, `REJECTED`, `EXPIRED
    - Backend marks the order `APPROVED` inside a DB transaction (guarding against double-crediting with an `activated_at` column).
    - Optionally sends a silent FCM push `{ "type": "order_status", "order_id": "...", "status": "APPROVED" }` to trigger `OrderPushEventReceiver` immediately, in addition to the client's automatic polling.
 3. The Android client receives `APPROVED`, displays the celebratory success screen, automatically calls `syncSubscription()` (refreshing `/sub/{token}/info` and servers), and clears pending expiry/low-traffic notifications.
+
+- `POST /v1/billing/orders/{orderId}/transfer-ticket` with the original `X-Purchase-Token` returns a one-time transfer ticket for a provisioned purchase. The account portal consumes it after login and confirmation.

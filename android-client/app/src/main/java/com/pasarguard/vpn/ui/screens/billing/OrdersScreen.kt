@@ -91,9 +91,11 @@ data class OrdersUiState(
 
 @HiltViewModel
 class OrdersViewModel @Inject constructor(
-    paymentRepository: PaymentRepository,
+    private val paymentRepository: PaymentRepository,
     settingsRepository: SettingsRepository
 ) : ViewModel() {
+
+    suspend fun getAccountTransferUrl(orderId: String) = paymentRepository.getAccountTransferUrl(orderId)
 
     val uiState: StateFlow<OrdersUiState> = combine(
         paymentRepository.observeOrders(),
@@ -232,6 +234,27 @@ fun OrdersScreen(
 
     selectedOrder?.let { order ->
         ModalBottomSheet(onDismissRequest = { selectedOrder = null }) {
+            if (order.newSubscription && order.activationStatus == "READY") {
+                var transferring by remember(order.id) { mutableStateOf(false) }
+                OutlinedButton(
+                    onClick = {
+                        transferring = true
+                        scope.launch {
+                            try {
+                                viewModel.getAccountTransferUrl(order.id).onSuccess { url ->
+                                    Formatters.openExternalUrl(context, url)
+                                }.onFailure {
+                                    Toast.makeText(context, R.string.order_transfer_unavailable, Toast.LENGTH_SHORT).show()
+                                }
+                            } finally {
+                                transferring = false
+                            }
+                        }
+                    },
+                    enabled = !transferring,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md)
+                ) { Text(stringResource(R.string.order_transfer_to_account)) }
+            }
             OrderDetailSheetContent(
                 order = order,
                 isPersian = isPersian,

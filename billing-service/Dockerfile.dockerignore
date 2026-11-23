@@ -1,6 +1,7 @@
 **
 !billing-service/
 !billing-service/main.py
+!billing-service/customer_accounts.py
 !billing-service/provisioning.py
 !billing-service/requirements.txt
 !billing-service/web/

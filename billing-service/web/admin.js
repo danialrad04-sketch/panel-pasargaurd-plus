@@ -15,7 +15,7 @@ const statusLabels = {
 const decisionLabels = { SMS_APPROVED: "تأیید خودکار با پیامک بانک", ADMIN_APPROVED: "تأیید دستی مدیر", ADMIN_REJECTED: "رد دستی مدیر" };
 const activityLabels = {
   ...decisionLabels, LOGIN: "ورود به پنل", LOGOUT: "خروج از پنل",
-  CATALOG_UPDATED: "تغییر پلن فروش", CARD_UPDATED: "تغییر کارت مقصد", PROVISIONING_UPDATED: "تغییر تنظیمات ساخت اشتراک",
+  WALLET_PAID: "پرداخت از کیف پول", CUSTOMER_CANCELLED: "لغو اشتراک و ثبت اعتبار کیف پول", CATALOG_UPDATED: "تغییر پلن فروش", CARD_UPDATED: "تغییر کارت مقصد", PROVISIONING_UPDATED: "تغییر تنظیمات ساخت اشتراک",
 };
 const date = (value) => value ? fullDate.format(value) : "—";
 const money = (value) => fa.format(value) + " تومان";

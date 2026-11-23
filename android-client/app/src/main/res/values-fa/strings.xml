@@ -468,4 +468,7 @@
     <string name="checkout_receipt_preparing">در حال آماده‌سازی عکس…</string>
     <string name="checkout_receipt_image_saved">عکس فیش به پنل پرداخت رسید.</string>
     <string name="checkout_receipt_image_problem">ارسال رسید کامل نشد. دوباره تلاش کنید یا عکس دیگری انتخاب کنید.</string>
+    <string name="customer_portal">حساب کاربری و کیف پول</string>
+    <string name="order_transfer_to_account">انتقال سفارش به حساب کاربری</string>
+    <string name="order_transfer_unavailable">انتقال این سفارش در حال حاضر ممکن نیست.</string>
 </resources>

@@ -97,6 +97,17 @@ class RemotePaymentRepository @Inject constructor(
         }
     }
 
+    override suspend fun getAccountTransferUrl(orderId: String): Result<String> = try {
+        val guest = savedGuest() ?: error("The original purchase is unavailable")
+        val ticket = api.createTransferTicket(guest.token, orderId).ticket
+        require(ticket.matches(Regex("[A-Za-z0-9_-]{43}")))
+        Result.success(BuildConfig.BILLING_BASE_URL.trimEnd('/') + "/account#transfer=" + ticket)
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (error: Exception) {
+        Result.failure(error)
+    }
+
     override suspend fun loadPlansCatalog() = request { owner ->
         val catalog = api.listPlans(owner.headers())
         PlansCatalogConfig(catalog.currency, catalog.paymentWindowMinutes, catalog.destinationCard.toDomain(),

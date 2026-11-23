@@ -70,6 +70,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import com.pasarguard.vpn.BuildConfig
 import com.pasarguard.vpn.BrandConfig
 import com.pasarguard.vpn.R
 import com.pasarguard.vpn.domain.usecase.ValidateAndLoginUseCase
@@ -78,6 +79,7 @@ import com.pasarguard.vpn.ui.components.GlassCard
 import com.pasarguard.vpn.ui.components.GradientButton
 import com.pasarguard.vpn.ui.theme.PasarGuardTheme
 import com.pasarguard.vpn.ui.theme.Spacing
+import com.pasarguard.vpn.util.Formatters
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -147,6 +149,7 @@ fun LoginScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val colors = PasarGuardTheme.colors
     val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
     var showQrSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(prefilledSubscriptionUrl) {
@@ -209,6 +212,13 @@ fun LoginScreen(
             )
             OutlinedButton(onClick = onTrackPurchase, enabled = !state.isLoading, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.purchase_track))
+            }
+
+            if (BuildConfig.BILLING_BASE_URL.isNotBlank()) {
+                OutlinedButton(
+                    onClick = { Formatters.openExternalUrl(context, BuildConfig.BILLING_BASE_URL.trimEnd('/') + "/account") },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(stringResource(R.string.customer_portal)) }
             }
 
             Spacer(Modifier.height(Spacing.xl))

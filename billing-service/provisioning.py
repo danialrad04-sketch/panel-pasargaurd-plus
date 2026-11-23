@@ -31,10 +31,10 @@ def credentials():
     return key, sorted({int(value) for value in raw_groups.split(",")})
 
 
-def panel_request(path, api_key, *, payload=None):
+def panel_request(path, api_key, *, payload=None, method=None):
     data = json.dumps(payload).encode() if payload is not None else None
     request = Request(
-        os.environ["PANEL_URL"] + path, data,
+        os.environ["PANEL_URL"] + path, data, method=method,
         headers={"X-API-Key": api_key, "Accept": "application/json", "Content-Type": "application/json"},
     )
     try:
@@ -118,3 +118,21 @@ def provision(order_id, plan, config):
             raise
         return read_subscription(order_id, config)
     return subscription_url(order_id, account)
+
+
+def refund_account(order_id, config):
+    if not config:
+        raise PanelError()
+    account = panel_request("/api/user/by-username/" + panel_username(order_id), config[0])
+    subscription_url(order_id, account)
+    return account
+
+
+def disable_for_refund(order_id, config, account):
+    if account.get("status") == "disabled":
+        return
+    response = panel_request("/api/user/by-username/" + panel_username(order_id), config[0],
+                             method="PUT", payload={"status": "disabled"})
+    if (response.get("status") != "disabled" or response.get("username") != panel_username(order_id)
+            or response.get("note") != f"PasarGuard Plus order {order_id}"):
+        raise PanelError()
