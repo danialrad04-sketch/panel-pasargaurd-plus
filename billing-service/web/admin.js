@@ -6,24 +6,30 @@ const compact = new Intl.NumberFormat("fa-IR", { notation: "compact", maximumFra
 const fullDate = new Intl.DateTimeFormat("fa-IR", { timeZone: "Asia/Tehran", dateStyle: "medium", timeStyle: "short" });
 const dayLabel = new Intl.DateTimeFormat("fa-IR", { timeZone: "Asia/Tehran", month: "numeric", day: "numeric" });
 const today = new Intl.DateTimeFormat("fa-IR", { timeZone: "Asia/Tehran", dateStyle: "full" });
-const titles = { overview: "نمای کلی", orders: "سفارش‌ها", deposits: "واریزی‌ها", settings: "کارت مقصد" };
+const titles = { overview: "نمای کلی", orders: "سفارش‌ها", deposits: "واریزی‌ها", activity: "فعالیت‌ها", settings: "تنظیمات" };
 const statusLabels = {
   AWAITING_RECEIPT: "در انتظار واریز", PENDING_REVIEW: "در انتظار بررسی",
   APPROVED: "تأییدشده", REJECTED: "ردشده", EXPIRED: "منقضی",
   matched: "دارای سفارش", unmatched: "بدون سفارش",
 };
 const decisionLabels = { SMS_APPROVED: "تأیید خودکار با پیامک بانک", ADMIN_APPROVED: "تأیید دستی مدیر", ADMIN_REJECTED: "رد دستی مدیر" };
+const activityLabels = {
+  ...decisionLabels, LOGIN: "ورود به پنل", LOGOUT: "خروج از پنل",
+  CARD_UPDATED: "تغییر کارت مقصد", PROVISIONING_UPDATED: "تغییر تنظیمات ساخت اشتراک",
+};
 const date = (value) => value ? fullDate.format(value) : "—";
 const money = (value) => fa.format(value) + " تومان";
 let active = null;
 let activeLoad = null;
 let orderPage = 1;
 let depositPage = 1;
+let activityPage = 1;
 let detailVersion = 0;
 let saving = false;
 let chosenGroups = [];
 let chartSeries = [];
 let showingCount = false;
+let chartTotals;
 
 function node(tag, text, className) {
   const element = document.createElement(tag);
@@ -46,7 +52,7 @@ function setNotice(text = "", error = false, target = get("notice")) {
 }
 
 async function request(path, options = {}) {
-  const { headers = {}, signal, ...rest } = options;
+  const { headers = {}, signal, raw = false, ...rest } = options;
   let response;
   try {
     const timeout = AbortSignal.timeout(12000);
@@ -58,9 +64,15 @@ async function request(path, options = {}) {
     if (error.name === "AbortError") throw error;
     throw new Error("ارتباط با سرویس برقرار نشد. دوباره امتحان کنید.");
   }
+  if (response.status === 401) {
+    location.replace("/admin/login");
+    throw new Error("نشست شما پایان یافته است. دوباره وارد شوید.");
+  }
   if (!response.ok) {
+    if (raw && response.status === 422) {
+      throw new Error("برای دریافت CSV با کمتر از ۱۰ هزار سفارش، فیلترهای دقیق‌تری انتخاب کنید.");
+    }
     const errors = {
-      401: "دسترسی مدیر تأیید نشد. صفحه را دوباره باز کنید.",
       403: "این درخواست از دامنهٔ فعلی پذیرفته نشد.",
       404: "این سفارش پیدا نشد.",
       409: "سفارش قبلاً بررسی شده است. وضعیت را دوباره بارگیری کنید.",
@@ -68,6 +80,7 @@ async function request(path, options = {}) {
     };
     throw new Error(errors[response.status] || "سرویس پاسخ نداد. دوباره تلاش کنید.");
   }
+  if (raw) return response;
   return response.status === 204 ? null : response.json();
 }
 
@@ -131,6 +144,9 @@ function renderChart() {
   const diagram = get("chart");
   diagram.classList.toggle("dense", series.length > 7);
   const metric = showingCount ? "count" : "amount";
+  get("chart-title").textContent = showingCount ? "تعداد سفارش‌های تأییدشده" : "مبلغ تأییدشده";
+  get("chart-unit").textContent = showingCount ? "سفارش" : "تومان";
+  if (chartTotals) get("revenue").textContent = fa.format(chartTotals[metric]);
   const peak = Math.max(0, ...series.map((point) => point[metric]));
   const targetStep = Math.max(1, peak / 4);
   const magnitude = 10 ** Math.floor(Math.log10(targetStep));
@@ -182,7 +198,13 @@ function renderReviewQueue(orders) {
 async function overview(signal) {
   const data = await request("/api/overview?days=" + get("period").value, { signal });
   if (signal.aborted) return;
-  get("revenue").textContent = fa.format(data.approved_amount);
+  chartTotals = { amount: data.approved_amount, count: data.approved_count };
+  get("paid-metric").textContent = fa.format(data.approved_count);
+  get("awaiting-metric").textContent = fa.format(data.awaiting_count);
+  get("review-metric").textContent = fa.format(data.pending_count);
+  const oldestReview = get("oldest-review");
+  oldestReview.hidden = !data.oldest_pending_ms;
+  oldestReview.textContent = data.oldest_pending_ms ? "ثبت قدیمی‌ترین سفارش صف " + date(data.oldest_pending_ms) : "";
   get("approved").textContent = fa.format(data.approved_count);
   get("automatic").textContent = fa.format(data.automatic_count);
   get("manual").textContent = fa.format(data.approved_count - data.automatic_count);
@@ -198,11 +220,15 @@ async function overview(signal) {
   renderChart();
 }
 
-async function orderList(signal) {
-  const query = new URLSearchParams({
-    page: orderPage, q: get("search").value.trim(), status: get("order-status").value,
-    receipt: get("receipt-filter").value,
+function orderFilters() {
+  return new URLSearchParams({
+    q: get("search").value.trim(), status: get("order-status").value, receipt: get("receipt-filter").value,
   });
+}
+
+async function orderList(signal) {
+  const query = orderFilters();
+  query.set("page", orderPage);
   const data = await request("/api/orders?" + query, { signal });
   if (signal.aborted) return;
   ordersTable(get("orders-table"), data.orders);
@@ -218,6 +244,17 @@ async function depositList(signal) {
     deposit.order_id ? button("مشاهده", () => showOrder(deposit.order_id), "text-button") : "—",
   ]), "واریزی در این فهرست پیدا نشد.");
   pages(get("deposits-pages"), data.total, data.page_size, depositPage, (page) => { depositPage = page; load(); });
+}
+
+async function activityList(signal) {
+  const query = new URLSearchParams({ page: activityPage, kind: get("activity-kind").value });
+  const data = await request("/api/activity?" + query, { signal });
+  if (signal.aborted) return;
+  table(get("activity-table"), [["فعالیت"], ["زمان"], ["سفارش"]], data.events.map((event) => [
+    activityLabels[event.action] || "فعالیت پنل", date(event.timestamp),
+    event.order_id ? button("مشاهده", () => showOrder(event.order_id), "text-button") : "—",
+  ]), "فعالیتی برای این فیلتر ثبت نشده است.");
+  pages(get("activity-pages"), data.total, data.page_size, activityPage, (page) => { activityPage = page; load(); });
 }
 
 function last4(value) {
@@ -260,7 +297,7 @@ async function saveProvisionRequest(path, data) {
   return request(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
 }
 
-const loaders = { overview, orders: orderList, deposits: depositList, settings };
+const loaders = { overview, orders: orderList, deposits: depositList, activity: activityList, settings };
 
 async function load() {
   activeLoad?.abort();
@@ -455,11 +492,36 @@ get("theme").addEventListener("click", () => {
   try { localStorage.setItem("billing-theme", savedTheme); } catch {}
 });
 get("deposit-match").addEventListener("change", () => { depositPage = 1; load(); });
-get("pending-link").addEventListener("click", () => {
+get("activity-kind").addEventListener("change", () => { activityPage = 1; load(); });
+function applyStatus(status) {
   get("search").value = "";
-  get("order-status").value = "PENDING_REVIEW";
+  get("order-status").value = status;
   get("receipt-filter").value = "";
   orderPage = 1;
+}
+for (const id of ["pending-link", "review-metric-link"]) {
+  get(id).addEventListener("click", () => applyStatus("PENDING_REVIEW"));
+}
+get("awaiting-link").addEventListener("click", () => applyStatus("AWAITING_RECEIPT"));
+get("export-orders").addEventListener("click", async (event) => {
+  const trigger = event.currentTarget;
+  trigger.disabled = true;
+  setNotice();
+  try {
+    const response = await request("/api/exports/orders?" + orderFilters(), { raw: true });
+    const download = node("a");
+    const url = URL.createObjectURL(await response.blob());
+    download.href = url;
+    download.download = "pasarguard-orders.csv";
+    document.body.append(download);
+    download.click();
+    download.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (error) {
+    setNotice(error.message, true);
+  } finally {
+    trigger.disabled = false;
+  }
 });
 get("unmatched-link").addEventListener("click", () => { get("deposit-match").value = "unmatched"; depositPage = 1; });
 

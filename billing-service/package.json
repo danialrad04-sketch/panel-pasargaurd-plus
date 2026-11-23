@@ -1,0 +1,11 @@
+{
+  "name": "pasarguard-billing-admin",
+  "private": true,
+  "scripts": {
+    "build:admin": "tailwindcss -i admin.tailwind.css -o web/admin-utilities.css --minify"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "4.3.5",
+    "tailwindcss": "4.3.5"
+  }
+}

@@ -7,6 +7,7 @@
   <title>مدیریت پرداخت | پاسارگارد پلاس</title>
   <link rel="preload" href="/assets/fonts/vazirmatn.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/admin/dashboard.css">
+  <link rel="stylesheet" href="/admin/utilities.css">
   <script src="/admin/dashboard.js" defer></script>
 </head>
 <body>
@@ -21,6 +22,7 @@
         <a href="#overview" data-tab="overview" aria-current="page"><i class="icon i-grid" aria-hidden="true"></i>نمای کلی</a>
         <a href="#orders" data-tab="orders"><i class="icon i-order" aria-hidden="true"></i>سفارش‌ها</a>
         <a href="#deposits" data-tab="deposits"><i class="icon i-deposit" aria-hidden="true"></i>واریزی‌ها</a>
+        <a href="#activity" data-tab="activity"><i class="icon i-activity" aria-hidden="true"></i>فعالیت‌ها</a>
         <a href="#settings" data-tab="settings"><i class="icon i-card" aria-hidden="true"></i>تنظیمات</a>
       </nav>
       <div class="sidebar-footer">
@@ -39,6 +41,9 @@
         <div class="toolbar">
           <button type="button" id="theme" class="button subtle icon-button" aria-label="حالت تاریک" aria-pressed="false"><i class="icon i-theme" aria-hidden="true"></i></button>
           <button type="button" id="refresh" class="button subtle" aria-label="به‌روزرسانی داده‌ها"><span class="refresh-mark" aria-hidden="true">↻</span><span class="refresh-label">به‌روزرسانی</span></button>
+          <form action="/admin/logout" method="post" class="logout-form">
+            <button class="button subtle icon-button" type="submit" aria-label="خروج از پنل" title="خروج از پنل"><i class="icon i-logout" aria-hidden="true"></i></button>
+          </form>
         </div>
       </header>
       <div class="content">
@@ -49,12 +54,17 @@
             <div><h1>داشبورد پرداخت</h1><p id="today"></p></div>
             <div class="period-box"><label for="period">بازهٔ گزارش</label><select id="period"><option value="7">۷ روز اخیر</option><option value="30">۳۰ روز اخیر</option></select></div>
           </div>
+          <div class="metrics">
+            <div class="metric"><div><span>سفارش‌های تأییدشده در بازه</span><strong id="paid-metric">—</strong></div><i class="icon i-card" aria-hidden="true"></i></div>
+            <a class="metric" href="#orders" id="awaiting-link"><div><span>در انتظار پرداخت</span><strong id="awaiting-metric">—</strong></div><i class="icon i-order" aria-hidden="true"></i></a>
+            <a class="metric" href="#orders" id="review-metric-link"><div><span>در صف بررسی</span><strong id="review-metric">—</strong></div><i class="icon i-activity" aria-hidden="true"></i></a>
+          </div>
           <div class="lead-grid">
             <article class="surface chart-surface" aria-labelledby="chart-title">
               <div class="chart-head">
                 <div>
                   <h2 id="chart-title">مبلغ تأییدشده</h2>
-                  <div class="total-line"><strong id="revenue">—</strong><span>تومان</span></div>
+                  <div class="total-line"><strong id="revenue">—</strong><span id="chart-unit">تومان</span></div>
                 </div>
                 <button id="chart-count-toggle" type="button" class="button subtle" aria-pressed="false">نمایش تعداد</button>
               </div>
@@ -73,6 +83,7 @@
             </article>
             <article class="surface queue-surface">
               <div class="section-head"><div><h2>صف بررسی</h2><p>رسیدهای در انتظار تصمیم</p></div><strong class="count-pill" id="pending" aria-label="تعداد رسیدهای در انتظار">—</strong></div>
+              <p id="oldest-review" class="oldest-review text-muted" hidden></p>
               <div id="review-queue" class="review-queue"></div>
               <a href="#orders" class="button primary full" id="pending-link">مشاهدهٔ همهٔ رسیدها</a>
               <a href="#deposits" class="unmatched-link" id="unmatched-link"><span>واریزهای بدون سفارش</span><strong id="unmatched">—</strong></a>
@@ -92,7 +103,9 @@
           </div>
         </section>
         <section id="orders" data-view hidden>
-          <div class="page-heading"><h1>سفارش‌ها</h1><p>پیگیری سفارش و بررسی تصویر فیش</p></div>
+          <div class="page-heading page-heading-row"><div><h1>سفارش‌ها</h1><p>پیگیری سفارش و بررسی تصویر فیش</p></div>
+            <button type="button" id="export-orders" class="button subtle"><i class="icon i-deposit" aria-hidden="true"></i>خروجی CSV</button>
+          </div>
           <article class="surface listing">
             <form class="filters" id="order-filters">
               <label class="field field-grow">جست‌وجو<input id="search" name="q" type="search" autocomplete="off" placeholder="اشتراک، پلن، شناسه یا شمارهٔ پیگیری…" maxlength="100"></label>
@@ -110,6 +123,14 @@
             <div class="filters"><label class="field">تطبیق با سفارش<select id="deposit-match" name="match"><option value="">همهٔ واریزی‌ها</option><option value="matched">دارای سفارش</option><option value="unmatched">بدون سفارش</option></select></label></div>
             <div id="deposits-table" class="table-area"></div>
             <div id="deposits-pages" class="pagination"></div>
+          </article>
+        </section>
+        <section id="activity" data-view hidden>
+          <div class="page-heading"><h1>فعالیت‌ها</h1><p>سابقهٔ ورود، بررسی سفارش و تغییر تنظیمات پرداخت</p></div>
+          <article class="surface listing">
+            <div class="filters"><label class="field">نوع فعالیت<select id="activity-kind"><option value="">همهٔ فعالیت‌ها</option><option value="orders">سفارش‌ها</option><option value="access">ورود و خروج</option><option value="settings">تنظیمات</option></select></label></div>
+            <div id="activity-table" class="table-area"></div>
+            <div id="activity-pages" class="pagination"></div>
           </article>
         </section>
         <section id="settings" data-view hidden>

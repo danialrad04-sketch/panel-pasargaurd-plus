@@ -1,18 +1,20 @@
 """Independent PasarGuard billing service."""
 import asyncio
 import base64
+import csv
 import hmac
 import ipaddress
 import json
 import logging
 import os
 import re
+import secrets
 import sqlite3
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from io import BytesIO
+from io import BytesIO, StringIO
 from itertools import pairwise
 from pathlib import Path
 from typing import Annotated
@@ -35,14 +37,12 @@ from fastapi import (
     Request as IncomingRequest,
     UploadFile,
 )
-from fastapi.responses import FileResponse, RedirectResponse, Response
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from jdatetime import datetime as JalaliDateTime
 from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
-basic = HTTPBasic()
 WINDOW_MS = 30 * 60 * 1000
 MINUTE_MS = 60 * 1000
 DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "0123456789" * 2)
@@ -57,6 +57,7 @@ CHECKOUT_HEADERS = {
 }
 ADMIN_HEADERS = {
     **CHECKOUT_HEADERS,
+    "Referrer-Policy": "same-origin",
     "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; "
     "connect-src 'self'; img-src 'self'; font-src 'self'; form-action 'self'; "
     "frame-ancestors 'none'; base-uri 'none'",
@@ -64,6 +65,11 @@ ADMIN_HEADERS = {
 ORDER_STATES = ("AWAITING_RECEIPT", "PENDING_REVIEW", "APPROVED", "REJECTED", "EXPIRED")
 PAGE_SIZE = 12
 MAX_RECEIPT_BYTES = 512 * 1024
+ADMIN_COOKIE = "__Host-billing-admin"
+ADMIN_SESSION_SECONDS = 8 * 60 * 60
+LOGIN_WINDOW_MS = 15 * MINUTE_MS
+LOGIN_MAX_FAILURES = 8
+EXPORT_MAX_ROWS = 10_000
 
 
 def setting(name):
@@ -146,6 +152,18 @@ def initialize():
         db.execute("""CREATE TABLE IF NOT EXISTS receipts (
             order_id TEXT PRIMARY KEY REFERENCES orders(id), image BLOB NOT NULL, uploaded INTEGER NOT NULL
         )""")
+
+        db.execute("""CREATE TABLE IF NOT EXISTS admin_sessions (
+            digest TEXT PRIMARY KEY, expires INTEGER NOT NULL
+        )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS admin_login_attempts (
+            source TEXT PRIMARY KEY, failures INTEGER NOT NULL, expires INTEGER NOT NULL
+        )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS admin_activity (
+            id INTEGER PRIMARY KEY, action TEXT NOT NULL, timestamp INTEGER NOT NULL
+        )""")
+        db.execute("CREATE INDEX IF NOT EXISTS decisions_timestamp ON decisions(timestamp)")
+        db.execute("CREATE INDEX IF NOT EXISTS admin_activity_timestamp ON admin_activity(timestamp)")
 
 
 def key_cipher():
@@ -631,28 +649,132 @@ def submit_reference(order_id: str, tracking_number: str = Form(default="", max_
         return present(db.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone())
 
 
-def administrator(credentials: HTTPBasicCredentials = Depends(basic)):
-    if not (hmac.compare_digest(credentials.username.encode(), b"admin")
-            and hmac.compare_digest(credentials.password.encode(), setting("ADMIN_PASSWORD").encode())):
-        raise HTTPException(401, headers={"WWW-Authenticate": "Basic"})
+def verify_admin_origin(request):
+    if request.headers.get("origin") != setting("BILLING_PUBLIC_URL"):
+        raise HTTPException(403)
 
 
-admin = APIRouter(prefix="/admin", dependencies=[Depends(administrator)])
+def admin_session_digest(token):
+    return secret_digest("admin-session:" + setting("ADMIN_PASSWORD") + ":" + token)
 
 
-@admin.get("")
-def dashboard():
+def active_admin_session(request):
+    token = request.cookies.get(ADMIN_COOKIE, "")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{43}", token):
+        return None
+    digest = admin_session_digest(token)
+    with transaction(write=False) as db:
+        session = db.execute(
+            "SELECT 1 FROM admin_sessions WHERE digest=? AND expires>?", (digest, now()),
+        ).fetchone()
+        return digest if session else None
+
+
+def administrator(request: IncomingRequest):
+    digest = active_admin_session(request)
+    if digest is None:
+        raise HTTPException(401)
+    return digest
+
+
+def log_admin_activity(db, action, timestamp):
+    db.execute("INSERT INTO admin_activity (action, timestamp) VALUES (?, ?)", (action, timestamp))
+
+
+def login_page(message="", status_code=200, headers=None):
+    html = (WEB / "admin-login.html").read_text(encoding="utf-8")
+    if message:
+        html = html.replace("<!-- login-error -->", f'<p class="login-error" role="alert">{message}</p>')
+    return HTMLResponse(html, status_code=status_code, headers={**ADMIN_HEADERS, **(headers or {})})
+
+
+@app.get("/admin/login")
+def admin_login(request: IncomingRequest):
+    if active_admin_session(request):
+        return RedirectResponse("/admin", status_code=303)
+    return login_page()
+
+
+@app.post("/admin/login")
+def create_admin_session(request: IncomingRequest, username: str = Form(max_length=128),
+                         password: str = Form(max_length=4096)):
+    verify_admin_origin(request)
+    source = reservation_source(request)
+    current = now()
+    valid = hmac.compare_digest(password.encode(), setting("ADMIN_PASSWORD").encode())
+    valid = hmac.compare_digest(username.encode(), b"admin") and valid
+    with transaction() as db:
+        db.execute("DELETE FROM admin_login_attempts WHERE expires<=?", (current,))
+        attempt = db.execute(
+            "SELECT failures, expires FROM admin_login_attempts WHERE source=?", (source,),
+        ).fetchone()
+        if attempt and attempt["failures"] >= LOGIN_MAX_FAILURES:
+            retry = (attempt["expires"] - current + 999) // 1000
+            return login_page("تعداد تلاش‌ها زیاد بود. پس از چند دقیقه دوباره امتحان کنید.", 429,
+                              {"Retry-After": str(retry)})
+        if not valid:
+            db.execute(
+                """INSERT INTO admin_login_attempts VALUES (?, 1, ?) ON CONFLICT(source)
+                   DO UPDATE SET failures=failures+1""",
+                (source, current + LOGIN_WINDOW_MS),
+            )
+            return login_page("نام کاربری یا رمز عبور صحیح نیست.", 401)
+        token = secrets.token_urlsafe(32)
+        previous = request.cookies.get(ADMIN_COOKIE, "")
+        if re.fullmatch(r"[A-Za-z0-9_-]{43}", previous):
+            db.execute("DELETE FROM admin_sessions WHERE digest=?", (admin_session_digest(previous),))
+        db.execute("DELETE FROM admin_login_attempts WHERE source=?", (source,))
+        db.execute("DELETE FROM admin_sessions WHERE expires<=?", (current,))
+        db.execute("INSERT INTO admin_sessions VALUES (?, ?)",
+                   (admin_session_digest(token), current + ADMIN_SESSION_SECONDS * 1000))
+        log_admin_activity(db, "LOGIN", current)
+    response = RedirectResponse("/admin", status_code=303)
+    response.set_cookie(ADMIN_COOKIE, token, max_age=ADMIN_SESSION_SECONDS, secure=True, httponly=True,
+                        samesite="strict", path="/")
+    return response
+
+
+@app.post("/admin/logout")
+def admin_logout(request: IncomingRequest):
+    verify_admin_origin(request)
+    digest = active_admin_session(request)
+    if digest:
+        with transaction() as db:
+            if db.execute("DELETE FROM admin_sessions WHERE digest=?", (digest,)).rowcount:
+                log_admin_activity(db, "LOGOUT", now())
+    response = RedirectResponse("/admin/login", status_code=303)
+    response.delete_cookie(ADMIN_COOKIE, secure=True, httponly=True, samesite="strict", path="/")
+    return response
+
+
+@app.get("/admin")
+def dashboard(request: IncomingRequest):
+    if not active_admin_session(request):
+        return RedirectResponse("/admin/login", status_code=303)
     return FileResponse(WEB / "admin.html", headers=ADMIN_HEADERS)
 
 
-@admin.get("/dashboard.css")
+@app.get("/admin/dashboard.css")
 def dashboard_styles():
     return FileResponse(WEB / "admin.css", media_type="text/css", headers=ADMIN_HEADERS)
 
 
-@admin.get("/dashboard.js")
+@app.get("/admin/utilities.css")
+def admin_utilities():
+    return FileResponse(WEB / "admin-utilities.css", media_type="text/css", headers=ADMIN_HEADERS)
+
+
+@app.get("/admin/login.js")
+def login_script():
+    return FileResponse(WEB / "admin-login.js", media_type="text/javascript", headers=ADMIN_HEADERS)
+
+
+@app.get("/admin/dashboard.js")
 def dashboard_script():
     return FileResponse(WEB / "admin.js", media_type="text/javascript", headers=ADMIN_HEADERS)
+
+
+admin = APIRouter(prefix="/admin", dependencies=[Depends(administrator)])
 
 
 @admin.get("/api/overview")
@@ -684,6 +806,10 @@ def admin_overview(days: int = 7):
             "SELECT * FROM orders WHERE status='PENDING_REVIEW' ORDER BY created, id LIMIT 4"
         )]
         card = destination_card(db)
+        oldest = db.execute("SELECT MIN(created) FROM orders WHERE status='PENDING_REVIEW'").fetchone()[0]
+        awaiting = db.execute(
+            "SELECT count(*) FROM orders WHERE status='AWAITING_RECEIPT' AND expires>?", (current,),
+        ).fetchone()[0]
     series = []
     for start, end in pairwise(boundaries):
         amounts = [row["amount"] for row in approved if start <= row["timestamp"] < end]
@@ -697,6 +823,8 @@ def admin_overview(days: int = 7):
         "unmatched_count": unmatched,
         "orders": recent_orders,
         "review_queue": review_queue,
+        "oldest_pending_ms": oldest,
+        "awaiting_count": awaiting,
         "card_last4": card["number"][-4:],
         "bank": card["bank"],
         "sms_format": os.getenv("SMS_FORMAT", "account"),
@@ -704,34 +832,86 @@ def admin_overview(days: int = 7):
     }
 
 
+def filtered_orders(status, q, receipt):
+    if (status and status not in ORDER_STATES) or receipt not in ("", "image"):
+        raise HTTPException(422)
+    search = q.strip().translate(DIGITS).lower()
+    query = """
+        FROM (
+            SELECT *, CASE WHEN status='AWAITING_RECEIPT' AND expires<=?
+                THEN 'EXPIRED' ELSE status END AS shown_status
+            FROM orders
+        )
+        WHERE (?='' OR shown_status=?)
+        AND (?='' OR json_extract(details, '$.has_receipt_image')=1)
+        AND (?='' OR instr(lower(id), ?)>0
+            OR instr(lower(json_extract(details, '$.subscriber')), ?)>0
+            OR instr(lower(json_extract(details, '$.plan_title_fa')), ?)>0
+            OR instr(json_extract(details, '$.tracking_number'), ?)>0)
+    """
+    return query, (now(), status, status, receipt, search, search, search, search, search)
+
+
 @admin.get("/api/orders")
 def admin_orders(status: str = "", q: str = Query(default="", max_length=100), receipt: str = "",
                  page: int = Query(default=1, ge=1, le=1_000_000)):
-    if (status and status not in ORDER_STATES) or receipt not in ("", "image"):
-        raise HTTPException(422)
-    current = now()
-    search = q.strip().translate(DIGITS).lower()
+    query, values = filtered_orders(status, q, receipt)
     with transaction(write=False) as db:
-        query = """
-            FROM (
-                SELECT *, CASE WHEN status='AWAITING_RECEIPT' AND expires<=?
-                    THEN 'EXPIRED' ELSE status END AS shown_status
-                FROM orders
-            )
-            WHERE (?='' OR shown_status=?)
-            AND (?='' OR json_extract(details, '$.has_receipt_image')=1)
-            AND (?='' OR instr(lower(id), ?)>0
-                OR instr(lower(json_extract(details, '$.subscriber')), ?)>0
-                OR instr(lower(json_extract(details, '$.plan_title_fa')), ?)>0
-                OR instr(json_extract(details, '$.tracking_number'), ?)>0)
-        """
-        values = (current, status, status, receipt, search, search, search, search, search)
         total = db.execute("SELECT count(*) " + query, values).fetchone()[0]
         rows = db.execute(
             "SELECT * " + query + " ORDER BY created DESC, id DESC LIMIT ? OFFSET ?",
             (*values, PAGE_SIZE, (page - 1) * PAGE_SIZE),
         )
         return {"total": total, "page_size": PAGE_SIZE, "orders": [present(row, admin=True) for row in rows]}
+
+
+@admin.get("/api/exports/orders")
+def export_orders(status: str = "", q: str = Query(default="", max_length=100), receipt: str = ""):
+    query, values = filtered_orders(status, q, receipt)
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(("order_id", "amount_toman", "status", "created_at_utc", "has_receipt_image"))
+    with transaction(write=False) as db:
+        rows = db.execute(
+            """SELECT id, amount, shown_status, created, json_extract(details, '$.has_receipt_image') AS image """
+            + query + " ORDER BY created DESC, id DESC LIMIT ?",
+            (*values, EXPORT_MAX_ROWS + 1),
+        )
+        for index, row in enumerate(rows):
+            if index == EXPORT_MAX_ROWS:
+                raise HTTPException(422, "EXPORT_LIMIT")
+            exported_id = row["id"] if re.fullmatch(r"[0-9a-f]{32}", row["id"]) else ""
+            stamp = datetime.fromtimestamp(row["created"] / 1000, ZoneInfo("UTC")).isoformat()
+            writer.writerow((exported_id, row["amount"], row["shown_status"], stamp, int(bool(row["image"]))))
+    return Response("\ufeff" + output.getvalue(), media_type="text/csv", headers={
+        "Content-Disposition": 'attachment; filename="pasarguard-orders.csv"',
+        "X-Content-Type-Options": "nosniff",
+    })
+
+
+@admin.get("/api/activity")
+def admin_activity(kind: str = "", page: int = Query(default=1, ge=1, le=1_000_000)):
+    if kind not in ("", "orders", "access", "settings"):
+        raise HTTPException(422)
+    query = """
+        FROM (
+            SELECT decision AS action, timestamp, order_id, 'orders' AS kind, rowid AS event_id FROM decisions
+            UNION ALL
+            SELECT action, timestamp, NULL, CASE WHEN action IN ('LOGIN', 'LOGOUT') THEN 'access'
+                ELSE 'settings' END, id FROM admin_activity
+            UNION ALL
+            SELECT 'CARD_UPDATED', timestamp, NULL, 'settings', id FROM card_changes
+        ) WHERE (?='' OR kind=?)
+    """
+    with transaction(write=False) as db:
+        values = (kind, kind)
+        total = db.execute("SELECT count(*) " + query, values).fetchone()[0]
+        rows = db.execute(
+            "SELECT action, timestamp, order_id, kind " + query
+            + " ORDER BY timestamp DESC, kind, event_id DESC LIMIT ? OFFSET ?",
+            (*values, PAGE_SIZE, (page - 1) * PAGE_SIZE),
+        )
+        return {"total": total, "page_size": PAGE_SIZE, "events": [dict(row) for row in rows]}
 
 
 @admin.get("/api/orders/{order_id}")
@@ -783,11 +963,6 @@ def admin_card():
         return {"card": destination_card(db), "history": [dict(item) for item in history]}
 
 
-def verify_admin_origin(request):
-    if request.headers.get("origin") != setting("BILLING_PUBLIC_URL"):
-        raise HTTPException(403)
-
-
 class ProvisioningKey(BaseModel):
     api_key: str = Field(default="", max_length=2048)
 
@@ -837,6 +1012,7 @@ def update_provisioning(body: ProvisioningUpdate, request: IncomingRequest):
                DO UPDATE SET api_key=excluded.api_key, group_ids=excluded.group_ids""",
             (key_cipher().encrypt(api_key.encode()), json.dumps(group_ids)),
         )
+        log_admin_activity(db, "PROVISIONING_UPDATED", now())
     return Response(status_code=204)
 
 
