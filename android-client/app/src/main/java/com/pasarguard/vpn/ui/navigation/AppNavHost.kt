@@ -194,7 +194,7 @@ fun AppNavHost(
                     },
                     onDoneHome = {
                         navController.navigate(Routes.HOME) {
-                            popUpTo(Routes.HOME) { inclusive = true }
+                            popUpTo(navController.graph.id)
                         }
                     }
                 )
@@ -214,7 +214,7 @@ fun AppNavHost(
                     },
                     onDoneHome = {
                         navController.navigate(Routes.HOME) {
-                            popUpTo(Routes.HOME) { inclusive = true }
+                            popUpTo(navController.graph.id)
                         }
                     }
                 )
