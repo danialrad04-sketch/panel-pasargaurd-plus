@@ -22,6 +22,7 @@ import com.pasarguard.vpn.domain.model.SubscriptionCredentials
 import com.pasarguard.vpn.domain.model.SubscriptionFormatStrategy
 import com.pasarguard.vpn.domain.model.SubscriptionInfo
 import com.pasarguard.vpn.domain.model.SubscriptionProfile
+import com.pasarguard.vpn.domain.model.ThemePalette
 import com.pasarguard.vpn.domain.model.ThemeMode
 import com.pasarguard.vpn.domain.model.UsagePoint
 import com.pasarguard.vpn.domain.model.VpnServer
@@ -129,6 +130,7 @@ interface SettingsRepository {
     suspend fun setPersianDigitsEnabled(enabled: Boolean)
     suspend fun setCalendarSystem(system: CalendarSystem)
     suspend fun setThemeMode(mode: ThemeMode)
+    suspend fun setThemePalette(palette: ThemePalette)
     suspend fun setDynamicColorEnabled(enabled: Boolean)
     suspend fun setCorePreference(preference: CorePreference)
     suspend fun setSubscriptionFormatStrategy(strategy: SubscriptionFormatStrategy)

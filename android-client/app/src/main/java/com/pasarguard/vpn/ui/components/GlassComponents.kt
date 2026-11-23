@@ -158,7 +158,7 @@ fun GradientButton(
     )
     val shape = RoundedCornerShape(18.dp)
     val brush = Brush.horizontalGradient(
-        if (enabled) listOf(colors.heroStart, colors.heroEnd)
+        if (enabled) listOf(colors.heroStart, colors.heroFillEnd)
         else listOf(colors.textMuted.copy(alpha = 0.35f), colors.textMuted.copy(alpha = 0.35f))
     )
 
@@ -278,7 +278,7 @@ fun ConnectHeroButton(
     val startColor by animateColorAsState(
         targetValue = when (status) {
             ConnectionStatus.CONNECTED -> colors.statusConnected
-            ConnectionStatus.CONNECTING, ConnectionStatus.DISCONNECTING -> colors.heroEnd
+            ConnectionStatus.CONNECTING, ConnectionStatus.DISCONNECTING -> colors.heroFillEnd
             ConnectionStatus.ERROR -> colors.statusDanger
             ConnectionStatus.DISCONNECTED -> colors.heroStart
         },
@@ -290,7 +290,7 @@ fun ConnectHeroButton(
             ConnectionStatus.CONNECTED -> Color(0xFF059669)
             ConnectionStatus.CONNECTING, ConnectionStatus.DISCONNECTING -> colors.heroStart
             ConnectionStatus.ERROR -> Color(0xFFBE123C)
-            ConnectionStatus.DISCONNECTED -> colors.heroEnd
+            ConnectionStatus.DISCONNECTED -> colors.heroFillEnd
         },
         animationSpec = tween(450),
         label = "connectEnd"

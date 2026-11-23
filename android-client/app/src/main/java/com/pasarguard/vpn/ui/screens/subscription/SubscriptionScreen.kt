@@ -393,7 +393,7 @@ fun SubscriptionScreen(
                             Brush.linearGradient(
                                 listOf(
                                     colors.heroStart.copy(alpha = 0.94f),
-                                    colors.heroEnd.copy(alpha = 0.86f)
+                                    colors.heroFillEnd.copy(alpha = 0.86f)
                                 )
                             )
                         )
