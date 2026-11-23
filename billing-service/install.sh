@@ -388,23 +388,30 @@ HOOK
 
 update_existing_receipt_limit() {
     if [[ -n $managed_caddy ]]; then
-        local config candidate
+        local config candidate persist=false
         config=$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/etc/caddy/Caddyfile"}}{{.Source}}{{end}}{{end}}' "$managed_caddy")
-        if [[ -f $config ]] && grep -Fq 'reverse_proxy billing:8080' "$config" &&
-            grep -Eq '^[[:space:]]*max_size 16KB[[:space:]]*$' "$config"; then
-            step "Enabling receipt uploads in the existing Caddy site"
-            cp -- "$config" "$temporary_dir/caddy-before"
-            sed 's/max_size 16KB/max_size 768KB/' "$config" > "$temporary_dir/caddy-after"
+        # Git may replace the host file while the running bind mount still sees
+        # its original inode, so read and reload the container's configuration.
+        if [[ -f $config ]] && docker exec "$managed_caddy" cat /etc/caddy/Caddyfile > "$temporary_dir/caddy-mounted" &&
+            grep -Fq 'reverse_proxy billing:8080' "$temporary_dir/caddy-mounted" &&
+            grep -Eq '^[[:space:]]*max_size (16|768)KB[[:space:]]*$' "$temporary_dir/caddy-mounted"; then
+            step "Checking the receipt upload limit in the existing Caddy site"
+            sed 's/max_size 16KB/max_size 768KB/' "$temporary_dir/caddy-mounted" > "$temporary_dir/caddy-after"
             candidate=$(docker exec "$managed_caddy" mktemp)
             docker cp "$temporary_dir/caddy-after" "$managed_caddy:$candidate"
             docker exec "$managed_caddy" caddy validate --config "$candidate" --adapter caddyfile ||
                 die "The updated Caddy configuration did not validate"
-            # Keep the original inode so the running container's file mount sees the update.
-            cat "$temporary_dir/caddy-after" > "$config"
-            if ! docker exec "$managed_caddy" caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile; then
-                cat "$temporary_dir/caddy-before" > "$config"
+            if grep -Fq 'reverse_proxy billing:8080' "$config" &&
+                grep -Eq '^[[:space:]]*max_size 16KB[[:space:]]*$' "$config"; then
+                cp -- "$config" "$temporary_dir/caddy-before"
+                sed 's/max_size 16KB/max_size 768KB/' "$temporary_dir/caddy-before" > "$config"
+                persist=true
+            fi
+            if ! docker exec "$managed_caddy" caddy reload --config "$candidate" --adapter caddyfile; then
+                if [[ $persist == true ]]; then cat "$temporary_dir/caddy-before" > "$config"; fi
                 die "Caddy could not enable receipt uploads"
             fi
+            docker exec "$managed_caddy" rm -- "$candidate"
         fi
     elif [[ $nginx_active == true ]]; then
         nginx_path="/etc/nginx/conf.d/pasarguard-billing-$billing_host.conf"
