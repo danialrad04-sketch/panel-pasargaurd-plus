@@ -4,8 +4,10 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -95,6 +98,7 @@ import com.pasarguard.vpn.domain.model.CorePreference
 import com.pasarguard.vpn.domain.model.DnsPreset
 import com.pasarguard.vpn.domain.model.NetworkAutoConnectRule
 import com.pasarguard.vpn.domain.model.SubscriptionFormatStrategy
+import com.pasarguard.vpn.domain.model.ThemePalette
 import com.pasarguard.vpn.domain.model.ThemeMode
 import com.pasarguard.vpn.domain.repository.SettingsRepository
 import com.pasarguard.vpn.domain.usecase.LogoutUseCase
@@ -103,6 +107,7 @@ import com.pasarguard.vpn.ui.components.GlassCard
 import com.pasarguard.vpn.ui.theme.LocalPersianDigits
 import com.pasarguard.vpn.ui.theme.PasarGuardTheme
 import com.pasarguard.vpn.ui.theme.Spacing
+import com.pasarguard.vpn.ui.theme.tokens
 import com.pasarguard.vpn.util.Formatters
 import com.pasarguard.vpn.vpn.core.XrayCore
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -146,6 +151,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setCalendarSystem(system: CalendarSystem) {
         viewModelScope.launch { settingsRepository.setCalendarSystem(system) }
+    }
+
+    fun setThemePalette(palette: ThemePalette) {
+        viewModelScope.launch { settingsRepository.setThemePalette(palette) }
     }
 
     fun setThemeMode(mode: ThemeMode) {
@@ -434,6 +443,26 @@ fun SettingsScreen(
                             selected = settings.themeMode == mode,
                             onClick = { viewModel.setThemeMode(mode) },
                             label = { Text(stringResource(resId)) }
+                        )
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                Text(stringResource(R.string.settings_palette), style = MaterialTheme.typography.titleMedium)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    listOf(
+                        ThemePalette.OCEAN to R.string.settings_palette_ocean,
+                        ThemePalette.JADE to R.string.settings_palette_jade,
+                        ThemePalette.DUSK to R.string.settings_palette_dusk
+                    ).forEach { (palette, label) ->
+                        val swatch = palette.tokens(colors.isDark).accent
+                        FilterChip(
+                            selected = !settings.dynamicColorEnabled && settings.themePalette == palette,
+                            onClick = { viewModel.setThemePalette(palette) },
+                            label = { Text(stringResource(label)) },
+                            leadingIcon = {
+                                Box(Modifier.size(12.dp).background(swatch, CircleShape))
+                            }
                         )
                     }
                 }

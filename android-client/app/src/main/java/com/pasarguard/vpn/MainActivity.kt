@@ -46,6 +46,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.pasarguard.vpn.domain.model.AppLanguage
 import com.pasarguard.vpn.domain.model.CalendarSystem
+import com.pasarguard.vpn.domain.model.ThemePalette
 import com.pasarguard.vpn.domain.model.ThemeMode
 import com.pasarguard.vpn.domain.repository.SettingsRepository
 import com.pasarguard.vpn.domain.repository.SubscriptionRepository
@@ -71,6 +72,7 @@ data class RootUiState(
     val isReady: Boolean = false,
     val startDestination: String = Routes.ONBOARDING,
     val themeMode: ThemeMode = ThemeMode.DARK,
+    val themePalette: ThemePalette = ThemePalette.OCEAN,
     val dynamicColorEnabled: Boolean = false,
     val language: AppLanguage = AppLanguage.PERSIAN,
     val persianDigitsEnabled: Boolean = true,
@@ -112,6 +114,7 @@ class MainViewModel @Inject constructor(
                     isReady = true,
                     startDestination = start,
                     themeMode = initialSettings.themeMode,
+                    themePalette = initialSettings.themePalette,
                     dynamicColorEnabled = initialSettings.dynamicColorEnabled,
                     language = initialSettings.language,
                     persianDigitsEnabled = initialSettings.persianDigitsEnabled,
@@ -127,6 +130,7 @@ class MainViewModel @Inject constructor(
                 _state.update {
                     it.copy(
                         themeMode = updated.themeMode,
+                        themePalette = updated.themePalette,
                         dynamicColorEnabled = updated.dynamicColorEnabled,
                         language = updated.language,
                         persianDigitsEnabled = updated.persianDigitsEnabled,
@@ -219,6 +223,7 @@ class MainActivity : AppCompatActivity() {
             if (rootState.isReady) {
                 PasarGuardVpnTheme(
                     themeMode = rootState.themeMode,
+                    themePalette = rootState.themePalette,
                     language = rootState.language,
                     dynamicColorEnabled = rootState.dynamicColorEnabled,
                     persianDigitsEnabled = rootState.persianDigitsEnabled,
