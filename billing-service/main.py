@@ -77,13 +77,15 @@ def initialize():
     for name in ("PANEL_URL", "BILLING_PUBLIC_URL"):
         if not re.fullmatch(r"https://[a-zA-Z0-9.-]+(?::[0-9]+)?", setting(name)):
             raise ValueError(f"{name} requires an HTTPS origin without a trailing slash")
-    if not re.fullmatch(r"[0-9]{16}", setting("DESTINATION_CARD")):
-        raise ValueError("DESTINATION_CARD requires 16 digits")
+    card_number = os.getenv("DESTINATION_CARD", "")
+    if card_number and not re.fullmatch(r"[0-9]{16}", card_number):
+        raise ValueError("DESTINATION_CARD requires 16 digits when provided")
     sms_format = os.getenv("SMS_FORMAT", "account")
     if sms_format not in ("account", "blu"):
         raise ValueError("SMS_FORMAT must be account or blu")
-    if sms_format == "account" and not re.fullmatch(r"[0-9][0-9.-]+", os.getenv("SMS_ACCOUNT", "")):
-        raise ValueError("SMS_ACCOUNT requires the account identifier shown in bank SMS")
+    account = os.getenv("SMS_ACCOUNT", "")
+    if sms_format == "account" and account and not re.fullmatch(r"[0-9][0-9.-]+", account):
+        raise ValueError("SMS_ACCOUNT requires the account identifier shown in bank SMS when provided")
     if sms_format == "blu":
         ZoneInfo("Asia/Tehran")
     catalog()
@@ -167,8 +169,8 @@ def customer(x_subscription_token: str = Header(default="")):
 def destination_card(db=None):
     override = db.execute("SELECT * FROM destination_card WHERE id=1").fetchone() if db is not None else None
     return dict(override) if override else {
-        "number": setting("DESTINATION_CARD"), "holder": setting("CARD_HOLDER"),
-        "bank": setting("CARD_BANK"), "updated": None,
+        "number": os.getenv("DESTINATION_CARD", ""), "holder": os.getenv("CARD_HOLDER", ""),
+        "bank": os.getenv("CARD_BANK", ""), "updated": None,
     }
 
 
@@ -182,6 +184,8 @@ def catalog(db=None):
             raise ValueError("Invalid plan price")
         items.append({re.sub(r"[A-Z]", lambda m: "_" + m[0].lower(), k): plan[k] for k in keys})
     card = destination_card(db)
+    if db is not None and not card["number"]:
+        raise HTTPException(503, "DESTINATION_CARD_NOT_CONFIGURED")
     return {
         "currency": "TOMAN", "payment_window_minutes": WINDOW_MS // 60_000,
         "destination_card": {
@@ -320,7 +324,8 @@ def parse_deposit(text):
     accounts = [match[1] for line in lines if (match := re.fullmatch(
         r"(?:حساب|Save)\s*[:：]\s*([0-9.-]+)", line, re.IGNORECASE
     ))]
-    if accounts != [setting("SMS_ACCOUNT")]:
+    account = os.getenv("SMS_ACCOUNT", "")
+    if not account or accounts != [account]:
         return None
     pasargad = any(re.match(r"Save\s*[:：]", line, re.IGNORECASE) for line in lines)
     pattern = r"\+\s*([0-9]{1,12})" if pasargad else r"واریز\s*[:：]\s*([0-9]{1,12})\s*ریال"
@@ -460,6 +465,7 @@ def admin_overview(days: int = 7):
         "card_last4": card["number"][-4:],
         "bank": card["bank"],
         "sms_format": os.getenv("SMS_FORMAT", "account"),
+        "sms_account_configured": bool(os.getenv("SMS_ACCOUNT", "")),
     }
 
 

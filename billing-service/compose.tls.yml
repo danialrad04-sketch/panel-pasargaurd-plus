@@ -3,7 +3,7 @@ services:
     image: caddy:2.10-alpine
     environment:
       BILLING_HOST: ${BILLING_HOST:?required}
-      ACME_EMAIL: ${ACME_EMAIL:?required}
+      CADDY_ACME_CONTACT: ${CADDY_ACME_CONTACT:-}
       NO_PROXY: billing,localhost,127.0.0.1
       no_proxy: billing,localhost,127.0.0.1
     ports:

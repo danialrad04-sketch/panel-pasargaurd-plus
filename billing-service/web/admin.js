@@ -150,9 +150,10 @@ async function overview(signal) {
   get("automatic").textContent = fa.format(data.automatic_count) + " تأیید خودکار";
   get("pending").textContent = fa.format(data.pending_count);
   get("unmatched").textContent = fa.format(data.unmatched_count);
-  get("bank-name").textContent = data.bank;
-  get("card-preview").textContent = "•••• •••• •••• " + data.card_last4;
-  get("sms-mode").textContent = data.sms_format === "blu" ? "بلو" : "شناسهٔ حساب";
+  get("bank-name").textContent = data.bank || "کارت مقصد فعال نشده";
+  get("card-preview").textContent = data.card_last4 ? "•••• •••• •••• " + data.card_last4 : "—";
+  const accountMode = data.sms_account_configured ? "شناسهٔ حساب" : "شناسهٔ حساب ثبت نشده";
+  get("sms-mode").textContent = data.sms_format === "blu" ? "بلو" : accountMode;
   ordersTable(get("recent"), data.orders);
   chart(data.series);
 }
@@ -177,6 +178,7 @@ async function depositList(signal) {
 }
 
 function last4(value) {
+  if (!value) return node("span", "—");
   const element = node("span", "•••• " + value, "mono");
   element.dir = "ltr";
   return element;

@@ -51,6 +51,12 @@ async function request(path, { headers = {}, ...options } = {}) {
     signal: AbortSignal.timeout(12000),
   });
   if (!response.ok) {
+    if (response.status === 503) {
+      const problem = await response.json().catch(() => ({}));
+      if (problem.detail === "DESTINATION_CARD_NOT_CONFIGURED") {
+        throw new Error("کارت مقصد هنوز در پنل مدیریت ثبت نشده است.");
+      }
+    }
     throw new Error(errors[response.status] || "ارتباط با سرویس برقرار نشد. کمی بعد دوباره امتحان کنید.");
   }
   return response.json();

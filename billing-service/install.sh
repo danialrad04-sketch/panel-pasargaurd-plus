@@ -12,6 +12,7 @@ acme_email=
 sms_format=
 show_credentials=false
 status_only=false
+update_only=false
 
 die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 step() { printf '\n==> %s\n' "$*"; }
@@ -19,14 +20,14 @@ usage() {
     cat <<'USAGE'
 Usage: sudo bash billing-service/install.sh [--domain HOST] [--panel-url HTTPS_ORIGIN]
        [--email ADDRESS] [--tls auto|caddy|nginx|external]
-       [--sms-format account|blu] [--show-credentials]
+       [--sms-format account|blu] [--update] [--show-credentials]
        sudo bash billing-service/install.sh --status
 
-On first install, the script prompts for destination card details. It detects
-the Blu SMS format from the bank name 'blu' or 'بلو' unless explicitly overridden.
-The 'account' format also asks for the identifier shown in bank SMS. For Blu,
-use a trusted forwarder dedicated to one Blu account.
-The script generates the admin and webhook secrets.
+Set the destination card in the admin dashboard after first install. The
+installer generates the admin and webhook secrets on first install only.
+Use --update to require an existing installation and keep its settings,
+database, and HTTPS proxy. Missing settings are recovered from its container.
+For Blu, select --sms-format blu on first install and use a dedicated forwarder.
 Automatic TLS requires the domain to point to this server and inbound ports
 80 and 443. External mode uses an existing HTTPS proxy to 127.0.0.1:8087.
 USAGE
@@ -46,6 +47,7 @@ while (( $# )); do
             shift 2 ;;
         --show-credentials) show_credentials=true; shift ;;
         --status) status_only=true; shift ;;
+        --update) update_only=true; shift ;;
         -h|--help) usage; exit 0 ;;
         *) die "Unknown option: $1" ;;
     esac
@@ -62,10 +64,22 @@ prompt() {
     printf '%s' "${response:-$default}"
 }
 
-confirm_value() {
-    local name=$1 value=$2
-    [[ -n $value && $value != *"'"* && $value != *'\'* && $value != *$'\r'* && $value != *$'\n'* ]] ||
-        die "Invalid $name"
+find_container() {
+    docker ps -a --filter label=com.docker.compose.project=billing-service \
+        --filter "label=com.docker.compose.service=$1" --format '{{.ID}}'
+}
+
+container_env() {
+    docker inspect --format '{{json .Config.Env}}' "$1"
+}
+
+read_settings() {
+    "${compose[@]}" config --format json | python3 -c '
+import json, sys
+env = json.load(sys.stdin)["services"]["billing"]["environment"]
+for key in ("BILLING_PUBLIC_URL", "PANEL_URL", "BILLING_ACME_EMAIL", "SMS_FORMAT"):
+    print(env.get(key, "") or "")
+'
 }
 
 install_packages() {
@@ -83,13 +97,22 @@ update_packages() {
 
 missing=()
 if [[ $status_only == true ]]; then
-    [[ -f $env_file && ! -L $env_file ]] || die "Billing has not been configured in $service_dir"
     command -v docker >/dev/null && command -v curl >/dev/null && command -v python3 >/dev/null ||
         die "Docker, curl and Python 3 are needed to check the installation"
-    status_origin=$("${compose[@]}" config --format json | python3 -c '
+    if [[ -f $env_file && ! -L $env_file ]]; then
+        saved_settings=$(read_settings) || die "The existing billing settings could not be read"
+        status_origin=${saved_settings%%$'\n'*}
+    else
+        status_container=$(find_container billing) || die "Docker is not responding"
+        [[ -n $status_container && $status_container != *$'\n'* ]] || die "Could not identify a billing container"
+        status_origin=$(container_env "$status_container" | python3 -c '
 import json, sys
-print(json.load(sys.stdin)["services"]["billing"]["environment"]["BILLING_PUBLIC_URL"])
+for value in json.load(sys.stdin):
+    if value.startswith("BILLING_PUBLIC_URL="):
+        print(value.split("=", 1)[1])
+        break
 ') || die "The existing billing settings could not be read"
+    fi
     [[ $status_origin =~ ^https://[a-zA-Z0-9.-]+(:[0-9]+)?$ ]] || die "Invalid BILLING_PUBLIC_URL"
     docker ps -a --filter label=com.docker.compose.project=billing-service \
         --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
@@ -161,14 +184,6 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-normalize_digits() {
-    local value=$1 source='۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩' target='01234567890123456789' index
-    for ((index=0; index<20; index++)); do
-        value=${value//"${source:index:1}"/"${target:index:1}"}
-    done
-    printf '%s' "$value"
-}
-
 validate_origins() {
     [[ $billing_host =~ ^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]([a-z0-9-]*[a-z0-9])?$ ]] ||
         die "Use a public DNS name for --domain"
@@ -178,20 +193,58 @@ validate_origins() {
         die "The VPN panel and billing site need different origins"
 }
 
+billing_container=$(find_container billing) || die "Could not inspect existing billing services"
+[[ $billing_container != *$'\n'* ]] || die "Multiple billing containers found for the same Compose project"
+if [[ -n $billing_container ]]; then
+    current_mount=$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Type}}:{{.Name}}{{end}}{{end}}' \
+        "$billing_container")
+    [[ $current_mount == volume:billing-service_billing-data ]] ||
+        die "The existing billing service uses a custom data mount. Preserve it by updating its original Compose configuration"
+    if [[ ! -f $env_file ]]; then
+        step "Recovering settings from the existing billing container"
+        temp_env=$(mktemp "$service_dir/.env.XXXXXX")
+        container_env "$billing_container" | python3 -c '
+import json, sys
+
+env = dict(value.split("=", 1) for value in json.load(sys.stdin))
+required = ("BILLING_PUBLIC_URL", "PANEL_URL", "BILLING_KEY", "ADMIN_PASSWORD", "SMS_WEBHOOK_SECRET")
+optional = ("BILLING_ACME_EMAIL", "DESTINATION_CARD", "CARD_HOLDER", "CARD_BANK", "SMS_FORMAT", "SMS_ACCOUNT")
+if any(not env.get(key) for key in required):
+    sys.exit("The existing container is missing required settings")
+for key in (*required, *optional):
+    if key in env:
+        print(key + "=" + json.dumps(env[key], ensure_ascii=False).replace("$", "$$"))
+' > "$temp_env" || die "Could not recover the existing settings"
+        mv -- "$temp_env" "$env_file"
+        temp_env=
+    fi
+elif [[ ! -f $env_file ]] && docker volume inspect billing-service_billing-data >/dev/null 2>&1; then
+    die "Billing data already exists. Restore your original billing-service/.env first so its keys match the database"
+fi
+if [[ $update_only == true && ! -f $env_file ]]; then
+    die "No existing billing installation was found. No new configuration or database was created"
+fi
+
 if [[ -f $env_file ]]; then
     step "Using the existing settings and database volume"
     chmod 600 "$env_file"
-    # Ask Compose to resolve its own env-file syntax without executing it as shell code.
-    configured=$(
-        "${compose[@]}" config --format json | python3 -c '
+    configured=$(read_settings) || die "Could not read existing billing settings"
+    if [[ -n $billing_container ]]; then
+        container_key=$(container_env "$billing_container" | python3 -c '
 import json, sys
-env = json.load(sys.stdin)["services"]["billing"]["environment"]
-print(env.get("BILLING_PUBLIC_URL", ""))
-print(env.get("PANEL_URL", ""))
-print(env.get("BILLING_ACME_EMAIL", ""))
-print(env.get("SMS_FORMAT", "account"))
-'
-    ) || die "Could not read existing billing settings"
+print(dict(value.split("=", 1) for value in json.load(sys.stdin)).get("BILLING_KEY", ""))
+')
+        configured_key=$(env -u BILLING_KEY "${compose[@]}" --env-file "$env_file" config --environment | python3 -c '
+import sys
+for value in sys.stdin:
+    if value.startswith("BILLING_KEY="):
+        print(value.rstrip("\n").split("=", 1)[1])
+        break
+')
+        [[ -n $container_key && $container_key == "$configured_key" ]] ||
+            die "This .env belongs to a different installation. Restore the settings from the existing billing service"
+        unset container_key configured_key
+    fi
     mapfile -t values <<< "$configured"
     saved_origin=${values[0]:-}
     saved_panel=${values[1]:-}
@@ -205,18 +258,20 @@ print(env.get("SMS_FORMAT", "account"))
     acme_email=${acme_email:-${values[2]:-}}
     sms_format=$saved_sms_format
 else
-    billing_host=${billing_host:-$(prompt "Billing domain" "pay.esfahanmarket.shop")}
-    panel_url=${panel_url:-$(prompt "Existing PasarGuard origin" "https://got.esfahanmarket.shop:8443")}
+    billing_host=${billing_host:-pay.esfahanmarket.shop}
+    panel_url=${panel_url:-https://got.esfahanmarket.shop:8443}
 fi
 validate_origins
 
 listeners=$(ss -H -ltn '( sport = :80 or sport = :443 )')
 nginx_active=false
 if command -v nginx >/dev/null && systemctl is-active --quiet nginx; then nginx_active=true; fi
-managed_caddy=$(docker ps --filter label=com.docker.compose.project=billing-service \
-    --filter label=com.docker.compose.service=caddy --format '{{.ID}}')
+managed_caddy=$(find_container caddy)
+[[ $managed_caddy != *$'\n'* ]] || die "Multiple Caddy containers found for the same Compose project"
 if [[ $tls_mode == auto ]]; then
-    if [[ -n $managed_caddy || -z $listeners ]]; then
+    if [[ -n $billing_container || $update_only == true ]]; then
+        tls_mode=existing
+    elif [[ -n $managed_caddy || -z $listeners ]]; then
         tls_mode=caddy
     elif [[ $nginx_active == true ]]; then
         tls_mode=nginx
@@ -232,43 +287,29 @@ if [[ $tls_mode == nginx && ( $nginx_active == false || -n $managed_caddy ) ]]; 
 fi
 [[ $tls_mode != external || -z $managed_caddy ]] ||
     die "Managed Caddy is already active. Stop its service before switching to an external proxy"
-if [[ $tls_mode != external ]]; then
-    acme_email=${acme_email:-$(prompt "Contact email for TLS" "")}
-    [[ $acme_email =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]] || die "A valid --email is required"
+if [[ $tls_mode == nginx && -z $acme_email ]]; then
+    [[ $update_only == false ]] || die "Supply --email to configure a new Nginx certificate"
+    acme_email=$(prompt "Contact email for TLS" "")
+    [[ -n $acme_email ]] || die "A valid --email is required for the Nginx certificate"
+fi
+if [[ -n $acme_email && ! $acme_email =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+    die "Invalid --email"
+fi
+if [[ $tls_mode == caddy || $tls_mode == nginx ]]; then
     curl -fsS --max-time 10 -o /dev/null \
         "https://acme-v02.api.letsencrypt.org/directory" || die "Cannot reach Let's Encrypt over HTTPS"
 fi
 step "HTTPS mode selected: $tls_mode"
 
 if [[ ! -f $env_file ]]; then
-    card=$(normalize_digits "$(prompt "Destination card (16 digits)" "")")
-    card=${card//[ -]/}
-    holder=$(prompt "Cardholder name" "")
-    bank=$(prompt "Bank name" "")
-    [[ $card =~ ^[0-9]{16}$ ]] || die "The destination card requires 16 digits"
-    if [[ -z $sms_format ]]; then
-        if [[ ${bank,,} =~ ^[[:space:]]*(blu|بلو)[[:space:]]*$ ]]; then
-            sms_format=blu
-            printf 'Blu SMS format selected. No SMS account identifier is needed.\n'
-        else
-            sms_format=account
-        fi
-    fi
-    account=
-    if [[ $sms_format == account ]]; then
-        account=$(normalize_digits "$(prompt "Destination account identifier as it appears in bank SMS" "")")
-        [[ $account =~ ^[0-9][0-9.-]+$ ]] || die "Invalid bank SMS account identifier"
-    fi
-    confirm_value "cardholder name" "$holder"
-    confirm_value "bank name" "$bank"
+    sms_format=${sms_format:-account}
     billing_key=$(openssl rand -hex 32)
     admin_password=$(openssl rand -hex 32)
     webhook_secret=$(openssl rand -hex 32)
     temp_env=$(mktemp "$service_dir/.env.XXXXXX")
     {
         printf "PANEL_URL='%s'\nBILLING_PUBLIC_URL='https://%s'\nBILLING_ACME_EMAIL='%s'\n" "$panel_url" "$billing_host" "$acme_email"
-        printf "DESTINATION_CARD='%s'\nCARD_HOLDER='%s'\nCARD_BANK='%s'\n" "$card" "$holder" "$bank"
-        printf "SMS_FORMAT='%s'\nSMS_ACCOUNT='%s'\n" "$sms_format" "$account"
+        printf "SMS_FORMAT='%s'\n" "$sms_format"
         printf "BILLING_KEY='%s'\nADMIN_PASSWORD='%s'\nSMS_WEBHOOK_SECRET='%s'\n" "$billing_key" "$admin_password" "$webhook_secret"
     } > "$temp_env"
     mv -- "$temp_env" "$env_file"
@@ -347,9 +388,16 @@ HOOK
 
 step "Building and starting the billing backend"
 if [[ $tls_mode == caddy ]]; then
-    export BILLING_HOST="$billing_host" ACME_EMAIL="$acme_email"
+    export BILLING_HOST="$billing_host" CADDY_ACME_CONTACT="${acme_email:+email $acme_email}"
     "${compose[@]}" -f "$service_dir/compose.tls.yml" up -d --build --wait --wait-timeout 90 ||
         die "Compose failed. Check its output and run this installer with --status"
+elif [[ $tls_mode == existing ]]; then
+    COMPOSE_IGNORE_ORPHANS=true "${compose[@]}" up -d --build --no-deps --wait --wait-timeout 90 billing ||
+        die "Compose failed. Check its output and run this installer with --status"
+    if [[ -n $managed_caddy ]]; then
+        caddy_running=$(docker inspect --format '{{.State.Running}}' "$managed_caddy")
+        if [[ $caddy_running != true ]]; then docker start "$managed_caddy" >/dev/null; fi
+    fi
 else
     "${compose[@]}" up -d --build --wait --wait-timeout 90 ||
         die "Compose failed. Check its output and run this installer with --status"
@@ -362,7 +410,14 @@ fi
 step "Checking the billing backend"
 [[ $(curl -fsS --max-time 5 http://127.0.0.1:8087/healthz) == '{"status":"ok"}' ]] ||
     die "The billing backend did not pass its local health check"
-if [[ $tls_mode != external ]]; then
+if [[ $tls_mode == existing ]]; then
+    step "Checking the existing HTTPS proxy"
+    if [[ $(curl -fsS --max-time 10 "https://$billing_host/healthz" 2>/dev/null) != '{"status":"ok"}' &&
+          $(curl -fsS --noproxy '*' --resolve "$billing_host:443:127.0.0.1" \
+              --max-time 10 "https://$billing_host/healthz" 2>/dev/null) != '{"status":"ok"}' ]]; then
+        die "Backend updated and healthy locally. The existing HTTPS proxy did not pass its health check. Run --status"
+    fi
+elif [[ $tls_mode != external ]]; then
     step "Waiting for HTTPS on $billing_host"
     https_ready=false
     for ((attempt=0; attempt<36; attempt++)); do
