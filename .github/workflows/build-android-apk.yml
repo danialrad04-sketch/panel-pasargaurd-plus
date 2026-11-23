@@ -15,6 +15,10 @@ on:
         description: 'PasarGuard Panel Base URL (optional override)'
         required: false
         default: 'https://panel.example.com'
+      billing_base_url:
+        description: 'PasarGuard Billing HTTPS origin (optional override)'
+        required: false
+        type: string
       app_name:
         description: 'Branded App Name (optional override)'
         required: false
@@ -58,14 +62,14 @@ jobs:
       - name: Build Debug APKs (Universal + ABI Splits)
         env:
           PASARGUARD_BASE_URL: ${{ github.event.inputs.panel_base_url || vars.PASARGUARD_BASE_URL || 'https://panel.example.com' }}
-          PASARGUARD_BILLING_URL: ${{ vars.PASARGUARD_BILLING_URL }}
+          PASARGUARD_BILLING_URL: ${{ inputs.billing_base_url || vars.PASARGUARD_BILLING_URL }}
           PASARGUARD_APP_NAME: ${{ github.event.inputs.app_name || vars.PASARGUARD_APP_NAME || 'PasarGuard VPN' }}
         run: gradle :app:assembleDebug --stacktrace
 
       - name: Build Release APKs (Unsigned)
         env:
           PASARGUARD_BASE_URL: ${{ github.event.inputs.panel_base_url || vars.PASARGUARD_BASE_URL || 'https://panel.example.com' }}
-          PASARGUARD_BILLING_URL: ${{ vars.PASARGUARD_BILLING_URL }}
+          PASARGUARD_BILLING_URL: ${{ inputs.billing_base_url || vars.PASARGUARD_BILLING_URL }}
           PASARGUARD_APP_NAME: ${{ github.event.inputs.app_name || vars.PASARGUARD_APP_NAME || 'PasarGuard VPN' }}
         run: gradle :app:assembleRelease --stacktrace
 
