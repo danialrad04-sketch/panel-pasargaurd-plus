@@ -1,0 +1,26 @@
+# PasarGuard for iPhone
+
+نسخهٔ بومی فارسی برای iOS 17 و بالاتر. برنامه لینک HTTPS اشتراک پاسارگارد را می‌خواند، سرورها و وضعیت مصرف را نشان می‌دهد و لینک را در Keychain همان دستگاه ذخیره می‌کند. تونل دستگاه از Network Extension و Xray-core استفاده می‌کند.
+
+## ساخت در Xcode
+
+از macOS با Xcode و iOS Simulator استفاده کنید.
+
+```bash
+brew install xcodegen
+cd ios-client
+./scripts/fetch-core.sh
+xcodegen generate
+open PasarGuard.xcodeproj
+```
+
+طرح `PasarGuard` را انتخاب کنید. شبیه‌ساز برای رابط و تست‌های نرم‌افزاری است. برای نصب و تست VPN روی آیفون، Team خود را برای هر دو هدف `PasarGuard` و `PacketTunnel` انتخاب کنید. App ID هر هدف باید قابلیت Network Extension با نوع `packet-tunnel-provider` داشته باشد و هر دو هدف به یک App Group دسترسی داشته باشند. پیش‌فرض‌های شناسه‌ها در `project.yml` هستند. در صورت تغییر App ID، شناسهٔ افزونه و App Group هر دو هدف را با آن هماهنگ کنید.
+
+Workflow «Build PasarGuard iOS» ساخت بدون امضای هدف آیفون و ساخت و تست شبیه‌ساز را انجام می‌دهد. روی دستگاه واقعی بررسی کنید که اتصال و قطع، ترافیک و DNS روی Wi-Fi و اینترنت سیم‌کارت و تغییر شبکه درست کار می‌کنند.
+
+## قرارداد فعلی
+
+- دریافت اطلاعات از `/sub/{token}/info`، تنظیمات از `xray` و `v2ray-json` و لینک‌ها از `raw` یا پاسخ پایهٔ اشتراک.
+- تنظیمات ارسالی پنل با ورودی TUN محلی برنامه بازسازی می‌شوند. قوانین وابسته به ورودی قبلی حذف می‌شوند و مسیرهای دیگر و تنظیمات DNS و خروجی‌ها حفظ می‌شوند.
+- ابزارها و دارایی‌های ساخت با نسخه و SHA-256 ثابت دریافت می‌شوند. منابع وابستگی‌ها [libXray](https://github.com/XTLS/libXray/tree/v26.11.9)، [geoip](https://github.com/v2fly/geoip/tree/202611080027) و [domain-list-community](https://github.com/v2fly/domain-list-community/tree/20261123144211) هستند.
+- این نسخه روی وارد کردن اشتراک و اتصال تمرکز دارد. خرید، ارسال فیش، ویجت و مسیریابی پیشرفتهٔ اندروید در این نسخه پیاده نشده‌اند.

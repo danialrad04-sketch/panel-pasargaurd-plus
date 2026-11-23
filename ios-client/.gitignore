@@ -1,0 +1,6 @@
+Dependencies/
+PasarGuard.xcodeproj/
+build/
+*.xcuserstate
+Local.xcconfig
+Configuration/
