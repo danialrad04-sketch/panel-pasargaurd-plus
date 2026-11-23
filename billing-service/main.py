@@ -588,6 +588,13 @@ def create_order(body: OrderRequest, idempotency_key: Annotated[UUID, Header()],
             raise HTTPException(404)
         if plan["category"] != "RENEW":
             raise HTTPException(422)
+        if not actor.is_guest:
+            try:
+                changes, _ = provisioning.renewal_changes(account, plan, current)
+            except provisioning.PanelError:
+                raise HTTPException(503, "RENEWAL_UNAVAILABLE") from None
+            if not any(account.get(key) != value for key, value in changes.items()):
+                raise HTTPException(409, "RENEWAL_NOT_APPLICABLE")
         price = plan["price_toman"]
         if with_wallet:
             if wallet_balance(db, actor.account_id) < price:
@@ -922,6 +929,8 @@ def cancel_customer_subscription(order_id: str, request: IncomingRequest):
             raise HTTPException(409, "SUBSCRIPTION_NOT_READY")
         current = now()
         details = json.loads(order["details"])
+        if not details.get("new_subscription"):
+            raise HTTPException(404)
         started = details.get("activation_started_at_ms") or details["reviewed_at_ms"]
         if db.execute("SELECT 1 FROM customer_refunds WHERE order_id=?", (order_id,)).fetchone():
             return Response(status_code=202)

@@ -1263,6 +1263,7 @@ private fun SuccessCelebrationStep(
     onViewOrders: () -> Unit
 ) {
     val colors = PasarGuardTheme.colors
+    val awaitingApplication = order?.activationStatus == "PENDING"
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1287,7 +1288,11 @@ private fun SuccessCelebrationStep(
         }
         Spacer(Modifier.height(Spacing.lg))
         Text(
-            text = stringResource(R.string.renew_success_title),
+            text = stringResource(when {
+                awaitingApplication -> R.string.renew_payment_approved
+                order?.newSubscription == true -> R.string.renew_payment_approved
+                else -> R.string.renew_success_title
+            }),
             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
             color = colors.textPrimary,
             textAlign = TextAlign.Center
@@ -1303,13 +1308,17 @@ private fun SuccessCelebrationStep(
             color = colors.textSecondary,
             textAlign = TextAlign.Center
         )
-        if (isRefreshingSub || needsActivation && !purchaseImportFailed) {
+        if (awaitingApplication || isRefreshingSub || needsActivation && !purchaseImportFailed) {
             Spacer(Modifier.height(Spacing.md))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = colors.heroEnd)
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = stringResource(if (needsActivation) R.string.purchase_preparing else R.string.checkout_syncing_sub),
+                    text = stringResource(when {
+                        needsActivation -> R.string.purchase_preparing
+                        awaitingApplication -> R.string.renew_applying
+                        else -> R.string.checkout_syncing_sub
+                    }),
                     style = MaterialTheme.typography.labelMedium,
                     color = colors.heroEnd
                 )

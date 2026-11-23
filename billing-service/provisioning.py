@@ -196,3 +196,10 @@ def apply_renewal(username, config, account, changes):
         result = panel_request(f"/api/user/by-username/{username}", config[0], method="PUT", payload=remaining)
         if result.get("username") != username:
             raise PanelError()
+        for key, expected in remaining.items():
+            actual = result.get(key)
+            if key == "expire":
+                if expiration_ms(actual) < expiration_ms(expected):
+                    raise PanelError()
+            elif actual != expected:
+                raise PanelError()

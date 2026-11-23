@@ -499,4 +499,6 @@
     <string name="account_transfer_success">Order added to your account.</string>
     <string name="account_refresh">Refresh</string>
     <string name="update_auto_download">Download updates automatically</string>
+    <string name="renew_payment_approved">Payment approved</string>
+    <string name="renew_applying">Applying changes to your subscription…</string>
 </resources>
