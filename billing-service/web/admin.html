@@ -174,6 +174,15 @@
                 </div>
                 <label class="field">شناسهٔ اپ<input name="package_name" dir="ltr" maxlength="160" required></label>
                 <label class="field" id="release-ios-field">لینک App Store یا TestFlight<input name="store_url" type="url" dir="ltr" maxlength="1000"></label>
+                <div id="release-upload" class="settings-form">
+                  <div class="field-pair">
+                    <label class="field">معماری فایل<select id="apk-abi"><option value="arm64-v8a">ARM64</option><option value="armeabi-v7a">ARM 32-bit</option><option value="x86_64">x86-64</option><option value="universal">همهٔ معماری‌ها</option></select></label>
+                    <label class="field">فایل APK<input id="apk-file" type="file" accept=".apk,application/vnd.android.package-archive"></label>
+                  </div>
+                  <button type="button" id="apk-upload" class="button subtle">بارگذاری فایل</button>
+                  <progress id="apk-progress" max="100" value="0" aria-label="پیشرفت بارگذاری APK" hidden></progress>
+                  <a id="apk-link" class="button subtle" href="#" hidden>لینک دانلود APK</a>
+                </div>
                 <label class="field" id="release-android-field">فایل‌های APK، هر سطر به ترتیب معماری، آدرس و SHA-256 با فاصله<textarea name="assets" rows="4" dir="ltr" placeholder="arm64-v8a https://…/app.apk SHA-256"></textarea></label>
                 <label class="field">تغییرات نسخه<textarea name="changelog" maxlength="2000" rows="3"></textarea></label>
                 <label class="check"><input name="visible" type="checkbox"> به کاربران این نسخه پیشنهاد شود</label>

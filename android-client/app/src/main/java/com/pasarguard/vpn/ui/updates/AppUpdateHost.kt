@@ -28,6 +28,9 @@ import java.io.File
 
 val LocalCheckForUpdates = staticCompositionLocalOf<(() -> Unit)?> { null }
 
+data class AutoDownloadSetting(val enabled: Boolean, val onChange: (Boolean) -> Unit)
+val LocalAutoDownloadSetting = staticCompositionLocalOf<AutoDownloadSetting?> { null }
+
 @Composable
 fun AppUpdateHost(checker: UpdateChecker, content: @Composable () -> Unit) {
     val scope = rememberCoroutineScope()
@@ -37,6 +40,7 @@ fun AppUpdateHost(checker: UpdateChecker, content: @Composable () -> Unit) {
     var update by remember { mutableStateOf<AppUpdateInfo?>(null) }
     var downloaded by remember { mutableStateOf<File?>(null) }
     var message by remember { mutableStateOf<Int?>(null) }
+    var autoDownload by remember { mutableStateOf(checker.autoDownloadEnabled()) }
 
     fun check(manual: Boolean) {
         if (checking) {
@@ -55,6 +59,18 @@ fun AppUpdateHost(checker: UpdateChecker, content: @Composable () -> Unit) {
                 if (available != null && (showDialog || checker.canPrompt(available))) {
                     update = available
                     showDialog = true
+                    if (!manual && autoDownload) {
+                        downloading = true
+                        try {
+                            downloaded = checker.download(available)
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (_: Exception) {
+                            message = R.string.update_download_failed
+                        } finally {
+                            downloading = false
+                        }
+                    }
                 } else if (showDialog) {
                     message = R.string.settings_update_latest
                 }
@@ -75,7 +91,13 @@ fun AppUpdateHost(checker: UpdateChecker, content: @Composable () -> Unit) {
     }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { check(manual = false) }
-    CompositionLocalProvider(LocalCheckForUpdates provides if (checker.isConfigured) ({ check(manual = true) }) else null) {
+    CompositionLocalProvider(
+        LocalCheckForUpdates provides if (checker.isConfigured) ({ check(manual = true) }) else null,
+        LocalAutoDownloadSetting provides if (checker.isConfigured) AutoDownloadSetting(autoDownload) {
+            autoDownload = it
+            checker.setAutoDownload(it)
+        } else null
+    ) {
         content()
     }
 

@@ -324,6 +324,7 @@ function fillReleaseEditor() {
   const release = releases[platform] ?? {};
   get("release-ios-field").hidden = !ios;
   get("release-android-field").hidden = ios;
+  get("release-upload").hidden = ios;
   get("release-github").hidden = ios || !releases.android;
   form.namedItem("latest_version").value = release.latest_version ?? "";
   form.namedItem("latest_version_code").value = release.latest_version_code ?? "";
@@ -333,6 +334,46 @@ function fillReleaseEditor() {
   form.namedItem("changelog").value = release.changelog ?? "";
   form.namedItem("visible").checked = Boolean(release.visible);
 }
+
+get("apk-upload").addEventListener("click", async (event) => {
+  const file = get("apk-file").files[0];
+  const trigger = event.currentTarget;
+  const progress = get("apk-progress");
+  const picker = get("release-platform");
+  const link = get("apk-link");
+  if (!file || !file.name.toLowerCase().endsWith(".apk") || file.size > 150 * 1024 * 1024) {
+    setNotice("فایل APK تا ۱۵۰ مگابایت را انتخاب کنید.", true);
+    return;
+  }
+  const id = crypto.randomUUID().replaceAll("-", "");
+  const abi = get("apk-abi").value;
+  const endpoint = "/api/apk/" + id;
+  trigger.disabled = true;
+  picker.disabled = true;
+  progress.hidden = false;
+  progress.value = 0;
+  link.hidden = true;
+  try {
+    const chunk = 512 * 1024;
+    for (let offset = 0; offset < file.size; offset += chunk) {
+      const end = Math.min(offset + chunk, file.size);
+      await request(endpoint + "?offset=" + offset, { method: "PUT", body: file.slice(offset, end) });
+      progress.value = 100 * end / file.size;
+    }
+    const result = await request(endpoint + "?size=" + file.size, { method: "POST" });
+    const field = get("release-form").elements.namedItem("assets");
+    const rows = field.value.split("\n").filter(line => line.trim() && line.trim().split(/\s+/)[0] !== abi);
+    field.value = [...rows, [abi, result.download_url, result.sha256].join(" ")].join("\n");
+    link.href = result.download_url;
+    link.hidden = false;
+    setNotice("فایل بارگذاری شد. برای انتشار، شمارهٔ ساخت و نمایش نسخه را تنظیم و ذخیره کنید.");
+  } catch (error) {
+    setNotice(error.message, true);
+  } finally {
+    trigger.disabled = false;
+    picker.disabled = false;
+  }
+});
 
 get("release-platform").addEventListener("change", fillReleaseEditor);
 get("release-github").addEventListener("click", async (event) => {

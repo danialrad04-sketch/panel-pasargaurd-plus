@@ -230,6 +230,7 @@ class SubscriptionViewModel @Inject constructor(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubscriptionScreen(
+    onOpenAccount: () -> Unit,
     onOpenRenewal: () -> Unit,
     onOpenOrders: () -> Unit = {},
     viewModel: SubscriptionViewModel = hiltViewModel()
@@ -788,7 +789,7 @@ fun SubscriptionScreen(
                 }
                 if (BuildConfig.BILLING_BASE_URL.isNotBlank()) {
                     OutlinedButton(
-                        onClick = { Formatters.openExternalUrl(context, BuildConfig.BILLING_BASE_URL.trimEnd('/') + "/account") },
+                        onClick = onOpenAccount,
                         modifier = Modifier.fillMaxWidth()
                     ) { Text(stringResource(R.string.customer_portal)) }
                 }

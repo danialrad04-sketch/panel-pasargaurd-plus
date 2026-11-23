@@ -88,6 +88,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.pasarguard.vpn.data.api.CustomerApi
 import com.pasarguard.vpn.BrandConfig
 import com.pasarguard.vpn.R
 import com.pasarguard.vpn.domain.model.AppLanguage
@@ -137,6 +138,7 @@ data class CheckoutUiState(
     val language: AppLanguage = AppLanguage.PERSIAN,
     val plan: CatalogPlan? = null,
     val paymentMethod: PaymentMethodType = PaymentMethodType.CARD_TO_CARD,
+    val walletBalance: Long? = null,
     val discountInput: String = "",
     val isValidatingDiscount: Boolean = false,
     val appliedDiscount: DiscountValidationResult? = null,
@@ -162,6 +164,7 @@ class CheckoutViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val syncSubscription: SyncSubscriptionUseCase,
     private val validateAndLogin: ValidateAndLoginUseCase,
+    private val customer: CustomerApi,
     private val notificationHelper: NotificationHelper
 ) : ViewModel() {
 
@@ -285,7 +288,20 @@ class CheckoutViewModel @Inject constructor(
         _uiState.update { it.copy(discountInput = "", appliedDiscount = null) }
     }
 
-    fun proceedToCardToCard() {
+    fun loadWallet() {
+        if (!customer.signedIn) return
+        viewModelScope.launch {
+            runCatching { customer.wallet().balance }.onSuccess { balance ->
+                _uiState.update { it.copy(walletBalance = balance) }
+            }
+        }
+    }
+
+    fun payWithWallet() = proceedToCardToCard(PaymentMethodType.WALLET)
+
+    fun proceedToCardToCard() = proceedToCardToCard(PaymentMethodType.CARD_TO_CARD)
+
+    private fun proceedToCardToCard(method: PaymentMethodType) {
         val state = _uiState.value
         val plan = state.plan ?: return
         if (state.isCreatingOrder) return
@@ -295,9 +311,11 @@ class CheckoutViewModel @Inject constructor(
             val validCode = state.appliedDiscount?.takeIf { it.isValid }?.code
             paymentRepository.createOrder(
                 plan = plan,
-                paymentMethod = state.paymentMethod,
+                paymentMethod = method,
                 discountCode = validCode,
-                idempotencyKey = idempotencyKey
+                idempotencyKey = if (method == PaymentMethodType.WALLET) {
+                    UUID.nameUUIDFromBytes((idempotencyKey + ":wallet").toByteArray()).toString()
+                } else idempotencyKey
             ).onSuccess { order ->
                 _uiState.update { it.copy(isCreatingOrder = false) }
                 attachOrder(order)
@@ -416,9 +434,10 @@ class CheckoutViewModel @Inject constructor(
 
     private fun needsPolling(order: PaymentOrder): Boolean =
         order.status == OrderStatus.PENDING_REVIEW || order.status == OrderStatus.AWAITING_RECEIPT ||
-            order.status == OrderStatus.APPROVED && order.newSubscription && order.activationStatus != "READY"
+            order.status == OrderStatus.APPROVED && order.activationStatus == "PENDING"
 
     private fun onOrderApproved(order: PaymentOrder) {
+        if (order.activationStatus == "PENDING") return
         if (approvedHandledForOrderId != order.id) {
             approvedHandledForOrderId = order.id
             val planTitle = if (_uiState.value.language == AppLanguage.PERSIAN) order.planTitleFa else order.planTitleEn
@@ -477,6 +496,7 @@ fun CheckoutScreen(
     }
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { viewModel.loadWallet() }
     var pickingPhoto by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(state.purchaseConnected, state.selectedReceiptPath, state.isPreparingReceipt, state.isSubmittingReceipt, pickingPhoto) {
         if (state.purchaseConnected && state.selectedReceiptPath == null &&
@@ -563,7 +583,8 @@ fun CheckoutScreen(
                         onDiscountChange = viewModel::updateDiscountInput,
                         onApplyDiscount = viewModel::applyDiscount,
                         onClearDiscount = viewModel::clearDiscount,
-                        onContinue = viewModel::proceedToCardToCard
+                        onContinue = viewModel::proceedToCardToCard,
+                        onWallet = viewModel::payWithWallet
                     )
 
                     CheckoutStep.CARD_TO_CARD -> {
@@ -632,7 +653,8 @@ private fun SummaryAndMethodStep(
     onDiscountChange: (String) -> Unit,
     onApplyDiscount: () -> Unit,
     onClearDiscount: () -> Unit,
-    onContinue: () -> Unit
+    onContinue: () -> Unit,
+    onWallet: () -> Unit
 ) {
     val colors = PasarGuardTheme.colors
     val plan = state.plan ?: return
@@ -666,35 +688,12 @@ private fun SummaryAndMethodStep(
                     valueColor = colors.statusConnected
                 )
             }
-            // Disabled wallet credit slot
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Rounded.AccountBalanceWallet,
-                        contentDescription = null,
-                        tint = colors.textSecondary.copy(alpha = 0.6f),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = stringResource(R.string.checkout_wallet_slot),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.textSecondary.copy(alpha = 0.6f)
-                    )
-                }
-                Text(
-                    text = stringResource(R.string.coming_soon),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colors.textSecondary.copy(alpha = 0.6f)
+            state.walletBalance?.let { balance ->
+                PriceLineRow(
+                    label = stringResource(R.string.account_wallet),
+                    value = "${Formatters.formatNumber(balance, persianDigits)} $currency"
                 )
             }
-
             Spacer(Modifier.height(Spacing.xs))
             HorizontalDivider(color = colors.glassBorder)
             Spacer(Modifier.height(Spacing.sm))
@@ -773,22 +772,7 @@ private fun SummaryAndMethodStep(
                 selected = true,
                 enabled = true
             )
-            Spacer(Modifier.height(Spacing.sm))
-            PaymentMethodRow(
-                icon = Icons.Rounded.Language,
-                title = stringResource(R.string.checkout_method_gateway),
-                subtitle = stringResource(R.string.coming_soon),
-                selected = false,
-                enabled = false
-            )
-            Spacer(Modifier.height(Spacing.sm))
-            PaymentMethodRow(
-                icon = Icons.Rounded.CurrencyBitcoin,
-                title = stringResource(R.string.checkout_method_crypto),
-                subtitle = stringResource(R.string.coming_soon),
-                selected = false,
-                enabled = false
-            )
+
         }
 
         if (state.errorMessage != null) {
@@ -806,6 +790,11 @@ private fun SummaryAndMethodStep(
             leadingIcon = Icons.Rounded.CreditCard,
             modifier = Modifier.fillMaxWidth()
         )
+        if ((state.walletBalance ?: 0L) >= plan.priceToman) {
+            OutlinedButton(onClick = onWallet, enabled = !state.isCreatingOrder, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.account_wallet_pay))
+            }
+        }
         Spacer(Modifier.height(Spacing.md))
     }
 }

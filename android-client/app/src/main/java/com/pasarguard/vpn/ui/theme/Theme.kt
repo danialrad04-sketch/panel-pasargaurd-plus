@@ -256,6 +256,8 @@ fun PasarGuardVpnTheme(
         baseExtended.copy(
             backgroundCanvas = palette.canvas,
             glassSurface = palette.surface,
+            glassBorderTop = palette.accent.copy(alpha = if (useDark) 0.26f else 0.22f),
+            glassBorderBottom = palette.accent.copy(alpha = if (useDark) 0.09f else 0.12f),
             heroStart = palette.gradientStart,
             heroEnd = palette.accent,
             heroFillEnd = palette.gradientEnd,

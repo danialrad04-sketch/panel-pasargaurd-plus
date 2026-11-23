@@ -67,12 +67,6 @@ interface BillingBackendApi {
         @Query("limit") limit: Int = 50
     ): OrdersListResponseDto
 
-    @POST("v1/billing/orders/{orderId}/transfer-ticket")
-    suspend fun createTransferTicket(
-        @Header("X-Purchase-Token") purchaseToken: String,
-        @Path("orderId") orderId: String
-    ): TransferTicketDto
-
     @GET("v1/billing/orders/{orderId}/subscription")
     suspend fun getPurchasedSubscription(
         @HeaderMap auth: Map<String, String>,
@@ -249,6 +243,3 @@ data class AppRemoteConfigDto(
     @SerialName("force_update") val forceUpdate: Boolean = false,
     val announcement: String? = null
 )
-
-@Serializable
-data class TransferTicketDto(val ticket: String)

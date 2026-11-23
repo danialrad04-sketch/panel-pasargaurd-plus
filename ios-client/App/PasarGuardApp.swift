@@ -182,10 +182,11 @@ private struct MainView: View {
         List {
             Section("حساب و خرید") {
                 NavigationLink { PlanCatalogView() } label: { Label("پلن‌های اشتراک", systemImage: "list.bullet") }
-                if let billing = BillingOrigin.url {
-                    Link(destination: billing.appendingPathComponent("account")) {
-                        Label("حساب کاربری و کیف پول", systemImage: "wallet.pass")
-                    }
+                NavigationLink {
+                    CustomerAccountView(onImport: { link in await subscription.load(link, save: true) },
+                                        onRenewed: { await subscription.refresh() }, canImport: vpn.canChangeServer)
+                } label: {
+                    Label("حساب کاربری و کیف پول", systemImage: "wallet.pass")
                 }
             }
             Section("به‌روزرسانی") {

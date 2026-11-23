@@ -41,6 +41,12 @@ class UpdateChecker @Inject constructor(
 
     val isConfigured: Boolean get() = BuildConfig.BILLING_BASE_URL.isNotBlank()
 
+    fun autoDownloadEnabled(): Boolean = prefs.getBoolean("download_automatically", false)
+
+    fun setAutoDownload(enabled: Boolean) {
+        prefs.edit().putBoolean("download_automatically", enabled).apply()
+    }
+
     fun shouldCheckAutomatically(): Boolean {
         val elapsed = System.currentTimeMillis() - prefs.getLong("checked_at", 0)
         return isConfigured && (elapsed < 0 || elapsed >= AUTO_INTERVAL_MS)

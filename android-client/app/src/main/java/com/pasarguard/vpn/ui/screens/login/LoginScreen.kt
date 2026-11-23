@@ -79,7 +79,6 @@ import com.pasarguard.vpn.ui.components.GlassCard
 import com.pasarguard.vpn.ui.components.GradientButton
 import com.pasarguard.vpn.ui.theme.PasarGuardTheme
 import com.pasarguard.vpn.ui.theme.Spacing
-import com.pasarguard.vpn.util.Formatters
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -141,6 +140,7 @@ class LoginViewModel @Inject constructor(
 @Composable
 fun LoginScreen(
     prefilledSubscriptionUrl: String? = null,
+    onOpenAccount: () -> Unit,
     onLoginSuccess: () -> Unit,
     onBuySubscription: () -> Unit,
     onTrackPurchase: () -> Unit,
@@ -149,7 +149,6 @@ fun LoginScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val colors = PasarGuardTheme.colors
     val clipboard = LocalClipboardManager.current
-    val context = LocalContext.current
     var showQrSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(prefilledSubscriptionUrl) {
@@ -216,7 +215,7 @@ fun LoginScreen(
 
             if (BuildConfig.BILLING_BASE_URL.isNotBlank()) {
                 OutlinedButton(
-                    onClick = { Formatters.openExternalUrl(context, BuildConfig.BILLING_BASE_URL.trimEnd('/') + "/account") },
+                    onClick = onOpenAccount,
                     modifier = Modifier.fillMaxWidth()
                 ) { Text(stringResource(R.string.customer_portal)) }
             }

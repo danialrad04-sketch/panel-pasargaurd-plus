@@ -137,3 +137,62 @@ def disable_for_refund(order_id, config, account):
     if (response.get("status") != "disabled" or response.get("username") != panel_username(order_id)
             or response.get("note") != f"PasarGuard Plus order {order_id}"):
         raise PanelError()
+
+
+def renewal_account(username, config):
+    if not config or not re.fullmatch(r"[A-Za-z0-9_.@-]{1,128}", username) or username in (".", ".."):
+        raise PanelError()
+    account = panel_request(f"/api/user/by-username/{username}", config[0])
+    if account.get("username") != username:
+        raise PanelError()
+    return account
+
+
+def expiration_ms(value):
+    try:
+        if type(value) is int:
+            return value if value >= 1_000_000_000_000 else value * 1000
+        if isinstance(value, str):
+            stamp = datetime.fromisoformat(value)
+            if stamp.tzinfo is not None:
+                return int(stamp.timestamp() * 1000)
+    except (ValueError, OverflowError):
+        pass
+    raise PanelError()
+
+
+def renewal_changes(account, plan, current):
+    changes = {}
+    previous_expire = account.get("expire")
+    start = max(current, expiration_ms(previous_expire)) if previous_expire else current
+    if previous_expire or account.get("status") == "expired":
+        changes["expire"] = (datetime.fromtimestamp(start / 1000, UTC) + timedelta(days=plan["duration_days"])).isoformat()
+    old_limit = account.get("data_limit")
+    used = account.get("used_traffic")
+    if (old_limit is not None and type(old_limit) is not int) or type(used) is not int:
+        raise PanelError()
+    if plan["data_limit_gb"] is None:
+        changes["data_limit"] = 0
+    elif old_limit:
+        changes["data_limit"] = max(old_limit, used) + plan["data_limit_gb"] * 1024**3
+    if plan["max_devices"] is not None:
+        changes["hwid_limit"] = max(account.get("hwid_limit") or 0, plan["max_devices"])
+    if account.get("status") in ("expired", "limited"):
+        changes["status"] = "active"
+    return changes, start
+
+
+def apply_renewal(username, config, account, changes):
+    if not changes:
+        return
+    remaining = {key: value for key, value in changes.items() if account.get(key) != value}
+    if ("expire" in remaining and account.get("expire")
+            and expiration_ms(account["expire"]) >= expiration_ms(remaining["expire"])):
+        remaining.pop("expire")
+    for key in ("data_limit", "hwid_limit"):
+        if key in remaining and (account.get(key) or 0) >= remaining[key] > 0:
+            remaining.pop(key)
+    if remaining:
+        result = panel_request(f"/api/user/by-username/{username}", config[0], method="PUT", payload=remaining)
+        if result.get("username") != username:
+            raise PanelError()

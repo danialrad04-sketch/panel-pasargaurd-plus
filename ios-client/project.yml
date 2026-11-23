@@ -11,8 +11,8 @@ settings:
     TARGETED_DEVICE_FAMILY: "1"
     APP_BUNDLE_ID: com.pasarguard.vpn.ios
     APP_GROUP_ID: group.com.pasarguard.vpn.ios
-    MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "1.1.0"
+    CURRENT_PROJECT_VERSION: "2"
 targets:
   PasarGuard:
     type: application
@@ -26,6 +26,7 @@ targets:
         CFBundleDisplayName: PasarGuard VPN
         AppGroupIdentifier: $(APP_GROUP_ID)
         BillingOrigin: https://pay.esfahanmarket.shop
+        PanelOrigin: https://got.esfahanmarket.shop:8443
         PacketTunnelIdentifier: $(APP_BUNDLE_ID).PacketTunnel
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]

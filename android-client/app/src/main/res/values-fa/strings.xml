@@ -476,4 +476,27 @@
     <string name="update_download_failed">دانلود یا اعتبارسنجی بسته انجام نشد.</string>
     <string name="update_allow_install">اجازهٔ نصب را در تنظیمات اندروید فعال کنید و سپس نصب را بزنید.</string>
     <string name="update_install">نصب</string>
+    <string name="account_code">کد تأیید</string>
+    <string name="account_password">رمز پاسارگارد</string>
+    <string name="account_login">ورود</string>
+    <string name="account_verify">تأیید و ورود</string>
+    <string name="account_signup_reset">ساخت حساب یا بازیابی رمز</string>
+    <string name="account_code_sent">کد تأیید به جیمیل ارسال شد.</string>
+    <string name="account_error">درخواست انجام نشد. دوباره تلاش کنید.</string>
+    <string name="account_bad_code">کد تأیید اشتباه است یا اعتبارش تمام شده.</string>
+    <string name="account_bad_login">اطلاعات ورود را بررسی کنید یا دوباره وارد شوید.</string>
+    <string name="account_try_later">تعداد درخواست‌ها زیاد است. کمی بعد امتحان کنید.</string>
+    <string name="account_email_unavailable">ارسال کد پست الکترونیکی فعلاً در دسترس نیست.</string>
+    <string name="account_wallet">کیف پول</string>
+    <string name="account_wallet_amount">%1$s تومان</string>
+    <string name="account_purchase">خرید یا تمدید اشتراک</string>
+    <string name="account_logout">خروج از حساب</string>
+    <string name="account_cancel">لغو اشتراک</string>
+    <string name="account_cancelled">اشتراک لغو شد</string>
+    <string name="account_cancelling">در حال لغو اشتراک</string>
+    <string name="account_cancel_confirm">دسترسی قطع می‌شود و اعتبار زمان باقی‌مانده به کیف پول برمی‌گردد.</string>
+    <string name="account_wallet_pay">پرداخت با کیف پول</string>
+    <string name="account_transfer_success">سفارش به حساب کاربری منتقل شد.</string>
+    <string name="account_refresh">به‌روزرسانی اطلاعات</string>
+    <string name="update_auto_download">دانلود خودکار نسخه‌های جدید</string>
 </resources>

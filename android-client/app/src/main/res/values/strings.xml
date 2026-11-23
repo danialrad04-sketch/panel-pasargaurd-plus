@@ -476,4 +476,27 @@
     <string name="update_download_failed">The package could not be downloaded or verified.</string>
     <string name="update_allow_install">Allow package installation in Android settings, then select Install.</string>
     <string name="update_install">Install</string>
+    <string name="account_code">Verification code</string>
+    <string name="account_password">PasarGuard password</string>
+    <string name="account_login">Sign in</string>
+    <string name="account_verify">Verify and sign in</string>
+    <string name="account_signup_reset">Create an account or reset password</string>
+    <string name="account_code_sent">Verification code sent to Gmail.</string>
+    <string name="account_error">The request could not be completed.</string>
+    <string name="account_bad_code">The code is incorrect or expired.</string>
+    <string name="account_bad_login">Check your login details or sign in again.</string>
+    <string name="account_try_later">Too many requests. Try again later.</string>
+    <string name="account_email_unavailable">Email verification is currently unavailable.</string>
+    <string name="account_wallet">Wallet</string>
+    <string name="account_wallet_amount">%1$s toman</string>
+    <string name="account_purchase">Buy or renew subscription</string>
+    <string name="account_logout">Sign out</string>
+    <string name="account_cancel">Cancel subscription</string>
+    <string name="account_cancelled">Subscription cancelled</string>
+    <string name="account_cancelling">Cancelling subscription</string>
+    <string name="account_cancel_confirm">Access will be disabled and the unused time credited to your wallet.</string>
+    <string name="account_wallet_pay">Pay with wallet</string>
+    <string name="account_transfer_success">Order added to your account.</string>
+    <string name="account_refresh">Refresh</string>
+    <string name="update_auto_download">Download updates automatically</string>
 </resources>

@@ -11,7 +11,7 @@ from threading import BoundedSemaphore
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 COOKIE = "__Host-pasarguard-customer"
@@ -111,8 +111,21 @@ class CustomerAccounts:
         self.router.add_api_route("/logout", self.logout, methods=["POST"])
         self.router.add_api_route("/me", self.me, methods=["GET"])
 
+    @staticmethod
+    def native(request):
+        return not request.headers.get("origin") and request.headers.get("x-pasarguard-client") == "native"
+
+    @staticmethod
+    def bearer(request):
+        scheme, _, token = request.headers.get("authorization", "").partition(" ")
+        return token if scheme.lower() == "bearer" else ""
+
+    def protect(self, request):
+        if not self.native(request) and not self.bearer(request):
+            self.verify_origin(request)
+
     def session_digest(self, request):
-        token = request.cookies.get(COOKIE, "")
+        token = self.bearer(request) or request.cookies.get(COOKIE, "")
         return self.digest("customer-session:" + token) if re.fullmatch(r"[A-Za-z0-9_-]{43}", token) else None
 
     def current(self, request):
@@ -144,7 +157,7 @@ class CustomerAccounts:
                               DO UPDATE SET count=count+1""", (scope, current + window))
 
     def issue_code(self, body: Address, request: Request):
-        self.verify_origin(request)
+        self.protect(request)
         email = gmail(body.email)
         self.rate(request, "mail", email, source_limit=20, email_limit=5, window=60 * 60 * 1000)
         code = str(secrets.randbelow(1_000_000)).zfill(6)
@@ -164,7 +177,7 @@ class CustomerAccounts:
         return Response(status_code=204)
 
     def verify(self, body: Verify, request: Request):
-        self.verify_origin(request)
+        self.protect(request)
         email = gmail(body.email)
         self.rate(request, "verify", email, source_limit=20, email_limit=10, window=CODE_MS)
         digest = self.digest(f"customer-code:{email}:{body.code}")
@@ -186,7 +199,7 @@ class CustomerAccounts:
         return self.start_session(account_id, request, hashed)
 
     def login(self, body: Login, request: Request):
-        self.verify_origin(request)
+        self.protect(request)
         email = gmail(body.email)
         self.rate(request, "login", email, source_limit=30, email_limit=12, window=CODE_MS)
         with self.transaction(write=False) as db:
@@ -205,13 +218,15 @@ class CustomerAccounts:
                        (self.now(), self.session_digest(request)))
             db.execute("INSERT INTO customer_sessions VALUES (?, ?, ?)",
                        (self.digest("customer-session:" + token), account_id, self.now() + SESSION_SECONDS * 1000))
+        if self.native(request):
+            return JSONResponse({"access_token": token})
         response = Response(status_code=204)
         response.set_cookie(COOKIE, token, secure=True, httponly=True, samesite="strict", path="/",
                             max_age=SESSION_SECONDS)
         return response
 
     def logout(self, request: Request):
-        self.verify_origin(request)
+        self.protect(request)
         with self.transaction() as db:
             db.execute("DELETE FROM customer_sessions WHERE digest=?", (self.session_digest(request),))
         response = Response(status_code=204)

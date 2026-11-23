@@ -78,7 +78,8 @@ data class PlansCatalogConfig(
 enum class PaymentMethodType {
     CARD_TO_CARD,
     ONLINE_GATEWAY,
-    CRYPTO
+    CRYPTO,
+    WALLET
 }
 
 data class DiscountValidationResult(

@@ -37,8 +37,8 @@ android {
         minSdk = 24
         targetSdk = 35
         resourceConfigurations += listOf("en", "fa")
-        versionCode = resolveConfig("PASARGUARD_VERSION_CODE", "5").toInt().also { require(it in 1..2_100_000_000) }
-        versionName = resolveConfig("PASARGUARD_VERSION_NAME", "1.4.0").also {
+        versionCode = resolveConfig("PASARGUARD_VERSION_CODE", "6").toInt().also { require(it in 1..2_100_000_000) }
+        versionName = resolveConfig("PASARGUARD_VERSION_NAME", "1.5.0").also {
             require(Regex("[0-9]+(?:[.][0-9]+){1,3}").matches(it))
         }
 

@@ -22,6 +22,7 @@ import androidx.navigation.navArgument
 import com.pasarguard.vpn.R
 import com.pasarguard.vpn.ui.components.DockDestination
 import com.pasarguard.vpn.ui.components.FloatingPillBottomDock
+import com.pasarguard.vpn.ui.screens.account.AccountScreen
 import com.pasarguard.vpn.ui.screens.billing.CheckoutScreen
 import com.pasarguard.vpn.ui.screens.billing.OrdersScreen
 import com.pasarguard.vpn.ui.screens.billing.PlansScreen
@@ -41,6 +42,7 @@ import com.pasarguard.vpn.ui.screens.subscription.SubscriptionScreen
 object Routes {
     const val ONBOARDING = "onboarding"
     const val LOGIN = "login"
+    const val ACCOUNT = "account"
     const val HOME = "home"
     const val SERVERS = "servers"
     const val SUBSCRIPTION = "subscription"
@@ -124,6 +126,7 @@ fun AppNavHost(
                 LoginScreen(
                     prefilledSubscriptionUrl = prefilledSubscriptionUrl,
                     onBuySubscription = { navController.navigate(Routes.RENEWAL) { launchSingleTop = true } },
+                    onOpenAccount = { navController.navigate(Routes.ACCOUNT) { launchSingleTop = true } },
                     onTrackPurchase = { navController.navigate(Routes.ORDERS) { launchSingleTop = true } },
                     onLoginSuccess = {
                         onConsumePrefilledUrl()
@@ -160,8 +163,21 @@ fun AppNavHost(
 
             composable(Routes.SUBSCRIPTION) {
                 SubscriptionScreen(
+                    onOpenAccount = { navController.navigate(Routes.ACCOUNT) { launchSingleTop = true } },
                     onOpenRenewal = { navController.navigate(Routes.RENEWAL) { launchSingleTop = true } },
                     onOpenOrders = { navController.navigate(Routes.ORDERS) { launchSingleTop = true } }
+                )
+            }
+
+            composable(Routes.ACCOUNT) {
+                AccountScreen(
+                    onBack = { navController.popBackStack() },
+                    onPlans = { navController.navigate(Routes.RENEWAL) },
+                    onSettings = { navController.navigate(Routes.SETTINGS) },
+                    onOrder = { navController.navigate(Routes.checkoutForOrder(it)) },
+                    onConnect = {
+                        navController.navigate(Routes.HOME) { popUpTo(0) { inclusive = true } }
+                    }
                 )
             }
 
@@ -222,6 +238,7 @@ fun AppNavHost(
 
             composable(Routes.ORDERS) {
                 OrdersScreen(
+                    onOpenAccount = { navController.navigate(Routes.ACCOUNT) { launchSingleTop = true } },
                     onBack = { navController.popBackStack() },
                     onOpenPlans = {
                         navController.navigate(Routes.RENEWAL) { launchSingleTop = true }

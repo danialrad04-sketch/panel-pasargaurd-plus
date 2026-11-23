@@ -59,6 +59,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.pasarguard.vpn.data.api.CustomerApi
 import com.pasarguard.vpn.R
 import com.pasarguard.vpn.domain.model.AppLanguage
 import com.pasarguard.vpn.domain.model.OrderStatus
@@ -91,11 +92,13 @@ data class OrdersUiState(
 
 @HiltViewModel
 class OrdersViewModel @Inject constructor(
-    private val paymentRepository: PaymentRepository,
+    paymentRepository: PaymentRepository,
+    private val customer: CustomerApi,
     settingsRepository: SettingsRepository
 ) : ViewModel() {
 
-    suspend fun getAccountTransferUrl(orderId: String) = paymentRepository.getAccountTransferUrl(orderId)
+    val signedIn: Boolean get() = customer.signedIn
+    suspend fun transfer(orderId: String) = customer.transfer(orderId)
 
     val uiState: StateFlow<OrdersUiState> = combine(
         paymentRepository.observeOrders(),
@@ -108,6 +111,7 @@ class OrdersViewModel @Inject constructor(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrdersScreen(
+    onOpenAccount: () -> Unit,
     onBack: () -> Unit,
     onOpenPlans: () -> Unit,
     onResumeOrder: (String) -> Unit,
@@ -238,14 +242,21 @@ fun OrdersScreen(
                 var transferring by remember(order.id) { mutableStateOf(false) }
                 OutlinedButton(
                     onClick = {
+                        if (!viewModel.signedIn) {
+                            onOpenAccount()
+                            return@OutlinedButton
+                        }
                         transferring = true
                         scope.launch {
                             try {
-                                viewModel.getAccountTransferUrl(order.id).onSuccess { url ->
-                                    Formatters.openExternalUrl(context, url)
-                                }.onFailure {
-                                    Toast.makeText(context, R.string.order_transfer_unavailable, Toast.LENGTH_SHORT).show()
-                                }
+                                viewModel.transfer(order.id)
+                                Toast.makeText(context, R.string.account_transfer_success, Toast.LENGTH_SHORT).show()
+                                selectedOrder = null
+                                onOpenAccount()
+                            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                throw cancelled
+                            } catch (_: Exception) {
+                                Toast.makeText(context, R.string.order_transfer_unavailable, Toast.LENGTH_SHORT).show()
                             } finally {
                                 transferring = false
                             }

@@ -47,9 +47,12 @@ class RemotePaymentRepository @Inject constructor(
     private val tokens: SecureTokenStore,
     json: Json
 ) : PaymentRepository {
-    private data class BillingAuth(val token: String, val guest: Boolean) {
-        fun headers(): Map<String, String> =
-            mapOf((if (guest) "X-Purchase-Token" else "X-Subscription-Token") to token)
+    private data class BillingAuth(val token: String, val guest: Boolean, val session: String? = null) {
+        fun headers(useSubscription: Boolean = false): Map<String, String> = buildMap {
+            if (session != null) put("Authorization", "Bearer $session")
+            if (!guest && (session == null || useSubscription)) put("X-Subscription-Token", token)
+            if (guest && session == null) put("X-Purchase-Token", token)
+        }
     }
     private val orders = MutableStateFlow<Map<BillingAuth, List<PaymentOrder>>>(emptyMap())
     private val api by lazy {
@@ -64,11 +67,13 @@ class RemotePaymentRepository @Inject constructor(
     }
 
     private fun auth(): BillingAuth {
-        val credentials = subscriptions.getSavedCredentials() ?: return BillingAuth(tokens.purchaseToken(), true)
+        val session = tokens.customerToken()
+        val credentials = subscriptions.getSavedCredentials()
+            ?: return BillingAuth(if (session == null) tokens.purchaseToken() else "", true, session)
         check(credentials.baseUrl.trimEnd('/') == BrandConfig.defaultBaseUrl.trimEnd('/')) {
             "Payment is available only for subscriptions on the configured panel"
         }
-        return BillingAuth(credentials.token, false)
+        return BillingAuth(credentials.token, false, session)
     }
 
     private suspend fun <T> request(block: suspend (BillingAuth) -> T): Result<T> = try {
@@ -85,31 +90,24 @@ class RemotePaymentRepository @Inject constructor(
     private fun savedGuest(): BillingAuth? = tokens.existingPurchaseToken()?.let { BillingAuth(it, true) }
 
     private fun accessibleOrders(owner: BillingAuth): List<BillingAuth> =
-        listOfNotNull(owner, if (owner.guest) null else savedGuest())
+        listOfNotNull(owner, if (!owner.guest || owner.session != null) savedGuest() else null,
+            if (!owner.guest && owner.session != null) owner.copy(session = null) else null)
 
     private suspend fun orderRequest(block: suspend (BillingAuth) -> PaymentOrder) = request { owner ->
-        try {
-            block(owner).also { remember(owner, it) }
-        } catch (error: HttpException) {
-            val guest = if (!owner.guest && error.code() == 404) savedGuest() else null
-            if (guest == null) throw error
-            block(guest).also { remember(guest, it) }
+        var missing: HttpException? = null
+        for (source in accessibleOrders(owner)) {
+            try {
+                return@request block(source).also { remember(source, it) }
+            } catch (error: HttpException) {
+                if (error.code() != 404) throw error
+                missing = error
+            }
         }
-    }
-
-    override suspend fun getAccountTransferUrl(orderId: String): Result<String> = try {
-        val guest = savedGuest() ?: error("The original purchase is unavailable")
-        val ticket = api.createTransferTicket(guest.token, orderId).ticket
-        require(ticket.matches(Regex("[A-Za-z0-9_-]{43}")))
-        Result.success(BuildConfig.BILLING_BASE_URL.trimEnd('/') + "/account#transfer=" + ticket)
-    } catch (cancelled: CancellationException) {
-        throw cancelled
-    } catch (error: Exception) {
-        Result.failure(error)
+        throw checkNotNull(missing)
     }
 
     override suspend fun loadPlansCatalog() = request { owner ->
-        val catalog = api.listPlans(owner.headers())
+        val catalog = api.listPlans(owner.headers(useSubscription = true))
         PlansCatalogConfig(catalog.currency, catalog.paymentWindowMinutes, catalog.destinationCard.toDomain(),
             catalog.plans.map {
                 CatalogPlan(it.id, PlanCategory.valueOf(it.category), it.titleFa, it.titleEn,
@@ -140,7 +138,7 @@ class RemotePaymentRepository @Inject constructor(
     override suspend fun createOrder(
         plan: CatalogPlan, paymentMethod: PaymentMethodType, discountCode: String?, idempotencyKey: String
     ) = request { owner ->
-        api.createOrder(owner.headers(), idempotencyKey, CreateOrderRequestDto(plan.id, paymentMethod.name, discountCode))
+        api.createOrder(owner.headers(useSubscription = true), idempotencyKey, CreateOrderRequestDto(plan.id, paymentMethod.name, discountCode))
             .toDomain(idempotencyKey).also { remember(owner, it) }
     }
 
@@ -162,8 +160,14 @@ class RemotePaymentRepository @Inject constructor(
     }
 
     override suspend fun getPurchasedSubscription(orderId: String) = request { owner ->
-        check(owner.guest)
-        api.getPurchasedSubscription(owner.headers(), orderId).subscriptionUrl
+        for (source in accessibleOrders(owner).filter { it.guest || it.session != null }) {
+            try {
+                return@request api.getPurchasedSubscription(source.headers(), orderId).subscriptionUrl
+            } catch (error: HttpException) {
+                if (error.code() != 404) throw error
+            }
+        }
+        error("Subscription does not belong to this account")
     }
 
     private fun remember(owner: BillingAuth, order: PaymentOrder) {
@@ -183,7 +187,7 @@ class RemotePaymentRepository @Inject constructor(
 
     private fun visibleOrders(): List<PaymentOrder> {
         val owner = runCatching(::auth).getOrNull() ?: return emptyList()
-        return accessibleOrders(owner).flatMap { orders.value[it].orEmpty() }.sortedByDescending { it.createdAtMs }
+        return accessibleOrders(owner).flatMap { orders.value[it].orEmpty() }.distinctBy { it.id }.sortedByDescending { it.createdAtMs }
     }
 
     override fun observeOrders(): Flow<List<PaymentOrder>> = combine(orders, flow {
@@ -195,7 +199,9 @@ class RemotePaymentRepository @Inject constructor(
                     request { active ->
                         check(active == owner)
                         api.listOrders(source.headers()).orders.map { order -> order.toDomain() }
-                    }.onSuccess { remote -> remote.forEach { remember(source, it) } }
+                    }.onSuccess { remote ->
+                        orders.update { cached -> cached + (source to remote) }
+                    }
                 }
             }
             delay(15_000)

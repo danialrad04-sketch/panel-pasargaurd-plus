@@ -26,12 +26,20 @@ enum SubscriptionKeychain {
         return link
     }
 
-    static func save(_ link: URL) throws {
-        let content = Data(link.absoluteString.utf8)
-        let result = SecItemUpdate(identity("subscription-link") as CFDictionary, [kSecValueData as String: content] as CFDictionary)
+    static func save(_ link: URL) throws { try save(link.absoluteString, account: "subscription-link") }
+
+    static func customerToken() throws -> String? { try load(account: "customer-session") }
+
+    static func saveCustomerToken(_ token: String?) throws {
+        if let token { try save(token, account: "customer-session") }
+        else { try remove(account: "customer-session") }
+    }
+
+    private static func save(_ value: String, account: String) throws {
+        let content = Data(value.utf8)
+        let result = SecItemUpdate(identity(account) as CFDictionary, [kSecValueData as String: content] as CFDictionary)
         if result == errSecSuccess { return }
-        guard result == errSecItemNotFound else { throw SubscriptionError.credentialsUnavailable }
-        guard add(content, account: "subscription-link") == errSecSuccess else {
+        guard result == errSecItemNotFound, add(content, account: account) == errSecSuccess else {
             throw SubscriptionError.credentialsUnavailable
         }
     }
@@ -53,8 +61,10 @@ enum SubscriptionKeychain {
         return SecItemAdd(attributes as CFDictionary, nil)
     }
 
-    static func remove() throws {
-        let result = SecItemDelete(identity("subscription-link") as CFDictionary)
+    static func remove() throws { try remove(account: "subscription-link") }
+
+    private static func remove(account: String) throws {
+        let result = SecItemDelete(identity(account) as CFDictionary)
         guard result == errSecSuccess || result == errSecItemNotFound else {
             throw SubscriptionError.credentialsUnavailable
         }

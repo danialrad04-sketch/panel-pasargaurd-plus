@@ -2,6 +2,8 @@
 import asyncio
 import base64
 import csv
+import fcntl
+import hashlib
 import hmac
 import ipaddress
 import json
@@ -23,6 +25,7 @@ from urllib.error import HTTPError as UpstreamHTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from uuid import UUID, uuid4
+from zipfile import BadZipFile, ZipFile
 from zoneinfo import ZoneInfo
 
 import customer_accounts
@@ -218,7 +221,12 @@ def process_provisioning_job():
         job = db.execute(
             """SELECT j.order_id, j.attempts, o.details FROM provisioning_jobs j
                JOIN orders o ON o.id=j.order_id WHERE j.ready=0 AND j.next_run<=? AND o.status='APPROVED'
-               ORDER BY j.next_run LIMIT 1""", (current,),
+               AND NOT EXISTS (
+                 SELECT 1 FROM provisioning_jobs prior JOIN orders p ON p.id=prior.order_id
+                 WHERE prior.ready=0 AND p.status='APPROVED'
+                   AND json_extract(p.details,'$.renewal_target')=json_extract(o.details,'$.renewal_target')
+                   AND (p.created < o.created OR (p.created=o.created AND p.id<o.id))
+               ) ORDER BY j.next_run LIMIT 1""", (current,),
         ).fetchone()
         if not job:
             return
@@ -226,7 +234,19 @@ def process_provisioning_job():
                    (current + 120_000, job["order_id"]))
     order_id = job["order_id"]
     try:
-        provisioning.provision(order_id, json.loads(job["details"])["purchased_plan"], provision_config())
+        details = json.loads(job["details"])
+        config = provision_config()
+        if target := details.get("renewal_target"):
+            account = provisioning.renewal_account(target, config)
+            changes = details.get("renewal_changes")
+            if changes is None:
+                changes, start = provisioning.renewal_changes(account, details["purchased_plan"], current)
+                details.update(renewal_changes=changes, activation_started_at_ms=start)
+                with transaction() as db:
+                    db.execute("UPDATE orders SET details=? WHERE id=?", (json.dumps(details), order_id))
+            provisioning.apply_renewal(target, config, account, changes)
+        else:
+            provisioning.provision(order_id, details["purchased_plan"], config)
     except provisioning.PanelError:
         delay = min(300_000, 10_000 * 2**min(job["attempts"], 5))
         with transaction() as db:
@@ -238,7 +258,7 @@ def process_provisioning_job():
         row = db.execute("SELECT details FROM orders WHERE id=?", (order_id,)).fetchone()
         details = json.loads(row["details"])
         details["activation_status"] = "READY"
-        details["activation_started_at_ms"] = now()
+        details.setdefault("activation_started_at_ms", now())
         db.execute("UPDATE orders SET details=? WHERE id=?", (json.dumps(details), order_id))
 
 
@@ -263,6 +283,15 @@ def refundable_amount(amount, purchased, request_time, panel_expire):
     return amount * remaining // duration
 
 
+def subscription_renewals(db, order_id):
+    return db.execute(
+        """SELECT o.owner,o.status,o.expires,o.details,
+                  COALESCE(json_extract(o.details,'$.wallet_paid_toman'), o.amount) AS amount
+           FROM orders o WHERE json_extract(o.details,'$.renewal_target')=?""",
+        (provisioning.panel_username(order_id),),
+    ).fetchall()
+
+
 def process_refund_job():
     current = now()
     with transaction() as db:
@@ -285,6 +314,10 @@ def process_refund_job():
             amount = refundable_amount(job["order_amount"], json.loads(job["details"]), job["requested"],
                                        account.get("expire"))
             with transaction() as db:
+                for renewal in subscription_renewals(db, order_id):
+                    if renewal["status"] == "APPROVED":
+                        amount += refundable_amount(renewal["amount"], json.loads(renewal["details"]),
+                                                    job["requested"], account.get("expire"))
                 db.execute("UPDATE customer_refunds SET amount=? WHERE order_id=? AND amount IS NULL",
                            (amount, order_id))
         provisioning.disable_for_refund(order_id, config, account)
@@ -397,10 +430,12 @@ class BillingActor:
 
 
 def billing_actor(request: IncomingRequest, x_subscription_token: str = Header(default=""), x_purchase_token: str = Header(default="")):
-    if not x_subscription_token and (account := customers.current(request)):
+    account = customers.require(request) if customers.bearer(request) else customers.current(request)
+    if account:
         if request.method not in ("GET", "HEAD"):
-            verify_admin_origin(request)
-        return BillingActor(account_owner(account["id"]), None, account["id"])
+            customers.protect(request)
+        subscriber = customer(x_subscription_token) if x_subscription_token else None
+        return BillingActor(account_owner(account["id"]), subscriber, account["id"])
     if x_purchase_token:
         if x_subscription_token or not re.fullmatch(r"[0-9a-f]{64}", x_purchase_token):
             raise HTTPException(401)
@@ -472,6 +507,8 @@ def catalog(db=None):
 def present(row, *, admin=False):
     data = json.loads(row["details"])
     data.pop("purchased_plan", None)
+    data.pop("renewal_changes", None)
+    data.pop("renewal_target", None)
     amount = data.pop("wallet_paid_toman", row["amount"])
     if not admin:
         data.pop("subscriber", None)
@@ -488,8 +525,7 @@ def list_plans(actor=Depends(billing_actor)):
         ensure_guest_checkout()
     with transaction(write=False) as db:
         result = catalog(db)
-        if actor.is_guest:
-            result["plans"] = [plan for plan in result["plans"] if plan["category"] == "RENEW"]
+        result["plans"] = [plan for plan in result["plans"] if plan["category"] == "RENEW"]
         return result
 
 
@@ -510,6 +546,13 @@ def create_order(body: OrderRequest, idempotency_key: Annotated[UUID, Header()],
         raise HTTPException(401)
     if actor.is_guest:
         ensure_guest_checkout()
+    else:
+        try:
+            account = provisioning.renewal_account(actor.subscriber, provision_config())
+        except provisioning.PanelError:
+            raise HTTPException(503, "RENEWAL_UNAVAILABLE") from None
+        if account.get("status") == "disabled":
+            raise HTTPException(409, "SUBSCRIPTION_DISABLED")
     with transaction() as db:
         key = str(idempotency_key)
         previous = db.execute(
@@ -543,7 +586,7 @@ def create_order(body: OrderRequest, idempotency_key: Annotated[UUID, Header()],
         plan = next((p for p in config["plans"] if p["id"] == body.plan_id), None)
         if plan is None:
             raise HTTPException(404)
-        if actor.is_guest and plan["category"] != "RENEW":
+        if plan["category"] != "RENEW":
             raise HTTPException(422)
         price = plan["price_toman"]
         if with_wallet:
@@ -572,9 +615,17 @@ def create_order(body: OrderRequest, idempotency_key: Annotated[UUID, Header()],
             "destination_card": config["destination_card"],
             "subscriber": actor.subscriber or "خرید اشتراک جدید",
         }
+        details["purchased_plan"] = {key: plan[key] for key in ("duration_days", "data_limit_gb", "max_devices")}
         if actor.is_guest:
             details["new_subscription"] = True
-            details["purchased_plan"] = {key: plan[key] for key in ("duration_days", "data_limit_gb", "max_devices")}
+        else:
+            origin = db.execute(
+                """SELECT r.order_id FROM customer_refunds r WHERE 'pg_' || substr(r.order_id,1,28)=?""",
+                (actor.subscriber,),
+            ).fetchone()
+            if origin:
+                raise HTTPException(409, "SUBSCRIPTION_CANCELLED")
+            details["renewal_target"] = actor.subscriber
         if with_wallet:
             details["wallet_paid_toman"] = price
         order_id = uuid4().hex
@@ -615,11 +666,12 @@ def get_purchased_subscription(order_id: str, actor=Depends(billing_actor)):
         raise HTTPException(404)
     with transaction(write=False) as db:
         row = db.execute(
-            """SELECT o.status, j.ready, r.order_id AS cancelled FROM orders o
+            """SELECT o.status, j.ready, r.order_id AS cancelled,
+                      json_extract(o.details, '$.new_subscription') AS new_subscription FROM orders o
                LEFT JOIN provisioning_jobs j ON j.order_id=o.id
                LEFT JOIN customer_refunds r ON r.order_id=o.id WHERE o.id=? AND o.owner=?""", (order_id, actor.owner),
         ).fetchone()
-        if not row:
+        if not row or not row["new_subscription"]:
             raise HTTPException(404)
         if row["cancelled"]:
             raise HTTPException(409, "SUBSCRIPTION_CANCELLED")
@@ -712,7 +764,7 @@ def decide(db, order_id, status, audit):
     row = db.execute("SELECT details FROM orders WHERE id=?", (order_id,)).fetchone()
     details = json.loads(row["details"])
     details["reviewed_at_ms"] = timestamp
-    if status == "APPROVED" and details.get("new_subscription"):
+    if status == "APPROVED" and (details.get("new_subscription") or details.get("renewal_target")):
         details["activation_status"] = "PENDING"
         db.execute("INSERT OR IGNORE INTO provisioning_jobs (order_id, next_run) VALUES (?, ?)", (order_id, timestamp))
     db.execute("UPDATE orders SET status=?, details=? WHERE id=?", (status, json.dumps(details), order_id))
@@ -839,7 +891,7 @@ class TransferRequest(BaseModel):
 
 @app.post("/v1/customer/claim")
 def claim_customer_order(body: TransferRequest, request: IncomingRequest):
-    verify_admin_origin(request)
+    customers.protect(request)
     account = customers.require(request)
     with transaction() as db:
         ticket = db.execute("SELECT * FROM customer_order_transfers WHERE digest=? AND expires>?",
@@ -856,11 +908,11 @@ def claim_customer_order(body: TransferRequest, request: IncomingRequest):
 
 @app.post("/v1/customer/orders/{order_id}/cancel")
 def cancel_customer_subscription(order_id: str, request: IncomingRequest):
-    verify_admin_origin(request)
+    customers.protect(request)
     account = customers.require(request)
     with transaction() as db:
         order = db.execute(
-            """SELECT o.status, o.details, j.ready FROM orders o
+            """SELECT o.owner, o.status, o.details, j.ready FROM orders o
                LEFT JOIN provisioning_jobs j ON j.order_id=o.id WHERE o.id=? AND o.owner=?""",
             (order_id, account_owner(account["id"])),
         ).fetchone()
@@ -871,8 +923,22 @@ def cancel_customer_subscription(order_id: str, request: IncomingRequest):
         current = now()
         details = json.loads(order["details"])
         started = details.get("activation_started_at_ms") or details["reviewed_at_ms"]
-        if (db.execute("SELECT 1 FROM customer_refunds WHERE order_id=?", (order_id,)).fetchone() is None
-                and started + details["purchased_plan"]["duration_days"] * 86_400_000 <= current):
+        if db.execute("SELECT 1 FROM customer_refunds WHERE order_id=?", (order_id,)).fetchone():
+            return Response(status_code=202)
+        end = started + details["purchased_plan"]["duration_days"] * 86_400_000
+        for renewal in subscription_renewals(db, order_id):
+            item = json.loads(renewal["details"])
+            if (renewal["status"] == "PENDING_REVIEW"
+                    or (renewal["status"] == "AWAITING_RECEIPT" and renewal["expires"] > current)):
+                raise HTTPException(409, "RENEWAL_IN_PROGRESS")
+            if renewal["status"] == "APPROVED":
+                if item.get("activation_status") != "READY":
+                    raise HTTPException(409, "RENEWAL_IN_PROGRESS")
+                renewal_end = item["activation_started_at_ms"] + item["purchased_plan"]["duration_days"] * 86_400_000
+                if renewal_end > current and renewal["owner"] != order["owner"]:
+                    raise HTTPException(409, "RENEWAL_OWNER_MISMATCH")
+                end = max(end, renewal_end)
+        if end <= current:
             raise HTTPException(409, "SUBSCRIPTION_EXPIRED")
         db.execute("""INSERT INTO customer_refunds (order_id, customer_id, requested, next_run)
                       VALUES (?, ?, ?, ?) ON CONFLICT(order_id) DO NOTHING""",
@@ -912,16 +978,6 @@ def login_page(message="", status_code=200, headers=None):
     if message:
         html = html.replace("<!-- login-error -->", f'<p class="login-error" role="alert">{message}</p>')
     return HTMLResponse(html, status_code=status_code, headers={**ADMIN_HEADERS, **(headers or {})})
-
-
-@app.get("/account")
-def customer_portal():
-    return FileResponse(WEB / "account.html", headers=ADMIN_HEADERS)
-
-
-@app.get("/account/app.js")
-def customer_portal_script():
-    return FileResponse(WEB / "account.js", media_type="text/javascript", headers=ADMIN_HEADERS)
 
 
 @app.get("/admin/login")
@@ -1199,6 +1255,85 @@ def admin_card():
             "SELECT previous_last4, current_last4, timestamp FROM card_changes ORDER BY id DESC LIMIT 20"
         )
         return {"card": destination_card(db), "history": [dict(item) for item in history]}
+
+
+APK_LIMIT = 150 * 1024 * 1024
+APK_CHUNK = 512 * 1024
+
+
+def apk_directory():
+    directory = Path(setting("BILLING_DB")).parent / "apk"
+    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    return directory
+
+
+@admin.put("/api/apk/{upload_id}")
+async def upload_apk_chunk(upload_id: str, request: IncomingRequest, offset: int = Query(ge=0, lt=APK_LIMIT)):
+    verify_admin_origin(request)
+    if not re.fullmatch(r"[0-9a-f]{32}", upload_id):
+        raise HTTPException(404)
+    data = bytearray()
+    async for block in request.stream():
+        if len(data) + len(block) > APK_CHUNK:
+            raise HTTPException(413)
+        data.extend(block)
+    if not data or offset + len(data) > APK_LIMIT:
+        raise HTTPException(413)
+    path = apk_directory() / (upload_id + ".part")
+    if offset:
+        if not path.is_file():
+            raise HTTPException(404)
+    else:
+        cutoff = now() / 1000 - 86_400
+        for partial in path.parent.glob("*.part"):
+            try:
+                if partial.stat().st_mtime < cutoff:
+                    partial.unlink(missing_ok=True)
+            except FileNotFoundError:
+                continue
+    with path.open("ab+" if offset == 0 else "rb+") as output:
+        fcntl.flock(output, fcntl.LOCK_EX)
+        if output.seek(0, 2) != offset:
+            raise HTTPException(409)
+        output.write(data)
+    return Response(status_code=204)
+
+
+@admin.post("/api/apk/{upload_id}")
+def finish_apk_upload(upload_id: str, request: IncomingRequest, size: int = Query(ge=1, le=APK_LIMIT)):
+    verify_admin_origin(request)
+    if not re.fullmatch(r"[0-9a-f]{32}", upload_id):
+        raise HTTPException(404)
+    path = apk_directory() / (upload_id + ".part")
+    if not path.is_file():
+        raise HTTPException(404)
+    with path.open("rb") as payload:
+        fcntl.flock(payload, fcntl.LOCK_EX)
+        if os.fstat(payload.fileno()).st_size != size:
+            raise HTTPException(409)
+        try:
+            with ZipFile(payload) as archive:
+                manifest = archive.getinfo("AndroidManifest.xml")
+                if not 1 <= manifest.file_size <= 2 * 1024 * 1024:
+                    raise ValueError
+        except (BadZipFile, KeyError, ValueError):
+            path.unlink(missing_ok=True)
+            raise HTTPException(422, "INVALID_APK") from None
+        payload.seek(0)
+        sha256 = hashlib.file_digest(payload, "sha256").hexdigest()
+        path.replace(path.with_name(sha256 + ".apk"))
+    return {"download_url": setting("BILLING_PUBLIC_URL") + "/downloads/" + sha256 + ".apk", "sha256": sha256}
+
+
+@app.get("/downloads/{filename}")
+def download_apk(filename: str):
+    if not re.fullmatch(r"[0-9a-f]{64}\.apk", filename):
+        raise HTTPException(404)
+    path = apk_directory() / filename
+    if not path.is_file():
+        raise HTTPException(404)
+    return FileResponse(path, media_type="application/vnd.android.package-archive", filename="PasarGuard.apk",
+                        headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
 
 class AppReleaseAsset(BaseModel):

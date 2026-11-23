@@ -79,6 +79,12 @@ class SecureTokenStore @Inject constructor(
 
     fun existingPurchaseToken(): String? = prefs.getString(KEY_PURCHASE_TOKEN, null)
 
+    fun customerToken(): String? = prefs.getString("customer_token", null)
+
+    fun saveCustomerToken(token: String?) {
+        prefs.edit().putString("customer_token", token).apply()
+    }
+
     companion object {
         private const val PREFS_FILE_NAME = "pasarguard_secure_prefs"
         private const val KEY_BASE_URL = "sub_base_url"
