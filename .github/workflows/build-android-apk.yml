@@ -47,12 +47,14 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Fetch latest Xray-core AndroidLibXrayLite (libv2ray.aar)
+      - name: Fetch the documented Xray-core AndroidLibXrayLite version
         run: |
           mkdir -p app/libs
           if [ ! -f app/libs/libv2ray.aar ]; then
-            AAR_URL=$(curl -sSL https://api.github.com/repos/2dust/AndroidLibXrayLite/releases/latest | grep -oE 'https://[^"]+libv2ray\.aar' | head -n 1)
-            curl -sSL "$AAR_URL" -o app/libs/libv2ray.aar
+            curl -fLSs --retry 3 --retry-all-errors \
+              https://github.com/2dust/AndroidLibXrayLite/releases/download/v26.11.9/libv2ray.aar \
+              -o app/libs/libv2ray.aar
+            printf '%s\n' 'cdfef146218233a31a8b52c8b1016557730d3b63fc121d4c84cacea50e669155  app/libs/libv2ray.aar' | sha256sum -c -
           fi
           ls -lh app/libs/libv2ray.aar
 

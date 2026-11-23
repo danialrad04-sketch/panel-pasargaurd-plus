@@ -39,6 +39,7 @@ The app uses a clean `VpnCore` abstraction (`vpn/core/VpnCore.kt`) with automati
     1. Download the newest `libv2ray.aar` from [`2dust/AndroidLibXrayLite/releases`](https://github.com/2dust/AndroidLibXrayLite/releases).
     2. Replace `android-client/app/libs/libv2ray.aar`.
     3. Run `./gradlew :app:testDebugUnitTest :app:assembleDebug` to verify JNI compatibility and build fresh per-ABI APKs.
+    4. Update the download URL and SHA-256 in `.github/workflows/build-android-apk.yml` for GitHub builds.
 
 - **Secondary Core — `SingBoxCore` (optional `app/libs/libbox.aar`)**:
   - Used automatically for protocols Xray-core does not support (`Hysteria2`, `TUIC`, `WireGuard`) or when manually selected in **Settings -> VPN Core Engine**.
