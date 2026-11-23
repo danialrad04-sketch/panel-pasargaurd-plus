@@ -112,6 +112,7 @@ function table(target, columns, rows, empty) {
     const row = body.insertRow();
     values.forEach((value, index) => {
       const cell = row.insertCell();
+      cell.dataset.label = columns[index][0];
       if (columns[index][1]) cell.className = columns[index][1];
       if (value instanceof Node) cell.append(value);
       else cell.textContent = value ?? "—";
@@ -204,6 +205,10 @@ async function overview(signal) {
   const data = await request("/api/overview?days=" + get("period").value, { signal });
   if (signal.aborted) return;
   chartTotals = { amount: data.approved_amount, count: data.approved_count };
+  get("hero-amount").textContent = fa.format(data.approved_amount);
+  get("average-order").textContent = data.approved_count ? money(Math.round(data.approved_amount / data.approved_count)) : "—";
+  const peak = data.series.reduce((best, day) => day.amount > (best?.amount || 0) ? day : best, null);
+  get("peak-day").textContent = peak ? dayLabel.format(peak.start) + " · " + money(peak.amount) : "—";
   get("paid-metric").textContent = fa.format(data.approved_count);
   get("awaiting-metric").textContent = fa.format(data.awaiting_count);
   get("review-metric").textContent = fa.format(data.pending_count);
@@ -255,18 +260,47 @@ async function catalogList(signal) {
   const data = await request("/api/catalog", { signal });
   if (signal.aborted) return;
   get("display-limit").value = data.maximum;
-  table(get("catalog-table"), [["پلن"], ["قیمت"], ["حجم"], ["نمایش"], ["ویرایش"]], data.plans.map((plan) => [
-    plan.title_fa, money(plan.price_toman),
-    plan.data_limit_gb == null ? "نامحدود" : fa.format(plan.data_limit_gb) + " گیگابایت",
-    plan.visible ? "فعال" : "مخفی",
-    button("ویرایش", () => editPlan(plan), "text-button"),
-  ]), "هنوز پلنی ثبت نشده است.");
+  const available = data.plans.filter(plan => plan.visible && plan.category === "RENEW");
+  const offered = new Set(available.slice(0, data.maximum || available.length).map(plan => plan.id));
+  function renderPlans() {
+    const query = get("plan-search").value.trim().toLocaleLowerCase();
+    const plans = data.plans.filter(plan => [plan.title_fa, plan.title_en, plan.id].join(" ").toLocaleLowerCase().includes(query));
+    const shelf = get("catalog-table");
+    shelf.replaceChildren(...plans.map(plan => {
+      const card = node("article", null, "surface plan-tile");
+      const heading = node("div", null, "section-head");
+      heading.append(node("h2", plan.title_fa), node("small", offered.has(plan.id) ? "در حال فروش" : "خارج از فهرست فروش"));
+      const facts = node("dl", null, "details-list");
+      for (const [label, value] of [["حجم", plan.data_limit_gb == null ? "نامحدود" : fa.format(plan.data_limit_gb) + " گیگابایت"],
+        ["مدت", fa.format(plan.duration_days) + " روز"], ["ترتیب نمایش", fa.format(plan.sort_order)]]) {
+        const line = node("div");
+        line.append(node("dt", label), node("dd", value));
+        facts.append(line);
+      }
+      card.append(heading, node("strong", money(plan.price_toman), "plan-price"), facts, button("ویرایش پلن", () => editPlan(plan), "subtle full"));
+      return card;
+    }));
+    if (!plans.length) shelf.append(node("p", "پلنی پیدا نشد.", "empty"));
+  }
+  get("plan-search").oninput = renderPlans;
+  renderPlans();
+}
+
+for (const control of document.querySelectorAll("[data-settings]")) {
+  control.addEventListener("click", () => {
+    for (const item of document.querySelectorAll("[data-settings]")) {
+      const active = item === control;
+      item.setAttribute("aria-pressed", String(active));
+      get(item.getAttribute("aria-controls")).hidden = !active;
+    }
+  });
 }
 
 get("display-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
     await request("/api/catalog-display", {method: "POST", body: new URLSearchParams({maximum: get("display-limit").value})});
+    await load();
     setNotice("تعداد پلن‌های قابل نمایش ذخیره شد.");
   } catch (error) { setNotice(error.message, true); }
 });

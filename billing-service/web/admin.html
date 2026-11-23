@@ -52,7 +52,7 @@
         <p id="notice" class="notice" role="status" hidden></p>
         <section id="overview" data-view>
           <div class="page-heading page-heading-row">
-            <div><h1>داشبورد پرداخت</h1><p id="today"></p></div>
+            <div><p id="today"></p><h1>داشبورد پرداخت</h1><div class="hero-total"><strong id="hero-amount">—</strong><span>تومان واریز تأییدشده</span></div></div>
             <div class="period-box"><label for="period">بازهٔ گزارش</label><select id="period"><option value="7">۷ روز اخیر</option><option value="30">۳۰ روز اخیر</option></select></div>
           </div>
           <div class="metrics">
@@ -83,7 +83,7 @@
                 </div>
                 <figcaption><p id="chart-tip" class="chart-tip" role="status"></p></figcaption>
               </figure>
-              <div class="approval-strip">
+              <div class="insight-row"><span>میانگین هر سفارش تأییدشده <strong id="average-order">—</strong></span><span>بیشترین واریز روزانه <strong id="peak-day">—</strong></span></div><div class="approval-strip">
                 <div><span>سفارش تأییدشده</span><strong id="approved">—</strong></div>
                 <div><span>تأیید خودکار</span><strong id="automatic">—</strong></div>
                 <div><span>تأیید دستی</span><strong id="manual">—</strong></div>
@@ -132,7 +132,7 @@
             <button type="button" id="new-plan" class="button primary">افزودن پلن</button>
           </div>
           <form id="display-form" class="surface filters"><label class="field">حداکثر پلن‌های قابل خرید و تمدید<input type="number" id="display-limit" min="0" max="10000" required></label><button class="button primary">ذخیرهٔ تعداد</button><small>صفر یعنی همهٔ پلن‌های فعالِ «اشتراک یا تمدید»، به ترتیب نمایش.</small></form>
-          <article class="surface"><div id="catalog-table" class="table-area"></div></article>
+          <label class="field catalog-search">جست‌وجوی پلن<input type="search" id="plan-search" placeholder="نام یا شناسهٔ پلن"></label><div id="catalog-table" class="plan-shelf"></div>
         </section>
         <section id="activity" data-view hidden>
           <div class="page-heading"><h1>فعالیت‌ها</h1><p>سابقهٔ ورود، بررسی سفارش و تغییر تنظیمات پرداخت</p></div>
@@ -144,8 +144,8 @@
         </section>
         <section id="settings" data-view hidden>
           <div class="page-heading"><h1>تنظیمات پرداخت</h1><p>کارت مقصد و اتصال به پنل پاسارگارد</p></div>
-          <div class="settings-grid">
-            <article class="surface">
+          <div class="settings-work"><nav class="settings-menu" aria-label="بخش تنظیمات"><button type="button" class="button" data-settings="card" aria-controls="setting-card" aria-pressed="true">کارت مقصد</button><button type="button" class="button" data-settings="service" aria-controls="setting-service" aria-pressed="false">فعال‌سازی اشتراک</button><button type="button" class="button" data-settings="release" aria-controls="setting-release" aria-pressed="false">انتشار برنامه</button><button type="button" class="button" data-settings="history" aria-controls="setting-history" aria-pressed="false">تاریخچهٔ کارت</button></nav><div class="settings-grid">
+            <article class="surface" id="setting-card">
               <div class="section-head"><div><h2>اطلاعات کارت مقصد</h2><p>تغییرات برای سفارش‌های بعدی اعمال می‌شوند.</p></div></div>
               <form id="card-form" class="settings-form">
                 <label class="field">شماره کارت<input id="card-number" name="card-number" type="text" dir="ltr" inputmode="numeric" autocomplete="off" maxlength="32" required></label>
@@ -157,7 +157,7 @@
                 <button type="submit" class="button primary">ذخیرهٔ کارت مقصد</button>
               </form>
             </article>
-            <article class="surface">
+            <article class="surface" id="setting-service" hidden>
               <div class="section-head"><div><h2>ساخت خودکار اشتراک</h2><p id="provision-state"></p></div></div>
               <form id="provision-form" class="settings-form">
                 <label class="field">کلید API پاسارگارد<input id="provision-key" name="provision-key" type="password" dir="ltr" autocomplete="off" spellcheck="false" maxlength="2048"></label>
@@ -166,7 +166,7 @@
                 <button id="save-provision" type="submit" class="button primary" disabled>ذخیرهٔ اتصال</button>
               </form>
             </article>
-            <article class="surface history">
+            <article class="surface" id="setting-release" hidden>
               <div class="section-head"><div><h2>به‌روزرسانی اپ‌ها</h2><p>نسخهٔ قابل ارائه برای اندروید و آیفون</p></div></div>
               <form class="settings-form" id="release-form">
                 <label class="field">پلتفرم<select id="release-platform"><option value="android">اندروید</option><option value="ios">آیفون</option></select></label>
@@ -196,12 +196,12 @@
                 </div>
               </form>
             </article>
-            <article class="surface history">
+            <article class="surface" id="setting-history" hidden>
               <div class="section-head"><div><h2>سابقهٔ تغییرات کارت</h2><p>زمان تغییر و چهار رقم آخر کارت‌ها</p></div></div>
               <div id="card-history" class="table-area"></div>
             </article>
           </div>
-        </section>
+        </div></section>
         <footer class="content-footer"><span id="updated"></span><a href="/" target="_blank" rel="noopener">باز کردن صفحهٔ پرداخت</a></footer>
       </div>
     </main>
