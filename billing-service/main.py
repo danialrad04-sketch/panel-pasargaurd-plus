@@ -6,7 +6,8 @@ import re
 import sqlite3
 import time
 from contextlib import contextmanager
-from html import escape
+from datetime import datetime, timedelta
+from itertools import pairwise
 from pathlib import Path
 from typing import Annotated
 from urllib.error import HTTPError as UpstreamHTTPError, URLError
@@ -14,8 +15,8 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
-from fastapi import Depends, FastAPI, Form, Header, HTTPException, Request as IncomingRequest
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Depends, FastAPI, Form, Header, HTTPException, Query, Request as IncomingRequest
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from jdatetime import datetime as JalaliDateTime
 from pydantic import BaseModel, Field
@@ -34,13 +35,14 @@ CHECKOUT_HEADERS = {
     "Referrer-Policy": "no-referrer",
     "X-Content-Type-Options": "nosniff",
 }
-ORDER_STATUS_LABELS = {
-    "AWAITING_RECEIPT": "در انتظار واریز",
-    "PENDING_REVIEW": "در انتظار بررسی",
-    "APPROVED": "تأیید شد",
-    "REJECTED": "رد شد",
-    "EXPIRED": "مهلت پایان یافت",
+ADMIN_HEADERS = {
+    **CHECKOUT_HEADERS,
+    "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; "
+    "connect-src 'self'; img-src 'self'; font-src 'self'; form-action 'self'; "
+    "frame-ancestors 'none'; base-uri 'none'",
 }
+ORDER_STATES = ("AWAITING_RECEIPT", "PENDING_REVIEW", "APPROVED", "REJECTED", "EXPIRED")
+PAGE_SIZE = 12
 
 
 def setting(name):
@@ -52,12 +54,12 @@ def now():
 
 
 @contextmanager
-def transaction():
+def transaction(*, write=True):
     connection = sqlite3.connect(setting("BILLING_DB"))
     connection.row_factory = sqlite3.Row
     try:
         connection.execute("PRAGMA foreign_keys = ON")
-        connection.execute("BEGIN IMMEDIATE")
+        connection.execute("BEGIN IMMEDIATE" if write else "BEGIN")
         yield connection
         connection.commit()
     except BaseException:
@@ -98,6 +100,14 @@ def initialize():
         )""")
         db.execute("""CREATE TABLE IF NOT EXISTS decisions (
             order_id TEXT NOT NULL, decision TEXT NOT NULL, timestamp INTEGER NOT NULL
+        )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS destination_card (
+            id INTEGER PRIMARY KEY CHECK (id = 1), number TEXT NOT NULL,
+            holder TEXT NOT NULL, bank TEXT NOT NULL, updated INTEGER NOT NULL
+        )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS card_changes (
+            id INTEGER PRIMARY KEY, previous_last4 TEXT NOT NULL, current_last4 TEXT NOT NULL,
+            timestamp INTEGER NOT NULL
         )""")
 
 
@@ -154,7 +164,15 @@ def customer(x_subscription_token: str = Header(default="")):
     return profile["username"]
 
 
-def catalog():
+def destination_card(db=None):
+    override = db.execute("SELECT * FROM destination_card WHERE id=1").fetchone() if db is not None else None
+    return dict(override) if override else {
+        "number": setting("DESTINATION_CARD"), "holder": setting("CARD_HOLDER"),
+        "bank": setting("CARD_BANK"), "updated": None,
+    }
+
+
+def catalog(db=None):
     source = Path(setting("BILLING_PLANS"))
     plans = json.loads(source.read_text(encoding="utf-8"))["plans"]
     keys = ("id", "category", "titleFa", "titleEn", "durationDays", "priceToman", "dataLimitGb")
@@ -163,14 +181,15 @@ def catalog():
         if type(plan["priceToman"]) is not int or plan["priceToman"] < 100:
             raise ValueError("Invalid plan price")
         items.append({re.sub(r"[A-Z]", lambda m: "_" + m[0].lower(), k): plan[k] for k in keys})
+    card = destination_card(db)
     return {
         "currency": "TOMAN", "payment_window_minutes": WINDOW_MS // 60_000,
         "destination_card": {
-            "card_number": setting("DESTINATION_CARD"),
-            "holder_name_fa": setting("CARD_HOLDER"),
-            "holder_name_en": setting("CARD_HOLDER"),
-            "bank_name_fa": setting("CARD_BANK"),
-            "bank_name_en": setting("CARD_BANK"),
+            "card_number": card["number"],
+            "holder_name_fa": card["holder"],
+            "holder_name_en": card["holder"],
+            "bank_name_fa": card["bank"],
+            "bank_name_en": card["bank"],
         },
         "plans": items,
     }
@@ -189,7 +208,8 @@ def present(row, *, admin=False):
 
 @app.get("/v1/billing/plans")
 def list_plans(owner=Depends(customer)):
-    return catalog()
+    with transaction(write=False) as db:
+        return catalog(db)
 
 
 class OrderRequest(BaseModel):
@@ -219,7 +239,7 @@ def create_order(body: OrderRequest, idempotency_key: Annotated[UUID, Header()],
         ).fetchone()[0]
         if recent >= 5:
             raise HTTPException(429)
-        config = catalog()
+        config = catalog(db)
         plan = next((p for p in config["plans"] if p["id"] == body.plan_id), None)
         if plan is None:
             raise HTTPException(404)
@@ -381,45 +401,172 @@ def administrator(credentials: HTTPBasicCredentials = Depends(basic)):
         raise HTTPException(401, headers={"WWW-Authenticate": "Basic"})
 
 
-@app.get("/admin", response_class=HTMLResponse, dependencies=[Depends(administrator)])
+admin = APIRouter(prefix="/admin", dependencies=[Depends(administrator)])
+
+
+@admin.get("")
 def dashboard():
-    with transaction() as db:
-        orders = [present(row, admin=True) for row in db.execute("SELECT * FROM orders ORDER BY created DESC LIMIT 100")]
-        deposits = list(db.execute("SELECT * FROM deposits ORDER BY received DESC LIMIT 30"))
-    rows = []
-    for order in orders:
-        oid = escape(order["id"])
-        status = escape(ORDER_STATUS_LABELS.get(order["status"], order["status"]))
-        review = ""
-        if order["status"] == "PENDING_REVIEW":
-            review = (f'<form method="post" action="/admin/orders/{oid}">'
-                      '<button name="decision" value="APPROVED">تأیید واریز</button> '
-                      '<button name="decision" value="REJECTED">رد</button></form>')
-        rows.append(f"<tr><td>{oid}</td><td>{escape(order.get('subscriber', '—'))}</td>"
-                    f"<td>{escape(order['plan_title_fa'])}</td>"
-                    f"<td>{order['final_price_toman']:,}</td><td>{status}</td>"
-                    f"<td>{escape(order.get('tracking_number') or '—')}</td>"
-                    f"<td>{escape(order.get('payer_card_last4') or '—')}</td><td>{review}</td></tr>")
-    events = "".join(f"<li>{row['amount']:,} تومان · "
-                     f"{escape(row['order_id'] or 'بدون سفارش منطبق')}</li>" for row in deposits)
-    return HTMLResponse("""<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>مدیریت پرداخت</title>
-<style>body{font:16px system-ui;background:#f4f7fa;color:#172b3f;margin:4vw}
-table{border-collapse:collapse;background:white;width:100%}th,td{padding:12px;border-bottom:1px solid #ddd}
-section{overflow:auto}button{padding:8px;cursor:pointer}</style>
-<h1>مدیریت پرداخت کارت‌به‌کارت</h1><section><table><thead><tr>
-<th>سفارش</th><th>اشتراک</th><th>پلن</th><th>تومان</th><th>وضعیت</th><th>پیگیری</th><th>چهار رقم کارت</th><th>عملیات</th>
-</tr></thead><tbody>""" + ("".join(rows) or '<tr><td colspan="8">هنوز سفارشی ثبت نشده.</td></tr>')
-        + "</tbody></table></section><h2>واریزهای دریافتی</h2><ul>"
-        + (events or "<li>هنوز واریزی ثبت نشده.</li>") + "</ul></html>",
-        headers={"Cache-Control": "no-store", "X-Frame-Options": "DENY",
-                 "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'"})
+    return FileResponse(WEB / "admin.html", headers=ADMIN_HEADERS)
 
 
-@app.post("/admin/orders/{order_id}", dependencies=[Depends(administrator)])
-def review(order_id: str, request: IncomingRequest, decision: str = Form()):
+@admin.get("/dashboard.css")
+def dashboard_styles():
+    return FileResponse(WEB / "admin.css", media_type="text/css", headers=ADMIN_HEADERS)
+
+
+@admin.get("/dashboard.js")
+def dashboard_script():
+    return FileResponse(WEB / "admin.js", media_type="text/javascript", headers=ADMIN_HEADERS)
+
+
+@admin.get("/api/overview")
+def admin_overview(days: int = 7):
+    if days not in (7, 30):
+        raise HTTPException(422)
+    current = now()
+    today = datetime.fromtimestamp(current / 1000, ZoneInfo("Asia/Tehran")).replace(
+        hour=0, minute=0, second=0, microsecond=0,
+    )
+    boundaries = [int((today - timedelta(days=i)).timestamp() * 1000) for i in range(days - 1, -2, -1)]
+    with transaction(write=False) as db:
+        approved = db.execute(
+            """SELECT o.amount, d.timestamp, d.decision FROM decisions d
+               JOIN orders o ON o.id=d.order_id
+               WHERE d.timestamp>=? AND d.timestamp<=?
+               AND d.decision IN ('SMS_APPROVED', 'ADMIN_APPROVED') AND o.status='APPROVED'""",
+            (boundaries[0], current),
+        ).fetchall()
+        pending = db.execute("SELECT count(*) FROM orders WHERE status='PENDING_REVIEW'").fetchone()[0]
+        unmatched = db.execute(
+            "SELECT count(*) FROM deposits WHERE order_id IS NULL AND received BETWEEN ? AND ?",
+            (boundaries[0], current),
+        ).fetchone()[0]
+        recent_orders = [present(row, admin=True) for row in db.execute(
+            "SELECT * FROM orders ORDER BY created DESC, id DESC LIMIT 6"
+        )]
+        card = destination_card(db)
+    series = []
+    for start, end in pairwise(boundaries):
+        amounts = [row["amount"] for row in approved if start <= row["timestamp"] < end]
+        series.append({"start": start, "amount": sum(amounts), "count": len(amounts)})
+    return {
+        "series": series,
+        "approved_amount": sum(row["amount"] for row in approved),
+        "approved_count": len(approved),
+        "automatic_count": sum(row["decision"] == "SMS_APPROVED" for row in approved),
+        "pending_count": pending,
+        "unmatched_count": unmatched,
+        "orders": recent_orders,
+        "card_last4": card["number"][-4:],
+        "bank": card["bank"],
+        "sms_format": os.getenv("SMS_FORMAT", "account"),
+    }
+
+
+@admin.get("/api/orders")
+def admin_orders(status: str = "", q: str = Query(default="", max_length=100),
+                 page: int = Query(default=1, ge=1, le=1_000_000)):
+    if status and status not in ORDER_STATES:
+        raise HTTPException(422)
+    current = now()
+    search = q.strip().translate(DIGITS).lower()
+    with transaction(write=False) as db:
+        query = """
+            FROM (
+                SELECT *, CASE WHEN status='AWAITING_RECEIPT' AND expires<=?
+                    THEN 'EXPIRED' ELSE status END AS shown_status
+                FROM orders
+            )
+            WHERE (?='' OR shown_status=?) AND (?='' OR instr(lower(id), ?)>0
+                OR instr(lower(json_extract(details, '$.subscriber')), ?)>0
+                OR instr(lower(json_extract(details, '$.plan_title_fa')), ?)>0
+                OR instr(json_extract(details, '$.tracking_number'), ?)>0)
+        """
+        values = (current, status, status, search, search, search, search, search)
+        total = db.execute("SELECT count(*) " + query, values).fetchone()[0]
+        rows = db.execute(
+            "SELECT * " + query + " ORDER BY created DESC, id DESC LIMIT ? OFFSET ?",
+            (*values, PAGE_SIZE, (page - 1) * PAGE_SIZE),
+        )
+        return {"total": total, "page_size": PAGE_SIZE, "orders": [present(row, admin=True) for row in rows]}
+
+
+@admin.get("/api/orders/{order_id}")
+def admin_order(order_id: str):
+    with transaction(write=False) as db:
+        row = db.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+        if not row:
+            raise HTTPException(404)
+        decisions = db.execute(
+            "SELECT decision, timestamp FROM decisions WHERE order_id=? ORDER BY timestamp", (order_id,),
+        )
+        return {"order": present(row, admin=True), "decisions": [dict(item) for item in decisions]}
+
+
+@admin.get("/api/deposits")
+def admin_deposits(match: str = "", page: int = Query(default=1, ge=1, le=1_000_000)):
+    if match not in ("", "matched", "unmatched"):
+        raise HTTPException(422)
+    query = """FROM deposits WHERE (?='' OR (?='matched' AND order_id IS NOT NULL)
+               OR (?='unmatched' AND order_id IS NULL))"""
+    params = (match,) * 3
+    with transaction(write=False) as db:
+        total = db.execute("SELECT count(*) " + query, params).fetchone()[0]
+        rows = db.execute(
+            "SELECT amount, received, order_id " + query + " ORDER BY received DESC, digest LIMIT ? OFFSET ?",
+            (*params, PAGE_SIZE, (page - 1) * PAGE_SIZE),
+        )
+        return {"total": total, "page_size": PAGE_SIZE, "deposits": [dict(row) for row in rows]}
+
+
+@admin.get("/api/card")
+def admin_card():
+    with transaction(write=False) as db:
+        history = db.execute(
+            "SELECT previous_last4, current_last4, timestamp FROM card_changes ORDER BY id DESC LIMIT 20"
+        )
+        return {"card": destination_card(db), "history": [dict(item) for item in history]}
+
+
+def verify_admin_origin(request):
     if request.headers.get("origin") != setting("BILLING_PUBLIC_URL"):
         raise HTTPException(403)
+
+
+class CardUpdate(BaseModel):
+    number: str = Field(max_length=32)
+    holder: str = Field(max_length=100)
+    bank: str = Field(max_length=80)
+    same_account: bool
+
+
+@admin.post("/api/card")
+def update_admin_card(body: CardUpdate, request: IncomingRequest):
+    verify_admin_origin(request)
+    number = re.sub(r"[\s-]", "", body.number.translate(DIGITS))
+    holder, bank = body.holder.strip(), body.bank.strip()
+    if not (re.fullmatch(r"[0-9]{16}", number) and holder and bank and body.same_account):
+        raise HTTPException(422)
+    with transaction() as db:
+        previous = destination_card(db)
+        if (previous["number"], previous["holder"], previous["bank"]) == (number, holder, bank):
+            return Response(status_code=204)
+        current = now()
+        db.execute(
+            """INSERT INTO destination_card VALUES(1, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE
+               SET number=excluded.number, holder=excluded.holder, bank=excluded.bank, updated=excluded.updated""",
+            (number, holder, bank, current),
+        )
+        db.execute(
+            "INSERT INTO card_changes (previous_last4, current_last4, timestamp) VALUES (?, ?, ?)",
+            (previous["number"][-4:], number[-4:], current),
+        )
+    return Response(status_code=204)
+
+
+@admin.post("/orders/{order_id}")
+def review(order_id: str, request: IncomingRequest, decision: str = Form()):
+    verify_admin_origin(request)
     if decision not in ("APPROVED", "REJECTED"):
         raise HTTPException(422)
     with transaction() as db:
@@ -427,4 +574,9 @@ def review(order_id: str, request: IncomingRequest, decision: str = Form()):
         if not row or row["status"] != "PENDING_REVIEW":
             raise HTTPException(409)
         decide(db, order_id, decision, "ADMIN_" + decision)
+    if request.headers.get("accept") == "application/json":
+        return Response(status_code=204)
     return RedirectResponse("/admin", status_code=303)
+
+
+app.include_router(admin)

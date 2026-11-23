@@ -11,13 +11,16 @@ panel_url=
 acme_email=
 sms_format=
 show_credentials=false
+status_only=false
 
 die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
+step() { printf '\n==> %s\n' "$*"; }
 usage() {
     cat <<'USAGE'
 Usage: sudo bash billing-service/install.sh [--domain HOST] [--panel-url HTTPS_ORIGIN]
        [--email ADDRESS] [--tls auto|caddy|nginx|external]
        [--sms-format account|blu] [--show-credentials]
+       sudo bash billing-service/install.sh --status
 
 On first install, the script prompts for destination card details. It detects
 the Blu SMS format from the bank name 'blu' or 'بلو' unless explicitly overridden.
@@ -42,6 +45,7 @@ while (( $# )); do
             esac
             shift 2 ;;
         --show-credentials) show_credentials=true; shift ;;
+        --status) status_only=true; shift ;;
         -h|--help) usage; exit 0 ;;
         *) die "Unknown option: $1" ;;
     esac
@@ -78,6 +82,31 @@ update_packages() {
 }
 
 missing=()
+if [[ $status_only == true ]]; then
+    [[ -f $env_file && ! -L $env_file ]] || die "Billing has not been configured in $service_dir"
+    command -v docker >/dev/null && command -v curl >/dev/null && command -v python3 >/dev/null ||
+        die "Docker, curl and Python 3 are needed to check the installation"
+    status_origin=$("${compose[@]}" config --format json | python3 -c '
+import json, sys
+print(json.load(sys.stdin)["services"]["billing"]["environment"]["BILLING_PUBLIC_URL"])
+') || die "The existing billing settings could not be read"
+    [[ $status_origin =~ ^https://[a-zA-Z0-9.-]+(:[0-9]+)?$ ]] || die "Invalid BILLING_PUBLIC_URL"
+    docker ps -a --filter label=com.docker.compose.project=billing-service \
+        --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+    healthy=true
+    for target in http://127.0.0.1:8087 "$status_origin"; do
+        if [[ $(curl -fsS --max-time 8 "$target/healthz" 2>/dev/null) == '{"status":"ok"}' ]]; then
+            printf 'OK        %s\n' "$target"
+        else
+            printf 'FAILED    %s\n' "$target"
+            healthy=false
+        fi
+    done
+    [[ $healthy == true ]] || die "See service logs with: docker compose -p billing-service -f billing-service/compose.yml logs --tail=100 billing"
+    exit 0
+fi
+
+step "Checking host tools and Docker Compose"
 command -v curl >/dev/null || missing+=(curl)
 command -v openssl >/dev/null || missing+=(openssl)
 command -v ss >/dev/null || missing+=(iproute2)
@@ -150,6 +179,7 @@ validate_origins() {
 }
 
 if [[ -f $env_file ]]; then
+    step "Using the existing settings and database volume"
     chmod 600 "$env_file"
     # Ask Compose to resolve its own env-file syntax without executing it as shell code.
     configured=$(
@@ -208,6 +238,7 @@ if [[ $tls_mode != external ]]; then
     curl -fsS --max-time 10 -o /dev/null \
         "https://acme-v02.api.letsencrypt.org/directory" || die "Cannot reach Let's Encrypt over HTTPS"
 fi
+step "HTTPS mode selected: $tls_mode"
 
 if [[ ! -f $env_file ]]; then
     card=$(normalize_digits "$(prompt "Destination card (16 digits)" "")")
@@ -314,17 +345,25 @@ HOOK
     fi
 }
 
+step "Building and starting the billing backend"
 if [[ $tls_mode == caddy ]]; then
     export BILLING_HOST="$billing_host" ACME_EMAIL="$acme_email"
-    "${compose[@]}" -f "$service_dir/compose.tls.yml" up -d --build --wait --wait-timeout 90
+    "${compose[@]}" -f "$service_dir/compose.tls.yml" up -d --build --wait --wait-timeout 90 ||
+        die "Compose failed. Check its output and run this installer with --status"
 else
-    "${compose[@]}" up -d --build --wait --wait-timeout 90
-    if [[ $tls_mode == nginx ]]; then install_nginx_tls; fi
+    "${compose[@]}" up -d --build --wait --wait-timeout 90 ||
+        die "Compose failed. Check its output and run this installer with --status"
+    if [[ $tls_mode == nginx ]]; then
+        step "Configuring the Nginx site and certificate"
+        install_nginx_tls
+    fi
 fi
 
+step "Checking the billing backend"
 [[ $(curl -fsS --max-time 5 http://127.0.0.1:8087/healthz) == '{"status":"ok"}' ]] ||
     die "The billing backend did not pass its local health check"
 if [[ $tls_mode != external ]]; then
+    step "Waiting for HTTPS on $billing_host"
     https_ready=false
     for ((attempt=0; attempt<36; attempt++)); do
         if [[ $(curl -fsS --noproxy '*' --resolve "$billing_host:443:127.0.0.1" \
