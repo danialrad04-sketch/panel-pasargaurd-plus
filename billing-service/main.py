@@ -1,5 +1,4 @@
 """Independent PasarGuard billing service."""
-import hashlib
 import hmac
 import json
 import os
@@ -9,6 +8,7 @@ import time
 from contextlib import contextmanager
 from html import escape
 from pathlib import Path
+from typing import Annotated
 from urllib.error import HTTPError as UpstreamHTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from uuid import UUID, uuid4
@@ -147,7 +147,7 @@ class OrderRequest(BaseModel):
 
 
 @app.post("/v1/billing/orders")
-def create_order(body: OrderRequest, idempotency_key: UUID = Header(), subscriber=Depends(customer)):
+def create_order(body: OrderRequest, idempotency_key: Annotated[UUID, Header()], subscriber=Depends(customer)):
     owner = secret_digest(subscriber)
     if body.payment_method != "CARD_TO_CARD" or body.discount_code:
         raise HTTPException(422, "Only card-to-card orders without a discount are supported")
@@ -179,11 +179,16 @@ def create_order(body: OrderRequest, idempotency_key: UUID = Header(), subscribe
         amount = next((n for n in range(price, price + 1000) if n not in used), None)
         if amount is None:
             raise HTTPException(503, "Payment amount range exhausted")
-        details = dict(
-            plan_id=plan["id"], plan_title_fa=plan["title_fa"], plan_title_en=plan["title_en"],
-            plan_category=plan["category"], payment_method="CARD_TO_CARD",
-            base_price_toman=price, destination_card=config["destination_card"], subscriber=subscriber,
-        )
+        details = {
+            "plan_id": plan["id"],
+            "plan_title_fa": plan["title_fa"],
+            "plan_title_en": plan["title_en"],
+            "plan_category": plan["category"],
+            "payment_method": "CARD_TO_CARD",
+            "base_price_toman": price,
+            "destination_card": config["destination_card"],
+            "subscriber": subscriber,
+        }
         order_id = uuid4().hex
         db.execute("INSERT INTO orders VALUES (?,?,?,?,?,?,?,?)", (
             order_id, owner, key, amount, "AWAITING_RECEIPT", current,
