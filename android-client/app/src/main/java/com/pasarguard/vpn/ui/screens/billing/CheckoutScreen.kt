@@ -94,6 +94,7 @@ import com.pasarguard.vpn.domain.model.PaymentOrder
 import com.pasarguard.vpn.domain.repository.PaymentRepository
 import com.pasarguard.vpn.domain.repository.SettingsRepository
 import com.pasarguard.vpn.domain.usecase.SyncSubscriptionUseCase
+import com.pasarguard.vpn.domain.usecase.ValidateAndLoginUseCase
 import com.pasarguard.vpn.ui.components.DeepSpaceBackground
 import com.pasarguard.vpn.ui.components.GlassCard
 import com.pasarguard.vpn.ui.components.GradientButton
@@ -135,6 +136,8 @@ data class CheckoutUiState(
     val trackingNumber: String = "",
     val isSubmittingReceipt: Boolean = false,
     val isRefreshingSubscription: Boolean = false,
+    val purchaseConnected: Boolean = false,
+    val purchaseImportFailed: Boolean = false,
     val errorMessage: String? = null
 )
 
@@ -143,6 +146,7 @@ class CheckoutViewModel @Inject constructor(
     private val paymentRepository: PaymentRepository,
     private val settingsRepository: SettingsRepository,
     private val syncSubscription: SyncSubscriptionUseCase,
+    private val validateAndLogin: ValidateAndLoginUseCase,
     private val notificationHelper: NotificationHelper
 ) : ViewModel() {
 
@@ -154,6 +158,7 @@ class CheckoutViewModel @Inject constructor(
     private var observeOrderJob: Job? = null
     private var initializedKey: String? = null
     private var approvedHandledForOrderId: String? = null
+    private var attemptedPurchaseId: String? = null
 
     fun init(planId: String?, orderId: String?) {
         val key = "${planId.orEmpty()}|${orderId.orEmpty()}"
@@ -170,6 +175,8 @@ class CheckoutViewModel @Inject constructor(
                     attachOrder(existing)
                     return@launch
                 }
+                _uiState.update { it.copy(isLoading = false, errorMessage = "Order unavailable") }
+                return@launch
             }
 
             val catalog = paymentRepository.loadPlansCatalog().getOrNull()
@@ -208,11 +215,8 @@ class CheckoutViewModel @Inject constructor(
             )
         }
         observeOrderUpdates(order.id)
-        if (order.status == OrderStatus.PENDING_REVIEW || order.status == OrderStatus.AWAITING_RECEIPT) {
-            startPollingOrder(order.id)
-        } else if (order.status == OrderStatus.APPROVED) {
-            onOrderApproved(order)
-        }
+        if (needsPolling(order)) startPollingOrder(order.id)
+        if (order.status == OrderStatus.APPROVED) onOrderApproved(order)
     }
 
     private fun observeOrderUpdates(orderId: String) {
@@ -229,7 +233,7 @@ class CheckoutViewModel @Inject constructor(
                     cur.copy(order = latest, step = nextStep)
                 }
                 if (latest.status == OrderStatus.APPROVED) {
-                    pollJob?.cancel()
+                    if (!needsPolling(latest)) pollJob?.cancel()
                     onOrderApproved(latest)
                 } else if (latest.status == OrderStatus.REJECTED || latest.status == OrderStatus.EXPIRED) {
                     pollJob?.cancel()
@@ -333,7 +337,7 @@ class CheckoutViewModel @Inject constructor(
                     )
                 }
                 if (updated.status == OrderStatus.APPROVED) onOrderApproved(updated)
-                else startPollingOrder(updated.id)
+                if (needsPolling(updated)) startPollingOrder(updated.id)
             }.onFailure { err ->
                 _uiState.update {
                     it.copy(
@@ -363,22 +367,49 @@ class CheckoutViewModel @Inject constructor(
             while (true) {
                 delay(OrderStateMachine.nextPollDelayMs(attempt))
                 val latest = paymentRepository.refreshOrderStatus(orderId).getOrNull()
-                if (latest != null && latest.status != OrderStatus.PENDING_REVIEW &&
-                    latest.status != OrderStatus.AWAITING_RECEIPT) break
+                if (latest != null && !needsPolling(latest)) break
                 attempt = (attempt + 1).coerceAtMost(6)
             }
         }
     }
 
+    private fun needsPolling(order: PaymentOrder): Boolean =
+        order.status == OrderStatus.PENDING_REVIEW || order.status == OrderStatus.AWAITING_RECEIPT ||
+            order.status == OrderStatus.APPROVED && order.newSubscription && order.activationStatus != "READY"
+
     private fun onOrderApproved(order: PaymentOrder) {
-        if (approvedHandledForOrderId == order.id) return
-        approvedHandledForOrderId = order.id
-        viewModelScope.launch {
-            _uiState.update { it.copy(isRefreshingSubscription = true) }
+        if (approvedHandledForOrderId != order.id) {
+            approvedHandledForOrderId = order.id
             val planTitle = if (_uiState.value.language == AppLanguage.PERSIAN) order.planTitleFa else order.planTitleEn
             notificationHelper.showOrderApprovedNotification(order.id, planTitle)
-            syncSubscription()
-            _uiState.update { it.copy(isRefreshingSubscription = false) }
+            if (!order.newSubscription) {
+                viewModelScope.launch {
+                    _uiState.update { it.copy(isRefreshingSubscription = true) }
+                    syncSubscription()
+                    _uiState.update { it.copy(isRefreshingSubscription = false) }
+                }
+            }
+        }
+        if (order.newSubscription && order.activationStatus == "READY" && attemptedPurchaseId != order.id) {
+            attemptedPurchaseId = order.id
+            activatePurchase()
+        }
+    }
+
+    fun activatePurchase() {
+        val order = _uiState.value.order ?: return
+        if (!order.newSubscription || _uiState.value.isRefreshingSubscription) return
+        if (order.activationStatus != "READY") {
+            checkOrderStatusNow()
+            return
+        }
+        _uiState.update { it.copy(isRefreshingSubscription = true, purchaseImportFailed = false) }
+        viewModelScope.launch {
+            val link = paymentRepository.getPurchasedSubscription(order.id)
+            val connected = link.isSuccess && validateAndLogin(link.getOrThrow(), requireServers = true).isSuccess
+            _uiState.update {
+                it.copy(isRefreshingSubscription = false, purchaseConnected = connected, purchaseImportFailed = !connected)
+            }
         }
     }
 
@@ -403,6 +434,9 @@ fun CheckoutScreen(
     }
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(state.purchaseConnected) {
+        if (state.purchaseConnected) onDoneHome()
+    }
     val colors = PasarGuardTheme.colors
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
@@ -458,7 +492,9 @@ fun CheckoutScreen(
                     CircularProgressIndicator(color = colors.heroEnd)
                 }
             } else {
-                when (state.step) {
+                if (state.step == CheckoutStep.SUMMARY && state.plan == null && state.errorMessage != null) {
+                    Text(stringResource(R.string.checkout_unavailable), color = colors.statusDanger)
+                } else when (state.step) {
                     CheckoutStep.SUMMARY -> SummaryAndMethodStep(
                         state = state,
                         isPersian = isPersian,
@@ -511,6 +547,8 @@ fun CheckoutScreen(
                             order = state.order,
                             isRefreshingSub = state.isRefreshingSubscription,
                             isPersian = isPersian,
+                            purchaseImportFailed = state.purchaseImportFailed,
+                            onActivatePurchase = viewModel::activatePurchase,
                             onDoneHome = onDoneHome,
                             onViewOrders = onOpenOrders
                         )
@@ -1106,6 +1144,8 @@ private fun SuccessCelebrationStep(
     order: PaymentOrder?,
     isRefreshingSub: Boolean,
     isPersian: Boolean,
+    purchaseImportFailed: Boolean,
+    onActivatePurchase: () -> Unit,
     onDoneHome: () -> Unit,
     onViewOrders: () -> Unit
 ) {
@@ -1149,22 +1189,26 @@ private fun SuccessCelebrationStep(
             color = colors.textSecondary,
             textAlign = TextAlign.Center
         )
-        if (isRefreshingSub) {
+        if (isRefreshingSub || order?.newSubscription == true && !purchaseImportFailed) {
             Spacer(Modifier.height(Spacing.md))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = colors.heroEnd)
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = stringResource(R.string.checkout_syncing_sub),
+                    text = stringResource(if (order?.newSubscription == true) R.string.purchase_preparing else R.string.checkout_syncing_sub),
                     style = MaterialTheme.typography.labelMedium,
                     color = colors.heroEnd
                 )
             }
         }
+        if (purchaseImportFailed) {
+            Text(stringResource(R.string.purchase_activation_retry), color = colors.statusDanger, textAlign = TextAlign.Center)
+        }
         Spacer(Modifier.height(Spacing.xl))
         GradientButton(
-            text = stringResource(R.string.renew_done),
-            onClick = onDoneHome,
+            text = stringResource(if (order?.newSubscription == true) R.string.purchase_activate else R.string.renew_done),
+            onClick = if (order?.newSubscription == true) onActivatePurchase else onDoneHome,
+            enabled = order?.newSubscription != true || !isRefreshingSub,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(Spacing.sm))

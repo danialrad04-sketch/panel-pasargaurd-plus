@@ -147,6 +147,9 @@ input, select { color: var(--ink); background: #fff; border: 1px solid #c4d2e0; 
 .settings-form .check { display: flex; align-items: start; gap: .5rem; line-height: 1.7; font-weight: 400; }
 .check input { min-height: 0; width: 1.1rem; height: 1.1rem; accent-color: var(--teal); margin: .19rem 0 0; flex: none; }
 .settings-form button { justify-self: start; }
+#group-options { border: 1px solid var(--line); border-radius: 9px; padding: .5rem .8rem; margin: 0; min-width: 0; }
+#group-options legend { font-weight: 700; color: var(--muted); padding: 0 .35rem; }
+#provision-groups { display: grid; gap: .45rem; }
 .table-area { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; text-align: start; font-size: .86rem; }
 table th { background: #edf3f8; color: #455b73; font-weight: 700; text-align: start; white-space: nowrap; }

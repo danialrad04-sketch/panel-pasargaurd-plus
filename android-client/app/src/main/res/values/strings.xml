@@ -455,4 +455,11 @@
     <string name="orders_share_invoice">Download / Share Receipt</string>
     <string name="orders_view_receipt">View Receipt in Orders</string>
     <string name="orders_invoice_error">Could not generate receipt image</string>
+    <string name="purchase_new_subscription">Buy a new subscription</string>
+    <string name="purchase_track">Track a purchase</string>
+    <string name="purchase_activate">Activate subscription</string>
+    <string name="purchase_preparing">Preparing your configuration…</string>
+    <string name="purchase_activation_retry">Activation could not finish. Try again from this order.</string>
+    <string name="purchase_unavailable">New subscriptions are currently unavailable. Try again later or track an existing purchase.</string>
+    <string name="checkout_unavailable">This order or plan could not be loaded. Go back and try again.</string>
 </resources>

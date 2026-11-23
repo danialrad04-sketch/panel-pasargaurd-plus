@@ -8,6 +8,7 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.HeaderMap
 import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.Part
@@ -28,9 +29,7 @@ import retrofit2.http.Query
 interface BillingBackendApi {
 
     @GET("v1/billing/plans")
-    suspend fun listPlans(
-        @Header("X-Subscription-Token") subscriptionToken: String
-    ): PlansCatalogResponseDto
+    suspend fun listPlans(@HeaderMap auth: Map<String, String>): PlansCatalogResponseDto
 
     @POST("v1/billing/discounts/validate")
     suspend fun validateDiscountCode(
@@ -40,7 +39,7 @@ interface BillingBackendApi {
 
     @POST("v1/billing/orders")
     suspend fun createOrder(
-        @Header("X-Subscription-Token") subscriptionToken: String,
+        @HeaderMap auth: Map<String, String>,
         @Header("Idempotency-Key") idempotencyKey: String,
         @Body request: CreateOrderRequestDto
     ): OrderDto
@@ -48,7 +47,7 @@ interface BillingBackendApi {
     @Multipart
     @POST("v1/billing/orders/{orderId}/receipt")
     suspend fun uploadOrderReceipt(
-        @Header("X-Subscription-Token") subscriptionToken: String,
+        @HeaderMap auth: Map<String, String>,
         @Path("orderId") orderId: String,
         @Part("payer_card_last4") payerCardLast4: RequestBody,
         @Part("tracking_number") trackingNumber: RequestBody,
@@ -57,16 +56,22 @@ interface BillingBackendApi {
 
     @GET("v1/billing/orders/{orderId}")
     suspend fun getOrderStatus(
-        @Header("X-Subscription-Token") subscriptionToken: String,
+        @HeaderMap auth: Map<String, String>,
         @Path("orderId") orderId: String
     ): OrderDto
 
     @GET("v1/billing/orders")
     suspend fun listOrders(
-        @Header("X-Subscription-Token") subscriptionToken: String,
+        @HeaderMap auth: Map<String, String>,
         @Query("status") status: String? = null,
         @Query("limit") limit: Int = 50
     ): OrdersListResponseDto
+
+    @GET("v1/billing/orders/{orderId}/subscription")
+    suspend fun getPurchasedSubscription(
+        @HeaderMap auth: Map<String, String>,
+        @Path("orderId") orderId: String
+    ): PurchasedSubscriptionDto
 
     @GET("v1/account/devices")
     suspend fun listDevices(
@@ -190,8 +195,13 @@ data class OrderDto(
     @SerialName("created_at_ms") val createdAtMs: Long,
     @SerialName("expires_at_ms") val expiresAtMs: Long,
     @SerialName("submitted_at_ms") val submittedAtMs: Long? = null,
-    @SerialName("reviewed_at_ms") val reviewedAtMs: Long? = null
+    @SerialName("reviewed_at_ms") val reviewedAtMs: Long? = null,
+    @SerialName("new_subscription") val newSubscription: Boolean = false,
+    @SerialName("activation_status") val activationStatus: String? = null
 )
+
+@Serializable
+data class PurchasedSubscriptionDto(@SerialName("subscription_url") val subscriptionUrl: String)
 
 @Serializable
 data class OrdersListResponseDto(

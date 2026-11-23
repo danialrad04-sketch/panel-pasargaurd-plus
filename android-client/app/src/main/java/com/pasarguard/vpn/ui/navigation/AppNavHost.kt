@@ -123,6 +123,8 @@ fun AppNavHost(
             composable(Routes.LOGIN) {
                 LoginScreen(
                     prefilledSubscriptionUrl = prefilledSubscriptionUrl,
+                    onBuySubscription = { navController.navigate(Routes.RENEWAL) { launchSingleTop = true } },
+                    onTrackPurchase = { navController.navigate(Routes.ORDERS) { launchSingleTop = true } },
                     onLoginSuccess = {
                         onConsumePrefilledUrl()
                         navController.navigate(Routes.HOME) {

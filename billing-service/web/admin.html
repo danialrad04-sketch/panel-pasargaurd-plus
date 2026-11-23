@@ -107,6 +107,15 @@
               <div class="section-head"><div><h2>سابقهٔ تغییرات کارت</h2><p>زمان تغییر و چهار رقم آخر کارت‌ها</p></div></div>
               <div id="card-history" class="table-area"></div>
             </article>
+            <article class="surface">
+              <div class="section-head"><div><h2>ساخت خودکار اشتراک</h2><p id="provision-state"></p></div></div>
+              <form id="provision-form" class="settings-form">
+                <label>کلید API پاسارگارد<input id="provision-key" type="password" dir="ltr" autocomplete="off" maxlength="2048"></label>
+                <button id="load-groups" type="button" class="button subtle">دریافت گروه‌های سرور</button>
+                <fieldset id="group-options" hidden><legend>گروه‌های اشتراک جدید</legend><div id="provision-groups"></div></fieldset>
+                <button id="save-provision" type="submit" class="button primary" disabled>ذخیرهٔ اتصال</button>
+              </form>
+            </article>
           </div>
         </section>
       </div>

@@ -1,20 +1,27 @@
 """Independent PasarGuard billing service."""
+import asyncio
+import base64
 import hmac
+import ipaddress
 import json
+import logging
 import os
 import re
 import sqlite3
 import time
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from itertools import pairwise
 from pathlib import Path
 from typing import Annotated
 from urllib.error import HTTPError as UpstreamHTTPError, URLError
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.request import Request, build_opener
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
+import provisioning
+from cryptography.fernet import Fernet, InvalidToken
 from fastapi import APIRouter, Depends, FastAPI, Form, Header, HTTPException, Query, Request as IncomingRequest
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -111,6 +118,82 @@ def initialize():
             id INTEGER PRIMARY KEY, previous_last4 TEXT NOT NULL, current_last4 TEXT NOT NULL,
             timestamp INTEGER NOT NULL
         )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS provisioning_jobs (
+            order_id TEXT PRIMARY KEY REFERENCES orders(id), next_run INTEGER NOT NULL,
+            attempts INTEGER NOT NULL DEFAULT 0, ready INTEGER NOT NULL DEFAULT 0
+        )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS guest_reservations (
+            order_id TEXT PRIMARY KEY REFERENCES orders(id), source TEXT NOT NULL, created INTEGER NOT NULL
+        )""")
+        db.execute("CREATE INDEX IF NOT EXISTS guest_reservations_created ON guest_reservations(created)")
+        db.execute("""CREATE TABLE IF NOT EXISTS provisioning_settings (
+            id INTEGER PRIMARY KEY CHECK (id = 1), api_key BLOB NOT NULL, group_ids TEXT NOT NULL
+        )""")
+
+
+def key_cipher():
+    return Fernet(base64.urlsafe_b64encode(hmac.digest(setting("BILLING_KEY").encode(), b"panel-api:v1", "sha256")))
+
+
+def provision_config():
+    with transaction(write=False) as db:
+        saved = db.execute("SELECT api_key, group_ids FROM provisioning_settings WHERE id=1").fetchone()
+    if not saved:
+        return provisioning.credentials()
+    try:
+        return key_cipher().decrypt(saved["api_key"]).decode(), json.loads(saved["group_ids"])
+    except InvalidToken:
+        raise provisioning.PanelError() from None
+
+
+def process_provisioning_job():
+    current = now()
+    with transaction() as db:
+        job = db.execute(
+            """SELECT j.order_id, j.attempts, o.details FROM provisioning_jobs j
+               JOIN orders o ON o.id=j.order_id WHERE j.ready=0 AND j.next_run<=? AND o.status='APPROVED'
+               ORDER BY j.next_run LIMIT 1""", (current,),
+        ).fetchone()
+        if not job:
+            return
+        db.execute("UPDATE provisioning_jobs SET attempts=attempts+1, next_run=? WHERE order_id=?",
+                   (current + 120_000, job["order_id"]))
+    order_id = job["order_id"]
+    try:
+        provisioning.provision(order_id, json.loads(job["details"])["purchased_plan"], provision_config())
+    except provisioning.PanelError:
+        delay = min(300_000, 10_000 * 2**min(job["attempts"], 5))
+        with transaction() as db:
+            db.execute("UPDATE provisioning_jobs SET next_run=? WHERE order_id=? AND ready=0",
+                       (now() + delay, order_id))
+        return
+    with transaction() as db:
+        db.execute("UPDATE provisioning_jobs SET ready=1 WHERE order_id=?", (order_id,))
+        row = db.execute("SELECT details FROM orders WHERE id=?", (order_id,)).fetchone()
+        details = json.loads(row["details"])
+        details["activation_status"] = "READY"
+        db.execute("UPDATE orders SET details=? WHERE id=?", (json.dumps(details), order_id))
+
+
+@app.on_event("startup")
+async def start_provisioning_worker():
+    async def run():
+        while True:
+            try:
+                await asyncio.to_thread(process_provisioning_job)
+            except Exception:
+                logging.getLogger(__name__).exception("Subscription provisioning worker failed")
+            await asyncio.sleep(3)
+
+    app.state.provisioning_worker = asyncio.create_task(run())
+
+
+@app.on_event("shutdown")
+async def stop_provisioning_worker():
+    worker = getattr(app.state, "provisioning_worker", None)
+    if worker:
+        worker.cancel()
+        await asyncio.gather(worker, return_exceptions=True)
 
 
 @app.middleware("http")
@@ -141,11 +224,6 @@ def checkout_styles():
     return FileResponse(WEB / "checkout.css", media_type="text/css", headers=CHECKOUT_HEADERS)
 
 
-class NoRedirect(HTTPRedirectHandler):
-    def redirect_request(self, *args, **kwargs):
-        return None
-
-
 def secret_digest(value):
     return hmac.new(setting("BILLING_KEY").encode(), value.encode(), "sha256").hexdigest()
 
@@ -155,7 +233,7 @@ def customer(x_subscription_token: str = Header(default="")):
         raise HTTPException(401)
     request = Request(f"{setting('PANEL_URL')}/sub/{x_subscription_token}/info")
     try:
-        with build_opener(NoRedirect()).open(request, timeout=5) as response:
+        with build_opener(provisioning.NoRedirect()).open(request, timeout=5) as response:
             profile = json.loads(response.read(65_536))
     except UpstreamHTTPError as error:
         raise HTTPException(401 if error.code in (401, 403, 404) else 503) from None
@@ -164,6 +242,42 @@ def customer(x_subscription_token: str = Header(default="")):
     if not isinstance(profile, dict) or not isinstance(profile.get("username"), str) or not profile["username"]:
         raise HTTPException(503)
     return profile["username"]
+
+
+@dataclass(frozen=True)
+class BillingActor:
+    owner: str
+    subscriber: str | None
+
+    @property
+    def is_guest(self):
+        return self.subscriber is None
+
+
+def billing_actor(x_subscription_token: str = Header(default=""), x_purchase_token: str = Header(default="")):
+    if x_purchase_token:
+        if x_subscription_token or not re.fullmatch(r"[0-9a-f]{64}", x_purchase_token):
+            raise HTTPException(401)
+        return BillingActor(secret_digest("purchase:" + x_purchase_token), None)
+    subscriber = customer(x_subscription_token)
+    return BillingActor(secret_digest(subscriber), subscriber)
+
+
+def ensure_guest_checkout():
+    try:
+        provisioning.assert_available(provision_config(), now() // MINUTE_MS)
+    except provisioning.PanelError:
+        raise HTTPException(503, "NEW_SUBSCRIPTIONS_UNAVAILABLE") from None
+
+
+def reservation_source(request):
+    # The supplied proxies overwrite or append the actual peer at the end of X-Forwarded-For.
+    forwarded = request.headers.get("x-forwarded-for", "").rsplit(",", 1)[-1].strip()
+    try:
+        source = str(ipaddress.ip_address(forwarded))
+    except ValueError:
+        source = request.client.host if request.client else "unknown"
+    return secret_digest("purchase-source:" + source)
 
 
 def destination_card(db=None):
@@ -177,12 +291,12 @@ def destination_card(db=None):
 def catalog(db=None):
     source = Path(setting("BILLING_PLANS"))
     plans = json.loads(source.read_text(encoding="utf-8"))["plans"]
-    keys = ("id", "category", "titleFa", "titleEn", "durationDays", "priceToman", "dataLimitGb")
+    keys = ("id", "category", "titleFa", "titleEn", "durationDays", "priceToman", "dataLimitGb", "maxDevices")
     items = []
     for plan in plans:
         if type(plan["priceToman"]) is not int or plan["priceToman"] < 100:
             raise ValueError("Invalid plan price")
-        items.append({re.sub(r"[A-Z]", lambda m: "_" + m[0].lower(), k): plan[k] for k in keys})
+        items.append({re.sub(r"[A-Z]", lambda m: "_" + m[0].lower(), k): plan.get(k) for k in keys})
     card = destination_card(db)
     if db is not None and not card["number"]:
         raise HTTPException(503, "DESTINATION_CARD_NOT_CONFIGURED")
@@ -201,6 +315,7 @@ def catalog(db=None):
 
 def present(row, *, admin=False):
     data = json.loads(row["details"])
+    data.pop("purchased_plan", None)
     if not admin:
         data.pop("subscriber", None)
     status = row["status"]
@@ -211,9 +326,14 @@ def present(row, *, admin=False):
 
 
 @app.get("/v1/billing/plans")
-def list_plans(owner=Depends(customer)):
+def list_plans(actor=Depends(billing_actor)):
+    if actor.is_guest:
+        ensure_guest_checkout()
     with transaction(write=False) as db:
-        return catalog(db)
+        result = catalog(db)
+        if actor.is_guest:
+            result["plans"] = [plan for plan in result["plans"] if plan["category"] == "RENEW"]
+        return result
 
 
 class OrderRequest(BaseModel):
@@ -223,10 +343,13 @@ class OrderRequest(BaseModel):
 
 
 @app.post("/v1/billing/orders")
-def create_order(body: OrderRequest, idempotency_key: Annotated[UUID, Header()], subscriber=Depends(customer)):
-    owner = secret_digest(subscriber)
+def create_order(body: OrderRequest, idempotency_key: Annotated[UUID, Header()], request: IncomingRequest,
+                 actor=Depends(billing_actor)):
+    owner = actor.owner
     if body.payment_method != "CARD_TO_CARD" or body.discount_code:
         raise HTTPException(422, "Only card-to-card orders without a discount are supported")
+    if actor.is_guest:
+        ensure_guest_checkout()
     with transaction() as db:
         key = str(idempotency_key)
         previous = db.execute(
@@ -243,10 +366,24 @@ def create_order(body: OrderRequest, idempotency_key: Annotated[UUID, Header()],
         ).fetchone()[0]
         if recent >= 5:
             raise HTTPException(429)
+        if actor.is_guest:
+            source = reservation_source(request)
+            budget = db.execute(
+                """SELECT count(*), count(CASE WHEN source=? THEN 1 END)
+                   FROM guest_reservations WHERE created>?""", (source, current - WINDOW_MS),
+            ).fetchone()
+            pending = db.execute(
+                """SELECT 1 FROM orders WHERE owner=? AND (
+                   (status='AWAITING_RECEIPT' AND expires>?) OR status='PENDING_REVIEW')""", (owner, current),
+            ).fetchone()
+            if budget[0] >= 120 or budget[1] >= 5 or pending:
+                raise HTTPException(429)
         config = catalog(db)
         plan = next((p for p in config["plans"] if p["id"] == body.plan_id), None)
         if plan is None:
             raise HTTPException(404)
+        if actor.is_guest and plan["category"] != "RENEW":
+            raise HTTPException(422)
         price = plan["price_toman"]
         used = {r[0] for r in db.execute(
             "SELECT amount FROM orders WHERE amount BETWEEN ? AND ? UNION SELECT amount FROM deposits WHERE amount BETWEEN ? AND ?",
@@ -263,33 +400,57 @@ def create_order(body: OrderRequest, idempotency_key: Annotated[UUID, Header()],
             "payment_method": "CARD_TO_CARD",
             "base_price_toman": price,
             "destination_card": config["destination_card"],
-            "subscriber": subscriber,
+            "subscriber": actor.subscriber or "خرید اشتراک جدید",
         }
+        if actor.is_guest:
+            details["new_subscription"] = True
+            details["purchased_plan"] = {key: plan[key] for key in ("duration_days", "data_limit_gb", "max_devices")}
         order_id = uuid4().hex
         db.execute("INSERT INTO orders VALUES (?,?,?,?,?,?,?,?)", (
             order_id, owner, key, amount, "AWAITING_RECEIPT", current,
             current + WINDOW_MS, json.dumps(details),
         ))
+        if actor.is_guest:
+            db.execute("INSERT INTO guest_reservations VALUES (?,?,?)", (order_id, source, current))
         return present(db.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone())
 
 
 @app.get("/v1/billing/orders")
-def list_orders(limit: int = 50, subscriber=Depends(customer)):
-    owner = secret_digest(subscriber)
-    with transaction() as db:
+def list_orders(limit: int = 50, actor=Depends(billing_actor)):
+    owner = actor.owner
+    with transaction(write=False) as db:
         rows = db.execute("SELECT * FROM orders WHERE owner=? ORDER BY created DESC LIMIT ?",
                           (owner, min(max(limit, 1), 100)))
         return {"orders": [present(row) for row in rows]}
 
 
 @app.get("/v1/billing/orders/{order_id}")
-def get_order(order_id: str, subscriber=Depends(customer)):
-    owner = secret_digest(subscriber)
-    with transaction() as db:
+def get_order(order_id: str, actor=Depends(billing_actor)):
+    owner = actor.owner
+    with transaction(write=False) as db:
         row = db.execute("SELECT * FROM orders WHERE id=? AND owner=?", (order_id, owner)).fetchone()
         if not row:
             raise HTTPException(404)
         return present(row)
+
+
+@app.get("/v1/billing/orders/{order_id}/subscription")
+def get_purchased_subscription(order_id: str, actor=Depends(billing_actor)):
+    if not actor.is_guest:
+        raise HTTPException(404)
+    with transaction(write=False) as db:
+        row = db.execute(
+            """SELECT o.status, j.ready FROM orders o LEFT JOIN provisioning_jobs j ON j.order_id=o.id
+               WHERE o.id=? AND o.owner=?""", (order_id, actor.owner),
+        ).fetchone()
+        if not row:
+            raise HTTPException(404)
+        if row["status"] != "APPROVED" or not row["ready"]:
+            raise HTTPException(409, "SUBSCRIPTION_PENDING")
+    try:
+        return {"subscription_url": provisioning.read_subscription(order_id, provision_config())}
+    except provisioning.PanelError:
+        raise HTTPException(503, "SUBSCRIPTION_UNAVAILABLE") from None
 
 
 def parse_blu_deposit(lines):
@@ -373,14 +534,17 @@ def decide(db, order_id, status, audit):
     row = db.execute("SELECT details FROM orders WHERE id=?", (order_id,)).fetchone()
     details = json.loads(row["details"])
     details["reviewed_at_ms"] = timestamp
+    if status == "APPROVED" and details.get("new_subscription"):
+        details["activation_status"] = "PENDING"
+        db.execute("INSERT OR IGNORE INTO provisioning_jobs (order_id, next_run) VALUES (?, ?)", (order_id, timestamp))
     db.execute("UPDATE orders SET status=?, details=? WHERE id=?", (status, json.dumps(details), order_id))
     db.execute("INSERT INTO decisions VALUES (?,?,?)", (order_id, audit, timestamp))
 
 
 @app.post("/v1/billing/orders/{order_id}/receipt")
 def submit_reference(order_id: str, tracking_number: str = Form(default="", max_length=64),
-                     payer_card_last4: str = Form(default="", max_length=4), subscriber=Depends(customer)):
-    owner = secret_digest(subscriber)
+                     payer_card_last4: str = Form(default="", max_length=4), actor=Depends(billing_actor)):
+    owner = actor.owner
     reference = tracking_number.strip().translate(DIGITS)
     last4 = payer_card_last4.strip().translate(DIGITS)
     if not re.fullmatch(r"[0-9]{4,64}", reference) or (last4 and not re.fullmatch(r"[0-9]{4}", last4)):
@@ -537,6 +701,58 @@ def admin_card():
 def verify_admin_origin(request):
     if request.headers.get("origin") != setting("BILLING_PUBLIC_URL"):
         raise HTTPException(403)
+
+
+class ProvisioningKey(BaseModel):
+    api_key: str = Field(default="", max_length=2048)
+
+
+class ProvisioningUpdate(ProvisioningKey):
+    group_ids: list[int] = Field(min_length=1, max_length=32)
+
+
+@admin.get("/api/provisioning")
+def admin_provisioning():
+    try:
+        config = provision_config()
+    except provisioning.PanelError:
+        config = None
+    return {"configured": bool(config), "selected_group_ids": config[1] if config else []}
+
+
+def provisioning_groups(api_key):
+    try:
+        if not api_key:
+            config = provision_config()
+            api_key = config[0] if config else ""
+        if not re.fullmatch(r"[!-~]{10,2048}", api_key):
+            raise HTTPException(422, "PANEL_API_KEY_REQUIRED")
+        return api_key, provisioning.available_groups(api_key, now() // MINUTE_MS)
+    except provisioning.PanelError:
+        raise HTTPException(502, "PANEL_GROUPS_UNAVAILABLE") from None
+
+
+@admin.post("/api/provisioning/groups")
+def read_provisioning_groups(body: ProvisioningKey, request: IncomingRequest):
+    verify_admin_origin(request)
+    _, groups = provisioning_groups(body.api_key.strip())
+    return {"groups": [{"id": key, "name": value} for key, value in sorted(groups.items())]}
+
+
+@admin.post("/api/provisioning")
+def update_provisioning(body: ProvisioningUpdate, request: IncomingRequest):
+    verify_admin_origin(request)
+    api_key, groups = provisioning_groups(body.api_key.strip())
+    group_ids = sorted(set(body.group_ids))
+    if not set(group_ids).issubset(groups):
+        raise HTTPException(422, "INVALID_GROUPS")
+    with transaction() as db:
+        db.execute(
+            """INSERT INTO provisioning_settings VALUES (1, ?, ?) ON CONFLICT(id)
+               DO UPDATE SET api_key=excluded.api_key, group_ids=excluded.group_ids""",
+            (key_cipher().encrypt(api_key.encode()), json.dumps(group_ids)),
+        )
+    return Response(status_code=204)
 
 
 class CardUpdate(BaseModel):

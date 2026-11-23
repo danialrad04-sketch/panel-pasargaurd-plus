@@ -34,7 +34,7 @@ interface SubscriptionRepository {
     fun observeUsageHistory(): Flow<List<UsagePoint>>
     fun observeProfiles(): Flow<List<SubscriptionProfile>>
     fun getSavedCredentials(): SubscriptionCredentials?
-    suspend fun validateAndSaveSubscription(credentials: SubscriptionCredentials): Result<SubscriptionInfo>
+    suspend fun validateAndSaveSubscription(credentials: SubscriptionCredentials, requireServers: Boolean = false): Result<SubscriptionInfo>
     suspend fun addProfile(name: String, rawUrl: String, colorHex: Long): Result<SubscriptionProfile>
     suspend fun switchProfile(profileId: String): Result<SubscriptionInfo>
     suspend fun deleteProfile(profileId: String)
@@ -94,6 +94,8 @@ interface PaymentRepository {
     ): Result<com.pasarguard.vpn.domain.model.PaymentOrder>
 
     suspend fun refreshOrderStatus(orderId: String): Result<com.pasarguard.vpn.domain.model.PaymentOrder>
+    suspend fun getPurchasedSubscription(orderId: String): Result<String> =
+        Result.failure(UnsupportedOperationException("New subscriptions are unavailable"))
     fun observeOrders(): Flow<List<com.pasarguard.vpn.domain.model.PaymentOrder>>
     fun observeOrderById(orderId: String): Flow<com.pasarguard.vpn.domain.model.PaymentOrder?>
     suspend fun getOrderById(orderId: String): com.pasarguard.vpn.domain.model.PaymentOrder?

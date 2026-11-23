@@ -432,10 +432,12 @@ private fun OrderDetailSheetContent(
 
         HorizontalDivider(color = colors.glassBorder)
 
-        if (!order.status.isTerminal) {
+        if (!order.status.isTerminal || order.newSubscription && order.status == OrderStatus.APPROVED) {
             GradientButton(
                 text = if (order.status == OrderStatus.REJECTED) {
                     stringResource(R.string.checkout_retry_receipt)
+                } else if (order.newSubscription && order.status == OrderStatus.APPROVED) {
+                    stringResource(R.string.purchase_activate)
                 } else {
                     stringResource(R.string.plans_resume_cta)
                 },

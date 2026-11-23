@@ -6,6 +6,7 @@ import com.pasarguard.vpn.data.api.BillingBackendApi
 import com.pasarguard.vpn.data.api.CreateOrderRequestDto
 import com.pasarguard.vpn.data.api.DestinationCardDto
 import com.pasarguard.vpn.data.api.OrderDto
+import com.pasarguard.vpn.data.local.SecureTokenStore
 import com.pasarguard.vpn.domain.model.CatalogPlan
 import com.pasarguard.vpn.domain.model.CheckoutSession
 import com.pasarguard.vpn.domain.model.DestinationCardInfo
@@ -39,9 +40,14 @@ import javax.inject.Singleton
 @Singleton
 class RemotePaymentRepository @Inject constructor(
     private val subscriptions: SubscriptionRepository,
+    private val tokens: SecureTokenStore,
     json: Json
 ) : PaymentRepository {
-    private val orders = MutableStateFlow<Pair<String, List<PaymentOrder>>?>(null)
+    private data class BillingAuth(val token: String, val guest: Boolean) {
+        fun headers(): Map<String, String> =
+            mapOf((if (guest) "X-Purchase-Token" else "X-Subscription-Token") to token)
+    }
+    private val orders = MutableStateFlow<Pair<BillingAuth, List<PaymentOrder>>?>(null)
     private val api by lazy {
         check(BuildConfig.BILLING_BASE_URL.isNotBlank()) { "Billing service is not configured" }
         val url = BuildConfig.BILLING_BASE_URL.trimEnd('/').plus("/").toHttpUrl()
@@ -53,18 +59,18 @@ class RemotePaymentRepository @Inject constructor(
             .build().create(BillingBackendApi::class.java)
     }
 
-    private fun token(): String {
-        val credentials = checkNotNull(subscriptions.getSavedCredentials()) { "Open a subscription first" }
+    private fun auth(): BillingAuth {
+        val credentials = subscriptions.getSavedCredentials() ?: return BillingAuth(tokens.purchaseToken(), true)
         check(credentials.baseUrl.trimEnd('/') == BrandConfig.defaultBaseUrl.trimEnd('/')) {
             "Payment is available only for subscriptions on the configured panel"
         }
-        return credentials.token
+        return BillingAuth(credentials.token, false)
     }
 
-    private suspend fun <T> request(block: suspend (String) -> T): Result<T> = try {
-        val owner = token()
+    private suspend fun <T> request(block: suspend (BillingAuth) -> T): Result<T> = try {
+        val owner = auth()
         val value = block(owner)
-        check(owner == token()) { "The active subscription changed" }
+        check(owner == auth()) { "The active subscription changed" }
         Result.success(value)
     } catch (cancelled: CancellationException) {
         throw cancelled
@@ -73,7 +79,7 @@ class RemotePaymentRepository @Inject constructor(
     }
 
     override suspend fun loadPlansCatalog() = request { owner ->
-        val catalog = api.listPlans(owner)
+        val catalog = api.listPlans(owner.headers())
         PlansCatalogConfig(catalog.currency, catalog.paymentWindowMinutes, catalog.destinationCard.toDomain(),
             catalog.plans.map {
                 CatalogPlan(it.id, PlanCategory.valueOf(it.category), it.titleFa, it.titleEn,
@@ -104,7 +110,7 @@ class RemotePaymentRepository @Inject constructor(
     override suspend fun createOrder(
         plan: CatalogPlan, paymentMethod: PaymentMethodType, discountCode: String?, idempotencyKey: String
     ) = request { owner ->
-        api.createOrder(owner, idempotencyKey, CreateOrderRequestDto(plan.id, paymentMethod.name, discountCode))
+        api.createOrder(owner.headers(), idempotencyKey, CreateOrderRequestDto(plan.id, paymentMethod.name, discountCode))
             .toDomain(idempotencyKey).also { remember(owner, it) }
     }
 
@@ -112,33 +118,41 @@ class RemotePaymentRepository @Inject constructor(
         orderId: String, payerCardLast4: String, trackingNumber: String, receiptLocalPath: String?
     ) = request { owner ->
         val plain = "text/plain".toMediaType()
-        api.uploadOrderReceipt(owner, orderId, payerCardLast4.toRequestBody(plain),
+        api.uploadOrderReceipt(owner.headers(), orderId, payerCardLast4.toRequestBody(plain),
             trackingNumber.trim().toRequestBody(plain), null).toDomain().also { remember(owner, it) }
     }
 
     override suspend fun refreshOrderStatus(orderId: String) = request { owner ->
-        api.getOrderStatus(owner, orderId).toDomain().also { remember(owner, it) }
+        api.getOrderStatus(owner.headers(), orderId).toDomain().also { remember(owner, it) }
     }
 
-    private fun remember(owner: String, order: PaymentOrder) {
-        if (runCatching(::token).getOrNull() != owner) return
+    override suspend fun getPurchasedSubscription(orderId: String) = request { owner ->
+        check(owner.guest)
+        api.getPurchasedSubscription(owner.headers(), orderId).subscriptionUrl
+    }
+
+    private fun remember(owner: BillingAuth, order: PaymentOrder) {
+        if (runCatching(::auth).getOrNull() != owner) return
         orders.update { cache ->
             val known = cache?.takeIf { it.first == owner }?.second.orEmpty()
             val prior = known.firstOrNull { it.id == order.id }
-            val newest = if (prior?.status == OrderStatus.APPROVED) prior else order
+            val newest = if (prior?.status == OrderStatus.APPROVED &&
+                (order.status != OrderStatus.APPROVED ||
+                    prior.activationStatus == "READY" && order.activationStatus != "READY")
+            ) prior else order
             owner to (known.filterNot { it.id == order.id } + newest).sortedByDescending { it.createdAtMs }
         }
     }
 
     private fun visibleOrders(): List<PaymentOrder> =
-        orders.value?.takeIf { it.first == runCatching(::token).getOrNull() }?.second.orEmpty()
+        orders.value?.takeIf { it.first == runCatching(::auth).getOrNull() }?.second.orEmpty()
 
     override fun observeOrders(): Flow<List<PaymentOrder>> = combine(orders, flow {
         while (true) {
-            val owner = runCatching(::token).getOrNull()
+            val owner = runCatching(::auth).getOrNull()
             emit(Unit)
             if (owner != null) {
-                request { api.listOrders(it).orders.map { order -> order.toDomain() } }
+                request { api.listOrders(it.headers()).orders.map { order -> order.toDomain() } }
                     .onSuccess { remote -> remote.forEach { remember(owner, it) } }
             }
             delay(15_000)
@@ -153,8 +167,9 @@ class RemotePaymentRepository @Inject constructor(
     override suspend fun getOrderById(orderId: String) = refreshOrderStatus(orderId).getOrNull()
 
     override suspend fun getActivePendingOrder() = request { owner ->
-        api.listOrders(owner).orders.map { it.toDomain() }
-            .firstOrNull { it.status == OrderStatus.AWAITING_RECEIPT || it.status == OrderStatus.PENDING_REVIEW }
+        api.listOrders(owner.headers()).orders.map { it.toDomain() }
+            .firstOrNull { it.status == OrderStatus.AWAITING_RECEIPT || it.status == OrderStatus.PENDING_REVIEW ||
+                owner.guest && it.newSubscription && it.status == OrderStatus.APPROVED }
     }.getOrNull()
 
     override suspend fun simulateOrderStatus(
@@ -174,6 +189,7 @@ class RemotePaymentRepository @Inject constructor(
         destinationBankFa = destinationCard.bankNameFa, destinationBankEn = destinationCard.bankNameEn,
         payerCardLast4 = payerCardLast4, trackingNumber = trackingNumber,
         rejectionReasonFa = rejectionReasonFa, rejectionReasonEn = rejectionReasonEn,
-        createdAtMs = createdAtMs, expiresAtMs = expiresAtMs, submittedAtMs = submittedAtMs, reviewedAtMs = reviewedAtMs
+        createdAtMs = createdAtMs, expiresAtMs = expiresAtMs, submittedAtMs = submittedAtMs, reviewedAtMs = reviewedAtMs,
+        newSubscription = newSubscription, activationStatus = activationStatus
     )
 }

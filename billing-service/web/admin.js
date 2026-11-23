@@ -20,6 +20,7 @@ let orderPage = 1;
 let depositPage = 1;
 let detailVersion = 0;
 let saving = false;
+let chosenGroups = [];
 
 function node(tag, text, className) {
   const element = document.createElement(tag);
@@ -185,8 +186,15 @@ function last4(value) {
 }
 
 async function settings(signal) {
-  const data = await request("/api/card", { signal });
+  const [data, provision] = await Promise.all([request("/api/card", { signal }), request("/api/provisioning", { signal })]);
   if (signal.aborted) return;
+  chosenGroups = provision.selected_group_ids;
+  get("provision-state").textContent = provision.configured
+    ? "اتصال ثبت شده است. برای تغییر گروه‌ها، فهرست را دریافت کنید."
+    : "کلید دارای دسترسی دیدن گروه‌ها و ساخت اشتراک را وارد کنید.";
+  get("provision-key").value = "";
+  get("provision-key").placeholder = provision.configured ? "خالی بگذارید تا کلید فعلی استفاده شود" : "";
+  resetGroupOptions();
   get("card-number").value = data.card.number.replace(/(.{4})(?=.)/g, "$1 ");
   get("card-holder").value = data.card.holder;
   get("card-bank").value = data.card.bank;
@@ -194,6 +202,20 @@ async function settings(signal) {
   table(get("card-history"), [["زمان تغییر"], ["کارت قبلی"], ["کارت جدید"]], data.history.map((change) => [
     date(change.timestamp), last4(change.previous_last4), last4(change.current_last4),
   ]), "هنوز تغییری از طریق پنل ثبت نشده است.");
+}
+
+function resetGroupOptions() {
+  get("group-options").hidden = true;
+  get("provision-groups").replaceChildren();
+  get("save-provision").disabled = true;
+}
+
+function selectedGroups() {
+  return Array.from(get("provision-groups").querySelectorAll("input:checked"), (input) => Number(input.value));
+}
+
+async function saveProvisionRequest(path, data) {
+  return request(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
 }
 
 const loaders = { overview, orders: orderList, deposits: depositList, settings };
@@ -239,6 +261,8 @@ function detailList(order) {
   const list = node("dl", null, "details-list");
   const fields = [
     ["وضعیت", status(order.status)], ["اشتراک", order.subscriber],
+    ...(order.new_subscription ? [["ساخت اشتراک", order.activation_status === "READY" ? "آماده" :
+      order.activation_status === "PENDING" ? "در صف فعال‌سازی" : "پس از تأیید پرداخت"]] : []),
     ["پلن", order.plan_title_fa], ["مبلغ دقیق", money(order.final_price_toman)],
     ["شماره پیگیری", order.tracking_number], ["چهار رقم کارت پرداخت‌کننده", order.payer_card_last4],
     ["کارت مقصد هنگام ثبت", order.destination_card?.card_number ? last4(order.destination_card.card_number.slice(-4)) : "—"],
@@ -327,6 +351,52 @@ get("card-form").addEventListener("submit", async (event) => {
     setNotice(error.message, true);
   } finally {
     saving = false;
+    submit.disabled = false;
+  }
+});
+
+get("provision-key").addEventListener("input", resetGroupOptions);
+get("load-groups").addEventListener("click", async () => {
+  const button = get("load-groups");
+  const api_key = get("provision-key").value;
+  button.disabled = true;
+  resetGroupOptions();
+  setNotice();
+  try {
+    const result = await saveProvisionRequest("/api/provisioning/groups", { api_key });
+    if (api_key !== get("provision-key").value || active !== "settings") return;
+    if (!result.groups.length) { setNotice("کلید API به هیچ گروه سروری دسترسی ندارد.", true); return; }
+    for (const group of result.groups) {
+      const label = node("label", null, "check");
+      const input = node("input");
+      input.type = "checkbox";
+      input.value = group.id;
+      input.checked = chosenGroups.includes(group.id) || result.groups.length === 1;
+      input.addEventListener("change", () => { get("save-provision").disabled = !selectedGroups().length; });
+      label.append(input, document.createTextNode(group.name));
+      get("provision-groups").append(label);
+    }
+    get("group-options").hidden = false;
+    get("save-provision").disabled = !selectedGroups().length;
+  } catch {
+    setNotice("دریافت گروه‌ها ممکن نشد. کلید API و دسترسی مشاهدهٔ گروه‌ها را بررسی کنید.", true);
+  } finally {
+    button.disabled = false;
+  }
+});
+get("provision-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const submit = get("save-provision");
+  if (submit.disabled) return;
+  const group_ids = selectedGroups();
+  if (!group_ids.length) return;
+  submit.disabled = true;
+  try {
+    await saveProvisionRequest("/api/provisioning", { api_key: get("provision-key").value, group_ids });
+    await load();
+    setNotice("اتصال ثبت شد. سفارش‌های جدید پس از تأیید پرداخت فعال می‌شوند.");
+  } catch (error) {
+    setNotice(error.message, true);
     submit.disabled = false;
   }
 });

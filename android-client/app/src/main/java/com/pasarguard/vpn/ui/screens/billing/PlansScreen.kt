@@ -61,6 +61,7 @@ import androidx.lifecycle.viewModelScope
 import com.pasarguard.vpn.R
 import com.pasarguard.vpn.domain.model.AppLanguage
 import com.pasarguard.vpn.domain.model.CatalogPlan
+import com.pasarguard.vpn.domain.model.OrderStatus
 import com.pasarguard.vpn.domain.model.PaymentOrder
 import com.pasarguard.vpn.domain.model.PlanCategory
 import com.pasarguard.vpn.domain.model.UsageForecastCalculator
@@ -90,6 +91,7 @@ data class PlansUiState(
     val selectedCategory: PlanCategory = PlanCategory.RENEW,
     val recommendedPlanId: String? = null,
     val activePendingOrder: PaymentOrder? = null,
+    val guestCheckout: Boolean = false,
     val language: AppLanguage = AppLanguage.PERSIAN,
     val error: String? = null
 )
@@ -112,6 +114,8 @@ class PlansViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             val settings = settingsRepository.getSnapshot()
+            val guestCheckout = subscriptionRepository.getSavedCredentials() == null
+            _uiState.update { it.copy(guestCheckout = guestCheckout, language = settings.language) }
             val sub = subscriptionRepository.observeSubscription().firstOrNull()
             val usage = subscriptionRepository.observeUsageHistory().firstOrNull().orEmpty()
             val pending = paymentRepository.getActivePendingOrder()
@@ -190,7 +194,7 @@ fun PlansScreen(
                         )
                     }
                     Text(
-                        text = stringResource(R.string.plans_title),
+                        text = stringResource(if (state.guestCheckout) R.string.purchase_new_subscription else R.string.plans_title),
                         style = MaterialTheme.typography.titleLarge,
                         color = colors.textPrimary
                     )
@@ -215,8 +219,7 @@ fun PlansScreen(
                 }
             }
 
-            // Category filter pills
-            Row(
+            if (!state.guestCheckout) Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
@@ -274,7 +277,11 @@ fun PlansScreen(
                             Spacer(Modifier.width(Spacing.sm))
                             Column {
                                 Text(
-                                    text = stringResource(R.string.plans_resume_order_title),
+                                    text = stringResource(
+                                        if (pending.newSubscription && pending.status == OrderStatus.APPROVED)
+                                            R.string.purchase_activate
+                                        else R.string.plans_resume_order_title
+                                    ),
                                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                     color = colors.statusWarning
                                 )
@@ -305,7 +312,7 @@ fun PlansScreen(
                 state.error != null -> {
                     EmptyStateView(
                         title = stringResource(R.string.plans_error_title),
-                        description = state.error.orEmpty(),
+                        description = if (state.guestCheckout) stringResource(R.string.purchase_unavailable) else state.error.orEmpty(),
                         actionLabel = stringResource(R.string.action_retry),
                         onAction = { viewModel.reload() }
                     )

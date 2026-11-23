@@ -455,4 +455,11 @@
     <string name="orders_share_invoice">دریافت / اشتراک رسید</string>
     <string name="orders_view_receipt">مشاهده رسید در سفارش‌ها</string>
     <string name="orders_invoice_error">خطا در ساخت تصویر رسید</string>
+    <string name="purchase_new_subscription">خرید اشتراک جدید</string>
+    <string name="purchase_track">پیگیری خرید</string>
+    <string name="purchase_activate">فعال‌سازی اشتراک</string>
+    <string name="purchase_preparing">در حال آماده‌سازی کانفیگ…</string>
+    <string name="purchase_activation_retry">فعال‌سازی کامل نشد. از همین سفارش دوباره امتحان کنید.</string>
+    <string name="purchase_unavailable">خرید اشتراک جدید فعلاً در دسترس نیست. بعداً امتحان کنید یا سفارش قبلی را پیگیری کنید.</string>
+    <string name="checkout_unavailable">سفارش یا پلن بارگیری نشد. برگردید و دوباره امتحان کنید.</string>
 </resources>

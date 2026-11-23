@@ -141,6 +141,8 @@ class LoginViewModel @Inject constructor(
 fun LoginScreen(
     prefilledSubscriptionUrl: String? = null,
     onLoginSuccess: () -> Unit,
+    onBuySubscription: () -> Unit,
+    onTrackPurchase: () -> Unit,
     viewModel: LoginViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -184,7 +186,6 @@ fun LoginScreen(
                     modifier = Modifier.size(40.dp)
                 )
             }
-
             Spacer(Modifier.height(Spacing.md))
 
             Text(
@@ -199,6 +200,17 @@ fun LoginScreen(
                 color = colors.textSecondary,
                 textAlign = TextAlign.Center
             )
+
+            Spacer(Modifier.height(Spacing.md))
+            GradientButton(
+                text = stringResource(R.string.purchase_new_subscription),
+                onClick = onBuySubscription,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !state.isLoading
+            )
+            OutlinedButton(onClick = onTrackPurchase, enabled = !state.isLoading, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.purchase_track))
+            }
 
             Spacer(Modifier.height(Spacing.xl))
 
