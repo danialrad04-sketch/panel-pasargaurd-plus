@@ -357,8 +357,8 @@
     <string name="notif_expiry_expired_body">اعتبار اشتراک VPN شما به پایان رسیده است. برای تمدید لمس کنید.</string>
     <string name="notif_low_traffic_used_body">%1$d٪ از حجم اشتراک شما مصرف شده است. برای افزایش حجم یا تمدید لمس کنید.</string>
     <string name="notif_low_traffic_exhausted_body">حجم اشتراک شما تمام شده است. برای خرید بسته اضافه یا تمدید لمس کنید.</string>
-    <string name="notif_order_approved_title">اشتراک با موفقیت فعال شد!</string>
-    <string name="notif_order_approved_body">سفارش %1$s (%2$s) تأیید و همگام‌سازی شد.</string>
+    <string name="notif_order_approved_title">پرداخت تأیید شد</string>
+    <string name="notif_order_approved_body">سفارش %1$s (%2$s) تأیید شد.</string>
 
     <string name="sub_expired_banner_title">اشتراک منقضی شده است</string>
     <string name="sub_limited_banner_title">حجم اشتراک به پایان رسیده است</string>
@@ -415,7 +415,7 @@
     <string name="checkout_apply_code">اعمال</string>
     <string name="checkout_method_title">روش پرداخت</string>
     <string name="checkout_method_card">کارت‌به‌کارت</string>
-    <string name="checkout_method_card_desc">انتقال وجه مستقیم بانکی و ثبت رسید</string>
+    <string name="checkout_method_card_desc">انتقال کارت‌به‌کارت با تأیید خودکار</string>
     <string name="checkout_method_gateway">درگاه پرداخت آنلاین</string>
     <string name="checkout_method_crypto">پرداخت ارزی (USDT / TON)</string>
     <string name="checkout_continue_card">ادامه و نمایش شماره کارت</string>
@@ -425,13 +425,13 @@
     <string name="checkout_steps_title">راهنمای گام‌به‌گام پرداخت</string>
     <string name="checkout_step_1">۱. شماره کارت مقصد و مبلغ دقیق را با یک لمس کپی کنید.</string>
     <string name="checkout_step_2">۲. از همراه بانک واریز را انجام دهید و نام صاحب حساب را تطبیق دهید.</string>
-    <string name="checkout_step_3">۳. ۴ رقم آخر کارت خود یا کد پیگیری را وارد کرده، تصویر رسید را ضمیمه و ثبت کنید.</string>
+    <string name="checkout_step_3">۳. منتظر تأیید خودکار بمانید یا شماره پیگیری را برای بررسی ثبت کنید.</string>
     <string name="checkout_payer_form_title">اطلاعات واریز شما</string>
     <string name="checkout_payer_last4">۴ رقم آخر کارت مبدا</string>
     <string name="checkout_tracking_number">شماره پیگیری / ارجاع</string>
     <string name="checkout_upload_receipt">پیوست تصویر رسید (اختیاری)</string>
     <string name="checkout_receipt_attached">تصویر رسید فشرده و پیوست شد</string>
-    <string name="checkout_submit_receipt_cta">ثبت رسید و ارسال برای تأیید</string>
+    <string name="checkout_submit_receipt_cta">ثبت شماره پیگیری</string>
     <string name="checkout_pending_heading">در انتظار تأیید پرداخت</string>
     <string name="checkout_pending_desc">سفارش %1$s ثبت شد. وضعیت به‌طور خودکار بروز می‌شود؛ می‌توانید صفحه را ببندید و بعداً از بخش سفارش‌ها پیگیری کنید.</string>
     <string name="checkout_leave_and_track">پیگیری در تاریخچه سفارش‌ها</string>

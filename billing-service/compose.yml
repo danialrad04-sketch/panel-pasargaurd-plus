@@ -1,0 +1,14 @@
+services:
+  billing:
+    build:
+      context: ..
+      dockerfile: billing-service/Dockerfile
+    env_file: .env
+    ports:
+      - "127.0.0.1:8087:8080"
+    volumes:
+      - billing-data:/data
+    restart: unless-stopped
+
+volumes:
+  billing-data:

@@ -63,7 +63,6 @@ interface ServerRepository {
 
 /**
  * Billing, plans, discount validation, and card-to-card order repository contract.
- * Backed by [com.pasarguard.vpn.data.repository.FakePaymentRepository] until the real backend is deployed.
  */
 interface PaymentRepository {
     suspend fun getAvailablePlans(): Result<List<RenewalPlan>>

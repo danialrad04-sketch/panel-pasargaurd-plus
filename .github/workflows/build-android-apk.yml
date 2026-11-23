@@ -58,12 +58,14 @@ jobs:
       - name: Build Debug APKs (Universal + ABI Splits)
         env:
           PASARGUARD_BASE_URL: ${{ github.event.inputs.panel_base_url || vars.PASARGUARD_BASE_URL || 'https://panel.example.com' }}
+          PASARGUARD_BILLING_URL: ${{ vars.PASARGUARD_BILLING_URL }}
           PASARGUARD_APP_NAME: ${{ github.event.inputs.app_name || vars.PASARGUARD_APP_NAME || 'PasarGuard VPN' }}
         run: gradle :app:assembleDebug --stacktrace
 
       - name: Build Release APKs (Unsigned)
         env:
           PASARGUARD_BASE_URL: ${{ github.event.inputs.panel_base_url || vars.PASARGUARD_BASE_URL || 'https://panel.example.com' }}
+          PASARGUARD_BILLING_URL: ${{ vars.PASARGUARD_BILLING_URL }}
           PASARGUARD_APP_NAME: ${{ github.event.inputs.app_name || vars.PASARGUARD_APP_NAME || 'PasarGuard VPN' }}
         run: gradle :app:assembleRelease --stacktrace
 

@@ -36,6 +36,11 @@ android {
         vectorDrawables.useSupportLibrary = true
 
         val baseUrl = resolveConfig("PASARGUARD_BASE_URL", "https://panel.example.com")
+        val billingUrl = resolveConfig("PASARGUARD_BILLING_URL", "")
+        require(billingUrl.isBlank() || Regex("https://[a-zA-Z0-9.-]+(?::[0-9]+)?/?").matches(billingUrl)) {
+            "PASARGUARD_BILLING_URL must be an HTTPS origin"
+        }
+        buildConfigField("String", "BILLING_BASE_URL", "\"$billingUrl\"")
         val appName = resolveConfig("PASARGUARD_APP_NAME", "PasarGuard VPN")
         val telegramUrl = resolveConfig("PASARGUARD_SUPPORT_TELEGRAM", "https://t.me/your_support_channel")
         val whatsappUrl = resolveConfig("PASARGUARD_SUPPORT_WHATSAPP", "https://wa.me/15550000000")

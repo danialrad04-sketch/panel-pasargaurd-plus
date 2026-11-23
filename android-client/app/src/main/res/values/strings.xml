@@ -357,8 +357,8 @@
     <string name="notif_expiry_expired_body">Your VPN subscription has expired. Tap to renew right away.</string>
     <string name="notif_low_traffic_used_body">You have used %1$d%% of your data quota. Tap to add traffic or renew.</string>
     <string name="notif_low_traffic_exhausted_body">Your traffic quota is exhausted. Tap to top up or renew now.</string>
-    <string name="notif_order_approved_title">Subscription Activated!</string>
-    <string name="notif_order_approved_body">%1$s (%2$s) has been approved and synced.</string>
+    <string name="notif_order_approved_title">Payment approved</string>
+    <string name="notif_order_approved_body">%1$s (%2$s) has been approved.</string>
 
     <string name="sub_expired_banner_title">Subscription Expired</string>
     <string name="sub_limited_banner_title">Traffic Quota Reached</string>
@@ -415,7 +415,7 @@
     <string name="checkout_apply_code">Apply</string>
     <string name="checkout_method_title">Payment Method</string>
     <string name="checkout_method_card">Card-to-Card Transfer</string>
-    <string name="checkout_method_card_desc">Direct Iranian bank transfer with receipt upload</string>
+    <string name="checkout_method_card_desc">Card-to-card transfer with automatic confirmation</string>
     <string name="checkout_method_gateway">Online Bank Gateway</string>
     <string name="checkout_method_crypto">Crypto (USDT / TON)</string>
     <string name="checkout_continue_card">Continue to Card-to-Card</string>
@@ -425,13 +425,13 @@
     <string name="checkout_steps_title">How to Pay</string>
     <string name="checkout_step_1">1. Copy the destination card number and exact amount above.</string>
     <string name="checkout_step_2">2. Complete the transfer via your banking app and verify the holder name.</string>
-    <string name="checkout_step_3">3. Enter your card last 4 digits / tracking number, attach receipt, and submit.</string>
+    <string name="checkout_step_3">3. Wait for automatic confirmation or submit your tracking number for review.</string>
     <string name="checkout_payer_form_title">Transfer Confirmation</string>
     <string name="checkout_payer_last4">Last 4 digits of your card</string>
     <string name="checkout_tracking_number">Tracking / Reference number</string>
     <string name="checkout_upload_receipt">Attach Receipt Screenshot (Optional)</string>
     <string name="checkout_receipt_attached">Receipt compressed &amp; attached</string>
-    <string name="checkout_submit_receipt_cta">Submit Payment Receipt</string>
+    <string name="checkout_submit_receipt_cta">Submit tracking number</string>
     <string name="checkout_pending_heading">Waiting for Confirmation</string>
     <string name="checkout_pending_desc">Order %1$s has been received. Status updates automatically — you may safely leave this screen and track it in Orders.</string>
     <string name="checkout_leave_and_track">Track in Orders History</string>

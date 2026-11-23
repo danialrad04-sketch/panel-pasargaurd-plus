@@ -3,10 +3,7 @@ package com.pasarguard.vpn.ui.screens.billing
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.net.Uri
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -42,7 +39,6 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.CurrencyBitcoin
-import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Language
@@ -51,7 +47,6 @@ import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material.icons.rounded.Timer
-import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -73,10 +68,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
@@ -108,7 +101,6 @@ import com.pasarguard.vpn.ui.theme.LocalPersianDigits
 import com.pasarguard.vpn.ui.theme.PasarGuardTheme
 import com.pasarguard.vpn.ui.theme.Spacing
 import com.pasarguard.vpn.util.Formatters
-import com.pasarguard.vpn.util.ReceiptImageUtils
 import com.pasarguard.vpn.worker.NotificationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -141,9 +133,6 @@ data class CheckoutUiState(
     val isCreatingOrder: Boolean = false,
     val payerCardLast4: String = "",
     val trackingNumber: String = "",
-    val receiptPath: String? = null,
-    val receiptSizeBytes: Long = 0L,
-    val isCompressingReceipt: Boolean = false,
     val isSubmittingReceipt: Boolean = false,
     val isRefreshingSubscription: Boolean = false,
     val errorMessage: String? = null
@@ -215,12 +204,11 @@ class CheckoutViewModel @Inject constructor(
                 order = order,
                 step = step,
                 payerCardLast4 = order.payerCardLast4.orEmpty(),
-                trackingNumber = order.trackingNumber.orEmpty(),
-                receiptPath = order.receiptLocalPath
+                trackingNumber = order.trackingNumber.orEmpty()
             )
         }
         observeOrderUpdates(order.id)
-        if (order.status == OrderStatus.PENDING_REVIEW) {
+        if (order.status == OrderStatus.PENDING_REVIEW || order.status == OrderStatus.AWAITING_RECEIPT) {
             startPollingOrder(order.id)
         } else if (order.status == OrderStatus.APPROVED) {
             onOrderApproved(order)
@@ -312,45 +300,17 @@ class CheckoutViewModel @Inject constructor(
         _uiState.update { it.copy(trackingNumber = raw.take(32), errorMessage = null) }
     }
 
-    fun onReceiptImageSelected(context: Context, uri: Uri) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isCompressingReceipt = true, errorMessage = null) }
-            ReceiptImageUtils.compressReceiptUri(context, uri)
-                .onSuccess { res ->
-                    _uiState.update {
-                        it.copy(
-                            isCompressingReceipt = false,
-                            receiptPath = res.filePath,
-                            receiptSizeBytes = res.sizeBytes
-                        )
-                    }
-                }
-                .onFailure {
-                    _uiState.update {
-                        it.copy(
-                            isCompressingReceipt = false,
-                            errorMessage = "Could not process selected image"
-                        )
-                    }
-                }
-        }
-    }
-
-    fun removeReceiptImage() {
-        _uiState.update { it.copy(receiptPath = null, receiptSizeBytes = 0L) }
-    }
-
     fun submitReceipt() {
         val state = _uiState.value
         val order = state.order ?: return
         if (state.isSubmittingReceipt) return
-        if (state.payerCardLast4.length < 4 && state.trackingNumber.trim().length < 4) {
+        if (state.trackingNumber.trim().length < 4) {
             _uiState.update {
                 it.copy(
                     errorMessage = if (state.language == AppLanguage.PERSIAN) {
-                        "لطفاً ۴ رقم آخر کارت مبدا یا شماره پیگیری تراکنش را وارد کنید."
+                        "لطفاً شماره پیگیری تراکنش را وارد کنید."
                     } else {
-                        "Please enter the last 4 digits of your card or the tracking number."
+                        "Please enter the transfer tracking number."
                     }
                 )
             }
@@ -363,16 +323,17 @@ class CheckoutViewModel @Inject constructor(
                 orderId = order.id,
                 payerCardLast4 = state.payerCardLast4,
                 trackingNumber = state.trackingNumber,
-                receiptLocalPath = state.receiptPath
+                receiptLocalPath = null
             ).onSuccess { updated ->
                 _uiState.update {
                     it.copy(
                         isSubmittingReceipt = false,
                         order = updated,
-                        step = CheckoutStep.WAITING
+                        step = if (updated.status == OrderStatus.APPROVED) CheckoutStep.SUCCESS else CheckoutStep.WAITING
                     )
                 }
-                startPollingOrder(updated.id)
+                if (updated.status == OrderStatus.APPROVED) onOrderApproved(updated)
+                else startPollingOrder(updated.id)
             }.onFailure { err ->
                 _uiState.update {
                     it.copy(
@@ -399,11 +360,12 @@ class CheckoutViewModel @Inject constructor(
         pollJob?.cancel()
         pollJob = viewModelScope.launch {
             var attempt = 0
-            while (attempt < 20) {
+            while (true) {
                 delay(OrderStateMachine.nextPollDelayMs(attempt))
-                val latest = paymentRepository.refreshOrderStatus(orderId).getOrNull() ?: break
-                if (latest.status != OrderStatus.PENDING_REVIEW) break
-                attempt++
+                val latest = paymentRepository.refreshOrderStatus(orderId).getOrNull()
+                if (latest != null && latest.status != OrderStatus.PENDING_REVIEW &&
+                    latest.status != OrderStatus.AWAITING_RECEIPT) break
+                attempt = (attempt + 1).coerceAtMost(6)
             }
         }
     }
@@ -413,7 +375,6 @@ class CheckoutViewModel @Inject constructor(
         approvedHandledForOrderId = order.id
         viewModelScope.launch {
             _uiState.update { it.copy(isRefreshingSubscription = true) }
-            notificationHelper.cancelSubscriptionAlerts()
             val planTitle = if (_uiState.value.language == AppLanguage.PERSIAN) order.planTitleFa else order.planTitleEn
             notificationHelper.showOrderApprovedNotification(order.id, planTitle)
             syncSubscription()
@@ -449,13 +410,7 @@ fun CheckoutScreen(
     val isPersian = state.language == AppLanguage.PERSIAN
     val currency = stringResource(R.string.currency_toman)
 
-    val receiptPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri ->
-        if (uri != null) {
-            viewModel.onReceiptImageSelected(context, uri)
-        }
-    }
+
 
     fun copyText(label: String, value: String) {
         val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -528,8 +483,6 @@ fun CheckoutScreen(
                                 onCopyAmount = { copyText("Amount", order.finalPriceToman.toString()) },
                                 onCardLast4Change = viewModel::updatePayerCardLast4,
                                 onTrackingChange = viewModel::updateTrackingNumber,
-                                onPickReceipt = { receiptPicker.launch("image/*") },
-                                onRemoveReceipt = viewModel::removeReceiptImage,
                                 onSubmit = viewModel::submitReceipt,
                                 onExpired = viewModel::checkOrderStatusNow
                             )
@@ -766,8 +719,6 @@ private fun CardToCardStep(
     onCopyAmount: () -> Unit,
     onCardLast4Change: (String) -> Unit,
     onTrackingChange: (String) -> Unit,
-    onPickReceipt: () -> Unit,
-    onRemoveReceipt: () -> Unit,
     onSubmit: () -> Unit,
     onExpired: () -> Unit
 ) {
@@ -977,66 +928,13 @@ private fun CardToCardStep(
             )
             Spacer(Modifier.height(Spacing.md))
 
-            // Receipt image picker & compressed preview
-            if (state.receiptPath != null) {
-                val preview = remember(state.receiptPath) {
-                    ReceiptImageUtils.decodePreviewBitmap(state.receiptPath)
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(colors.glassSurface)
-                        .padding(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (preview != null) {
-                        Image(
-                            bitmap = preview.asImageBitmap(),
-                            contentDescription = "Receipt preview",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(64.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                        )
-                        Spacer(Modifier.width(Spacing.sm))
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.checkout_receipt_attached),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = colors.statusConnected
-                        )
-                        if (state.receiptSizeBytes > 0L) {
-                            Text(
-                                text = Formatters.formatBytes(state.receiptSizeBytes, persianDigits),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = colors.textSecondary
-                            )
-                        }
-                    }
-                    IconButton(onClick = onPickReceipt) {
-                        Icon(Icons.Rounded.Image, contentDescription = null, tint = colors.heroEnd)
-                    }
-                    IconButton(onClick = onRemoveReceipt) {
-                        Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = colors.statusDanger)
-                    }
-                }
-            } else {
-                OutlinedButton(
-                    onClick = onPickReceipt,
-                    enabled = !state.isCompressingReceipt,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    if (state.isCompressingReceipt) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(Icons.Rounded.UploadFile, contentDescription = null, modifier = Modifier.size(18.dp))
-                    }
-                    Spacer(Modifier.width(Spacing.sm))
-                    Text(stringResource(R.string.checkout_upload_receipt))
-                }
-            }
+            Text(
+                text = if (state.language == AppLanguage.PERSIAN)
+                    "پس از واریز، برنامه منتظر پیامک بانک می‌ماند. برای بررسی دستی شماره پیگیری را ثبت کنید."
+                else "After transferring, wait here for bank confirmation. Submit the tracking number for manual review.",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.textSecondary
+            )
         }
 
         if (state.errorMessage != null) {
@@ -1051,7 +949,7 @@ private fun CardToCardStep(
             text = stringResource(R.string.checkout_submit_receipt_cta),
             onClick = onSubmit,
             isLoading = state.isSubmittingReceipt,
-            enabled = remainingMs > 0L && !state.isCompressingReceipt,
+            enabled = remainingMs > 0L,
             leadingIcon = Icons.Rounded.CheckCircle,
             modifier = Modifier.fillMaxWidth()
         )

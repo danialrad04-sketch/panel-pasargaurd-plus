@@ -166,8 +166,8 @@ data class PaymentOrder(
         }
         when (status) {
             OrderStatus.APPROVED -> events += OrderTimelineEvent(
-                titleFa = "تأیید پرداخت و فعال‌سازی خودکار اشتراک",
-                titleEn = "Payment approved & subscription activated",
+                titleFa = "تأیید پرداخت",
+                titleEn = "Payment approved",
                 timestampMs = reviewedAtMs ?: System.currentTimeMillis(),
                 completed = true
             )
