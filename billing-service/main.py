@@ -12,16 +12,21 @@ from typing import Annotated
 from urllib.error import HTTPError as UpstreamHTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, Form, Header, HTTPException, Request as IncomingRequest
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from jdatetime import datetime as JalaliDateTime
 from pydantic import BaseModel, Field
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 basic = HTTPBasic()
 WINDOW_MS = 30 * 60 * 1000
+MINUTE_MS = 60 * 1000
 DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "0123456789" * 2)
+SEPARATORS = str.maketrans("", "", ",٬،")
+RIAL_NUMBER = r"(?:[0-9]{1,3}(?:[,٬،][0-9]{3}){1,3}|[0-9]{1,12})"
 WEB = Path(__file__).with_name("web")
 CHECKOUT_HEADERS = {
     "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; "
@@ -72,8 +77,13 @@ def initialize():
             raise ValueError(f"{name} requires an HTTPS origin without a trailing slash")
     if not re.fullmatch(r"[0-9]{16}", setting("DESTINATION_CARD")):
         raise ValueError("DESTINATION_CARD requires 16 digits")
-    if not re.fullmatch(r"[0-9][0-9.-]+", setting("SMS_ACCOUNT")):
+    sms_format = os.getenv("SMS_FORMAT", "account")
+    if sms_format not in ("account", "blu"):
+        raise ValueError("SMS_FORMAT must be account or blu")
+    if sms_format == "account" and not re.fullmatch(r"[0-9][0-9.-]+", os.getenv("SMS_ACCOUNT", "")):
         raise ValueError("SMS_ACCOUNT requires the account identifier shown in bank SMS")
+    if sms_format == "blu":
+        ZoneInfo("Asia/Tehran")
     catalog()
     with transaction() as db:
         db.execute("""CREATE TABLE IF NOT EXISTS orders (
@@ -258,10 +268,34 @@ def get_order(order_id: str, subscriber=Depends(customer)):
         return present(row)
 
 
+def parse_blu_deposit(lines):
+    if len(lines) != 6 or lines[:2] != ["بلو", "واریز پول"]:
+        return None
+    amount = re.fullmatch(rf"[^،]{{1,120}} عزیز،\s*({RIAL_NUMBER})\s*ریال به حساب شما نشست[.؟]?", lines[2])
+    balance = re.fullmatch(rf"موجودی:\s*({RIAL_NUMBER})\s*ریال", lines[3])
+    clock = re.fullmatch(r"([0-9]{1,2}):([0-9]{2})", lines[4])
+    date = re.fullmatch(r"(1[34][0-9]{2})[./]([0-9]{1,2})[./]([0-9]{1,2})", lines[5])
+    if not (amount and balance and clock and date):
+        return None
+    rials = int(amount[1].translate(SEPARATORS))
+    if rials <= 0 or rials % 10:
+        return None
+    try:
+        stamp = JalaliDateTime(*map(int, date.groups()), *map(int, clock.groups())).togregorian()
+    except ValueError:
+        return None
+    minute = int(stamp.replace(tzinfo=ZoneInfo("Asia/Tehran")).timestamp()) * 1000
+    digest = secret_digest(f"blu:{minute}:{rials}:{int(balance[1].translate(SEPARATORS))}")
+    return rials // 10, digest, minute
+
+
 def parse_deposit(text):
-    """Accept explicit rial deposits for the configured destination account."""
+    """Match the deposit template selected for this destination account."""
+    sms_format = os.getenv("SMS_FORMAT", "account")
     normalized = text.translate(DIGITS)
-    normalized = re.sub(r"[,٬،]", "", normalized)
+    if sms_format == "blu":
+        return parse_blu_deposit([line.strip() for line in normalized.splitlines() if line.strip()])
+    normalized = normalized.translate(SEPARATORS)
     lines = [line.strip() for line in normalized.splitlines() if line.strip()]
     accounts = [match[1] for line in lines if (match := re.fullmatch(
         r"(?:حساب|Save)\s*[:：]\s*([0-9.-]+)", line, re.IGNORECASE
@@ -273,7 +307,7 @@ def parse_deposit(text):
     values = [match[1] for line in lines if (match := re.fullmatch(pattern, line))]
     if len(values) != 1 or int(values[0]) <= 0 or int(values[0]) % 10:
         return None
-    return int(values[0]) // 10, secret_digest("\n".join(lines))
+    return int(values[0]) // 10, secret_digest("\n".join(lines)), None
 
 
 class BankMessage(BaseModel):
@@ -288,14 +322,19 @@ def bank_webhook(body: BankMessage, x_webhook_secret: str = Header(default="")):
     deposit = parse_deposit(body.key or body.text or "")
     if deposit is None:
         return {"result": "ignored"}
-    amount, digest = deposit
+    amount, digest, sms_minute = deposit
     with transaction() as db:
         if db.execute("SELECT 1 FROM deposits WHERE digest=?", (digest,)).fetchone():
             return {"result": "duplicate"}
         received = now()
+        if sms_minute is not None and not received - WINDOW_MS - MINUTE_MS < sms_minute <= received:
+            return {"result": "ignored"}
+        # Blu timestamps have minute precision. Allow orders created during that minute,
+        # while excluding orders created in any later minute.
+        latest_creation = received if sms_minute is None else min(received, sms_minute + MINUTE_MS - 1)
         row = db.execute(
             """SELECT id FROM orders WHERE amount=? AND status IN ('AWAITING_RECEIPT','PENDING_REVIEW')
-               AND created<=? AND expires>?""", (amount, received, received)
+               AND created<=? AND expires>?""", (amount, latest_creation, received)
         ).fetchone()
         order_id = row["id"] if row else None
         db.execute("INSERT INTO deposits VALUES (?,?,?,?)", (digest, amount, received, order_id))

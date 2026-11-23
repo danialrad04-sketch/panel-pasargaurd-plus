@@ -9,16 +9,20 @@ tls_mode=auto
 billing_host=
 panel_url=
 acme_email=
+sms_format=
 show_credentials=false
 
 die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 usage() {
     cat <<'USAGE'
 Usage: sudo bash billing-service/install.sh [--domain HOST] [--panel-url HTTPS_ORIGIN]
-       [--email ADDRESS] [--tls auto|caddy|nginx|external] [--show-credentials]
+       [--email ADDRESS] [--tls auto|caddy|nginx|external]
+       [--sms-format account|blu] [--show-credentials]
 
-On first install, the script prompts for the destination card, account shown in
-bank SMS, cardholder, and bank. It generates the admin and webhook secrets.
+On first install, the script prompts for destination card details. The 'account'
+SMS format also asks for the account identifier shown in bank SMS. Use 'blu'
+with a trusted forwarder dedicated to one Blu account.
+The script generates the admin and webhook secrets.
 Automatic TLS requires the domain to point to this server and inbound ports
 80 and 443. External mode uses an existing HTTPS proxy to 127.0.0.1:8087.
 USAGE
@@ -26,13 +30,14 @@ USAGE
 
 while (( $# )); do
     case "$1" in
-        --domain|--panel-url|--email|--tls)
+        --domain|--panel-url|--email|--tls|--sms-format)
             (( $# >= 2 )) || die "Missing value for $1"
             case "$1" in
                 --domain) billing_host=$2 ;;
                 --panel-url) panel_url=$2 ;;
                 --email) acme_email=$2 ;;
                 --tls) tls_mode=$2 ;;
+                --sms-format) sms_format=$2 ;;
             esac
             shift 2 ;;
         --show-credentials) show_credentials=true; shift ;;
@@ -42,6 +47,7 @@ while (( $# )); do
 done
 [[ $EUID == 0 ]] || die "Run with sudo or as root"
 case "$tls_mode" in auto|caddy|nginx|external) ;; *) die "Invalid --tls mode" ;; esac
+case "$sms_format" in ""|account|blu) ;; *) die "Invalid --sms-format mode" ;; esac
 
 prompt() {
     local label=$1 default=$2 response
@@ -152,20 +158,25 @@ env = json.load(sys.stdin)["services"]["billing"]["environment"]
 print(env.get("BILLING_PUBLIC_URL", ""))
 print(env.get("PANEL_URL", ""))
 print(env.get("BILLING_ACME_EMAIL", ""))
+print(env.get("SMS_FORMAT", "account"))
 '
     ) || die "Could not read existing billing settings"
     mapfile -t values <<< "$configured"
     saved_origin=${values[0]:-}
     saved_panel=${values[1]:-}
+    saved_sms_format=${values[3]:-account}
     [[ $saved_origin == https://* ]] || die "Set BILLING_PUBLIC_URL in $env_file"
     [[ -z $billing_host || "https://$billing_host" == "$saved_origin" ]] || die "Update BILLING_PUBLIC_URL in $env_file before changing domains"
     [[ -z $panel_url || $panel_url == "$saved_panel" ]] || die "Update PANEL_URL in $env_file before changing panel addresses"
+    [[ -z $sms_format || $sms_format == "$saved_sms_format" ]] || die "Update SMS_FORMAT in $env_file before switching SMS formats"
     billing_host=${saved_origin#https://}
     panel_url=$saved_panel
     acme_email=${acme_email:-${values[2]:-}}
+    sms_format=$saved_sms_format
 else
     billing_host=${billing_host:-$(prompt "Billing domain" "pay.esfahanmarket.shop")}
     panel_url=${panel_url:-$(prompt "Existing PasarGuard origin" "https://got.esfahanmarket.shop:8443")}
+    sms_format=${sms_format:-account}
 fi
 validate_origins
 
@@ -203,9 +214,12 @@ if [[ ! -f $env_file ]]; then
     card=${card//[ -]/}
     holder=$(prompt "Cardholder name" "")
     bank=$(prompt "Bank name" "")
-    account=$(normalize_digits "$(prompt "Destination account identifier as it appears in bank SMS" "")")
     [[ $card =~ ^[0-9]{16}$ ]] || die "The destination card requires 16 digits"
-    [[ $account =~ ^[0-9][0-9.-]+$ ]] || die "Invalid bank SMS account identifier"
+    account=
+    if [[ $sms_format == account ]]; then
+        account=$(normalize_digits "$(prompt "Destination account identifier as it appears in bank SMS" "")")
+        [[ $account =~ ^[0-9][0-9.-]+$ ]] || die "Invalid bank SMS account identifier"
+    fi
     confirm_value "cardholder name" "$holder"
     confirm_value "bank name" "$bank"
     billing_key=$(openssl rand -hex 32)
@@ -214,7 +228,8 @@ if [[ ! -f $env_file ]]; then
     temp_env=$(mktemp "$service_dir/.env.XXXXXX")
     {
         printf "PANEL_URL='%s'\nBILLING_PUBLIC_URL='https://%s'\nBILLING_ACME_EMAIL='%s'\n" "$panel_url" "$billing_host" "$acme_email"
-        printf "DESTINATION_CARD='%s'\nCARD_HOLDER='%s'\nCARD_BANK='%s'\nSMS_ACCOUNT='%s'\n" "$card" "$holder" "$bank" "$account"
+        printf "DESTINATION_CARD='%s'\nCARD_HOLDER='%s'\nCARD_BANK='%s'\n" "$card" "$holder" "$bank"
+        printf "SMS_FORMAT='%s'\nSMS_ACCOUNT='%s'\n" "$sms_format" "$account"
         printf "BILLING_KEY='%s'\nADMIN_PASSWORD='%s'\nSMS_WEBHOOK_SECRET='%s'\n" "$billing_key" "$admin_password" "$webhook_secret"
     } > "$temp_env"
     mv -- "$temp_env" "$env_file"
