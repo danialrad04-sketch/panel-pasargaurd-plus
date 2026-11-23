@@ -70,6 +70,9 @@ async function request(path, options = {}) {
     throw new Error("نشست شما پایان یافته است. دوباره وارد شوید.");
   }
   if (!response.ok) {
+    if (path === "/api/releases/android" && response.status === 409) {
+      throw new Error("مخزن GitHub برای به‌روزرسانی خودکار پیکربندی نشده است.");
+    }
     if (raw && response.status === 422) {
       throw new Error("برای دریافت CSV با کمتر از ۱۰ هزار سفارش، فیلترهای دقیق‌تری انتخاب کنید.");
     }
@@ -321,6 +324,7 @@ function fillReleaseEditor() {
   const release = releases[platform] ?? {};
   get("release-ios-field").hidden = !ios;
   get("release-android-field").hidden = ios;
+  get("release-github").hidden = ios || !releases.android;
   form.namedItem("latest_version").value = release.latest_version ?? "";
   form.namedItem("latest_version_code").value = release.latest_version_code ?? "";
   form.namedItem("package_name").value = release.package_name ?? (ios ? "com.pasarguard.vpn.ios" : "com.pasarguard.vpn");
@@ -331,6 +335,20 @@ function fillReleaseEditor() {
 }
 
 get("release-platform").addEventListener("change", fillReleaseEditor);
+get("release-github").addEventListener("click", async (event) => {
+  if (!window.confirm("تنظیم دستی نسخه حذف و انتشار GitHub استفاده شود؟")) return;
+  const trigger = event.currentTarget;
+  trigger.disabled = true;
+  try {
+    await request("/api/releases/android", { method: "DELETE" });
+    await load();
+    setNotice("منبع نسخهٔ اندروید به GitHub تغییر کرد.");
+  } catch (error) {
+    setNotice(error.message, true);
+  } finally {
+    trigger.disabled = false;
+  }
+});
 get("release-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.currentTarget;

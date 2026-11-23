@@ -177,7 +177,10 @@
                 <label class="field" id="release-android-field">فایل‌های APK، هر سطر به ترتیب معماری، آدرس و SHA-256 با فاصله<textarea name="assets" rows="4" dir="ltr" placeholder="arm64-v8a https://…/app.apk SHA-256"></textarea></label>
                 <label class="field">تغییرات نسخه<textarea name="changelog" maxlength="2000" rows="3"></textarea></label>
                 <label class="check"><input name="visible" type="checkbox"> به کاربران این نسخه پیشنهاد شود</label>
-                <button type="submit" class="button primary">ذخیرهٔ نسخه</button>
+                <div class="field-pair">
+                  <button type="submit" class="button primary">ذخیرهٔ نسخه</button>
+                  <button type="button" id="release-github" class="button subtle" hidden>استفاده از انتشار GitHub</button>
+                </div>
               </form>
             </article>
             <article class="surface history">

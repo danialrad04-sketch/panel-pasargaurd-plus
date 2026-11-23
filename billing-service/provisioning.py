@@ -124,7 +124,8 @@ def refund_account(order_id, config):
     if not config:
         raise PanelError()
     account = panel_request("/api/user/by-username/" + panel_username(order_id), config[0])
-    subscription_url(order_id, account)
+    if account.get("username") != panel_username(order_id) or account.get("note") != f"PasarGuard Plus order {order_id}":
+        raise PanelError()
     return account
 
 

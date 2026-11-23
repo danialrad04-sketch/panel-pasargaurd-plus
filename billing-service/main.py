@@ -1254,6 +1254,17 @@ def admin_update_release(platform: Literal["android", "ios"], body: AppReleaseUp
     return Response(status_code=204)
 
 
+@admin.delete("/api/releases/android")
+def restore_android_github_release(request: IncomingRequest):
+    verify_admin_origin(request)
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", os.getenv("ANDROID_RELEASE_REPOSITORY", "")):
+        raise HTTPException(409, "ANDROID_GITHUB_FEED_NOT_CONFIGURED")
+    with transaction() as db:
+        db.execute("DELETE FROM app_releases WHERE platform='android'")
+        log_admin_activity(db, "RELEASE_UPDATED", now())
+    return Response(status_code=204)
+
+
 class ReleaseRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         target = urlsplit(newurl)
