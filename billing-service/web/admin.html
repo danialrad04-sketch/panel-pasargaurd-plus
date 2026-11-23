@@ -181,7 +181,9 @@
                   </div>
                   <button type="button" id="apk-upload" class="button subtle">بارگذاری فایل</button>
                   <progress id="apk-progress" max="100" value="0" aria-label="پیشرفت بارگذاری APK" hidden></progress>
-                  <a id="apk-link" class="button subtle" href="#" hidden>لینک دانلود APK</a>
+                  <label class="field">فایل‌های بارگذاری‌شده<select id="apk-library"><option value="">انتخاب فایل</option></select></label>
+                  <a id="apk-link" class="button subtle" href="#" hidden>باز کردن لینک دانلود</a>
+                  <button type="button" id="apk-copy" class="button subtle" hidden>کپی لینک عمومی</button>
                 </div>
                 <label class="field" id="release-android-field">فایل‌های APK، هر سطر به ترتیب معماری، آدرس و SHA-256 با فاصله<textarea name="assets" rows="4" dir="ltr" placeholder="arm64-v8a https://…/app.apk SHA-256"></textarea></label>
                 <label class="field">تغییرات نسخه<textarea name="changelog" maxlength="2000" rows="3"></textarea></label>

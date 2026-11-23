@@ -1267,6 +1267,25 @@ def apk_directory():
     return directory
 
 
+@admin.get("/api/apk")
+def uploaded_apks():
+    files = []
+    for path in apk_directory().glob("*.apk"):
+        if not re.fullmatch(r"[0-9a-f]{64}", path.stem):
+            continue
+        try:
+            info = path.stat()
+        except FileNotFoundError:
+            continue
+        files.append({
+            "download_url": setting("BILLING_PUBLIC_URL") + "/downloads/" + path.name,
+            "sha256": path.stem,
+            "size": info.st_size,
+            "timestamp": int(info.st_mtime * 1000),
+        })
+    return {"files": sorted(files, key=lambda item: item["timestamp"], reverse=True)[:30]}
+
+
 @admin.put("/api/apk/{upload_id}")
 async def upload_apk_chunk(upload_id: str, request: IncomingRequest, offset: int = Query(ge=0, lt=APK_LIMIT)):
     verify_admin_origin(request)

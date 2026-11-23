@@ -28,6 +28,7 @@ let detailVersion = 0;
 let saving = false;
 let chosenGroups = [];
 let releases = {};
+let uploadedAPKs = [];
 let chartSeries = [];
 let showingCount = false;
 let chartTotals;
@@ -295,11 +296,14 @@ function last4(value) {
 }
 
 async function settings(signal) {
-  const [data, provision, appReleases] = await Promise.all([
-    request("/api/card", { signal }), request("/api/provisioning", { signal }), request("/api/releases", { signal }),
+  const [data, provision, appReleases, library] = await Promise.all([
+    request("/api/card", { signal }), request("/api/provisioning", { signal }),
+    request("/api/releases", { signal }), request("/api/apk", { signal }),
   ]);
   if (signal.aborted) return;
   releases = appReleases;
+  uploadedAPKs = library.files;
+  fillApkLibrary();
   fillReleaseEditor();
   chosenGroups = provision.selected_group_ids;
   get("provision-state").textContent = provision.configured
@@ -335,6 +339,39 @@ function fillReleaseEditor() {
   form.namedItem("visible").checked = Boolean(release.visible);
 }
 
+function fillApkLibrary() {
+  const picker = get("apk-library");
+  picker.replaceChildren(new Option("انتخاب فایل", ""));
+  for (const file of uploadedAPKs) {
+    const label = date(file.timestamp) + " · " + fa.format(Math.ceil(file.size / 1048576)) + " مگابایت · " + file.sha256.slice(0, 8);
+    picker.append(new Option(label, file.sha256));
+  }
+}
+
+function selectApk(file, abi) {
+  const field = get("release-form").elements.namedItem("assets");
+  const rows = field.value.split("\n").filter(line => line.trim() && line.trim().split(/\s+/)[0] !== abi);
+  field.value = [...rows, [abi, file.download_url, file.sha256].join(" ")].join("\n");
+  const link = get("apk-link");
+  link.href = file.download_url;
+  link.hidden = false;
+  get("apk-copy").hidden = false;
+}
+
+get("apk-library").addEventListener("change", (event) => {
+  const file = uploadedAPKs.find(item => item.sha256 === event.target.value);
+  if (file) selectApk(file, get("apk-abi").value);
+});
+
+get("apk-copy").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(get("apk-link").href);
+    setNotice("لینک عمومی کپی شد.");
+  } catch {
+    setNotice("لینک را از دکمهٔ باز کردن دانلود کپی کنید.", true);
+  }
+});
+
 get("apk-upload").addEventListener("click", async (event) => {
   const file = get("apk-file").files[0];
   const trigger = event.currentTarget;
@@ -353,6 +390,7 @@ get("apk-upload").addEventListener("click", async (event) => {
   progress.hidden = false;
   progress.value = 0;
   link.hidden = true;
+  get("apk-copy").hidden = true;
   try {
     const chunk = 512 * 1024;
     for (let offset = 0; offset < file.size; offset += chunk) {
@@ -361,11 +399,11 @@ get("apk-upload").addEventListener("click", async (event) => {
       progress.value = 100 * end / file.size;
     }
     const result = await request(endpoint + "?size=" + file.size, { method: "POST" });
-    const field = get("release-form").elements.namedItem("assets");
-    const rows = field.value.split("\n").filter(line => line.trim() && line.trim().split(/\s+/)[0] !== abi);
-    field.value = [...rows, [abi, result.download_url, result.sha256].join(" ")].join("\n");
-    link.href = result.download_url;
-    link.hidden = false;
+    const stored = { ...result, size: file.size, timestamp: Date.now() };
+    uploadedAPKs = [stored, ...uploadedAPKs.filter(item => item.sha256 !== stored.sha256)].slice(0, 30);
+    fillApkLibrary();
+    get("apk-library").value = stored.sha256;
+    selectApk(stored, abi);
     setNotice("فایل بارگذاری شد. برای انتشار، شمارهٔ ساخت و نمایش نسخه را تنظیم و ذخیره کنید.");
   } catch (error) {
     setNotice(error.message, true);
