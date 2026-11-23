@@ -12,7 +12,7 @@ const statusLabels = {
   APPROVED: "تأییدشده", REJECTED: "ردشده", EXPIRED: "منقضی",
   matched: "دارای سفارش", unmatched: "بدون سفارش",
 };
-const decisionLabels = { SMS_APPROVED: "تأیید خودکار با پیامک بانک", ADMIN_APPROVED: "تأیید دستی مدیر", ADMIN_REJECTED: "رد دستی مدیر" };
+const decisionLabels = { ADMIN_CANCEL: "لغو سفارش پرداخت‌نشده توسط مدیر", SMS_APPROVED: "تأیید خودکار با پیامک بانک", ADMIN_APPROVED: "تأیید دستی مدیر", ADMIN_REJECTED: "رد دستی مدیر" };
 const activityLabels = {
   ...decisionLabels, LOGIN: "ورود به پنل", LOGOUT: "خروج از پنل",
   RELEASE_UPDATED: "تغییر نسخهٔ برنامه", WALLET_PAID: "پرداخت از کیف پول", CUSTOMER_CANCELLED: "لغو اشتراک و ثبت اعتبار کیف پول", CATALOG_UPDATED: "تغییر پلن فروش", CARD_UPDATED: "تغییر کارت مقصد", PROVISIONING_UPDATED: "تغییر تنظیمات ساخت اشتراک",
@@ -254,6 +254,7 @@ async function depositList(signal) {
 async function catalogList(signal) {
   const data = await request("/api/catalog", { signal });
   if (signal.aborted) return;
+  get("display-limit").value = data.maximum;
   table(get("catalog-table"), [["پلن"], ["قیمت"], ["حجم"], ["نمایش"], ["ویرایش"]], data.plans.map((plan) => [
     plan.title_fa, money(plan.price_toman),
     plan.data_limit_gb == null ? "نامحدود" : fa.format(plan.data_limit_gb) + " گیگابایت",
@@ -261,6 +262,14 @@ async function catalogList(signal) {
     button("ویرایش", () => editPlan(plan), "text-button"),
   ]), "هنوز پلنی ثبت نشده است.");
 }
+
+get("display-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await request("/api/catalog-display", {method: "POST", body: new URLSearchParams({maximum: get("display-limit").value})});
+    setNotice("تعداد پلن‌های قابل نمایش ذخیره شد.");
+  } catch (error) { setNotice(error.message, true); }
+});
 
 function editPlan(plan = {category: "RENEW", visible: true, sort_order: 100}) {
   const form = get("plan-form");
@@ -566,7 +575,7 @@ async function showOrder(orderId) {
       receipt.append(image, node("span", "باز کردن تصویر کامل فیش"));
       errorNotice.after(receipt);
     }
-    if (data.order.status === "PENDING_REVIEW") {
+    if (["PENDING_REVIEW", "AWAITING_RECEIPT"].includes(data.order.status)) {
       const actions = node("div", null, "dialog-actions");
       const confirmation = node("div", null, "confirmation");
       confirmation.hidden = true;
@@ -607,7 +616,9 @@ async function showOrder(orderId) {
         confirmation.hidden = false;
         cancel.focus();
       }
-      actions.append(
+      if (data.order.status === "AWAITING_RECEIPT") {
+        actions.append(button("لغو سفارش پرداخت‌نشده", event => ask(event, "CANCEL", "این سفارش بسته شود؟ پس از لغو، ارسال رسید برای آن ممکن نیست."), "danger"));
+      } else actions.append(
         button("تأیید واریز", (event) => ask(event, "APPROVED", "واریز را با گردش حساب بانک تطبیق داده‌اید؟"), "primary"),
         button("رد رسید", (event) => ask(event, "REJECTED", "رسید این سفارش رد شود؟"), "danger"),
       );

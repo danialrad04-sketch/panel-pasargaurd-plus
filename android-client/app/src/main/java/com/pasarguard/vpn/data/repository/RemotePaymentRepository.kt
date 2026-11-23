@@ -70,8 +70,8 @@ class RemotePaymentRepository @Inject constructor(
         val session = tokens.customerToken()
         val credentials = subscriptions.getSavedCredentials()
             ?: return BillingAuth(if (session == null) tokens.purchaseToken() else "", true, session)
-        check(credentials.baseUrl.trimEnd('/') == BrandConfig.defaultBaseUrl.trimEnd('/')) {
-            "Payment is available only for subscriptions on the configured panel"
+        check(credentials.baseUrl.toHttpUrl().host == BrandConfig.defaultBaseUrl.toHttpUrl().host && credentials.baseUrl.toHttpUrl().isHttps) {
+            "برای تمدید، لینک اشتراک صادرشده از پنل پاسارگارد را وارد کنید."
         }
         return BillingAuth(credentials.token, false, session)
     }
@@ -106,14 +106,18 @@ class RemotePaymentRepository @Inject constructor(
         throw checkNotNull(missing)
     }
 
-    override suspend fun loadPlansCatalog() = request { owner ->
-        val catalog = api.listPlans(owner.headers(useSubscription = true))
-        PlansCatalogConfig(catalog.currency, catalog.paymentWindowMinutes, catalog.destinationCard.toDomain(),
+    override suspend fun loadPlansCatalog() = try {
+        val catalog = api.listPlans(mapOf("X-Purchase-Token" to tokens.purchaseToken()))
+        Result.success(PlansCatalogConfig(catalog.currency, catalog.paymentWindowMinutes, catalog.destinationCard.toDomain(),
             catalog.plans.map {
                 CatalogPlan(it.id, PlanCategory.valueOf(it.category), it.titleFa, it.titleEn,
                     it.durationDays, it.dataLimitGb, it.priceToman, it.oldPriceToman, it.tagFa,
                     it.tagEn, it.isPopular, it.isBestValue, it.maxDevices, it.featuresFa, it.featuresEn)
-            })
+            }))
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (error: Exception) {
+        Result.failure(error)
     }
 
     override suspend fun getAvailablePlans() = loadPlansCatalog().map { catalog ->

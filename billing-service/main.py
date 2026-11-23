@@ -166,6 +166,7 @@ def initialize():
         db.execute("""CREATE TABLE IF NOT EXISTS admin_login_attempts (
             source TEXT PRIMARY KEY, failures INTEGER NOT NULL, expires INTEGER NOT NULL
         )""")
+        db.execute("CREATE TABLE IF NOT EXISTS catalog_display (id INTEGER PRIMARY KEY CHECK(id=1), maximum INTEGER NOT NULL)")
         db.execute("""CREATE TABLE IF NOT EXISTS admin_activity (
             id INTEGER PRIMARY KEY, action TEXT NOT NULL, timestamp INTEGER NOT NULL
         )""")
@@ -521,12 +522,21 @@ def present(row, *, admin=False):
 
 @app.get("/v1/billing/plans")
 def list_plans(actor=Depends(billing_actor)):
-    if actor.is_guest:
-        ensure_guest_checkout()
     with transaction(write=False) as db:
         result = catalog(db)
-        result["plans"] = [plan for plan in result["plans"] if plan["category"] == "RENEW"]
+        result["plans"] = sale_plans(db, result)
         return result
+
+
+def display_limit(db):
+    row = db.execute("SELECT maximum FROM catalog_display WHERE id=1").fetchone()
+    return row["maximum"] if row else 0
+
+
+def sale_plans(db, config):
+    eligible = [plan for plan in config["plans"] if plan["category"] == "RENEW"]
+    return eligible[:display_limit(db) or None]
+
 
 
 class OrderRequest(BaseModel):
@@ -583,7 +593,7 @@ def create_order(body: OrderRequest, idempotency_key: Annotated[UUID, Header()],
             if budget[0] >= 120 or budget[1] >= 5 or pending:
                 raise HTTPException(429)
         config = catalog(db)
-        plan = next((p for p in config["plans"] if p["id"] == body.plan_id), None)
+        plan = next((p for p in sale_plans(db, config) if p["id"] == body.plan_id), None)
         if plan is None:
             raise HTTPException(404)
         if plan["category"] != "RENEW":
@@ -1503,7 +1513,16 @@ class BillingPlanUpdate(BaseModel):
 @admin.get("/api/catalog")
 def admin_catalog():
     with transaction(write=False) as db:
-        return {"plans": configured_plans(db, include_hidden=True)}
+        return {"plans": configured_plans(db, include_hidden=True), "maximum": display_limit(db)}
+
+
+@admin.post("/api/catalog-display")
+def save_display_limit(request: IncomingRequest, maximum: Annotated[int, Form(ge=0, le=10000)]):
+    verify_admin_origin(request)
+    with transaction() as db:
+        db.execute("INSERT OR REPLACE INTO catalog_display VALUES (1, ?)", (maximum,))
+        log_admin_activity(db, "CATALOG_UPDATED", now())
+    return Response(status_code=204)
 
 
 @admin.put("/api/catalog/{plan_id}")
@@ -1613,13 +1632,14 @@ def update_admin_card(body: CardUpdate, request: IncomingRequest):
 @admin.post("/orders/{order_id}")
 def review(order_id: str, request: IncomingRequest, decision: str = Form()):
     verify_admin_origin(request)
-    if decision not in ("APPROVED", "REJECTED"):
+    if decision not in ("APPROVED", "REJECTED", "CANCEL"):
         raise HTTPException(422)
     with transaction() as db:
-        row = db.execute("SELECT status FROM orders WHERE id=?", (order_id,)).fetchone()
-        if not row or row["status"] != "PENDING_REVIEW":
+        row = db.execute("SELECT status, expires FROM orders WHERE id=?", (order_id,)).fetchone()
+        required = "AWAITING_RECEIPT" if decision == "CANCEL" else "PENDING_REVIEW"
+        if not row or row["status"] != required or (decision == "CANCEL" and row["expires"] <= now()):
             raise HTTPException(409)
-        decide(db, order_id, decision, "ADMIN_" + decision)
+        decide(db, order_id, "REJECTED" if decision == "CANCEL" else decision, "ADMIN_" + decision)
     if request.headers.get("accept") == "application/json":
         return Response(status_code=204)
     return RedirectResponse("/admin", status_code=303)

@@ -219,28 +219,28 @@ fun PlansScreen(
                 }
             }
 
-            if (!state.guestCheckout) Row(
+            if (!state.guestCheckout && state.plans.map { it.category }.distinct().size > 1) Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
-                CategoryChip(
+                if (state.plans.any { it.category == PlanCategory.RENEW }) CategoryChip(
                     selected = state.selectedCategory == PlanCategory.RENEW,
                     label = stringResource(R.string.plans_cat_renew),
                     onClick = { viewModel.selectCategory(PlanCategory.RENEW) }
                 )
-                CategoryChip(
+                if (state.plans.any { it.category == PlanCategory.UPGRADE }) CategoryChip(
                     selected = state.selectedCategory == PlanCategory.UPGRADE,
                     label = stringResource(R.string.plans_cat_upgrade),
                     onClick = { viewModel.selectCategory(PlanCategory.UPGRADE) }
                 )
-                CategoryChip(
+                if (state.plans.any { it.category == PlanCategory.EXTRA_TRAFFIC }) CategoryChip(
                     selected = state.selectedCategory == PlanCategory.EXTRA_TRAFFIC,
                     label = stringResource(R.string.plans_cat_extra_traffic),
                     onClick = { viewModel.selectCategory(PlanCategory.EXTRA_TRAFFIC) }
                 )
-                CategoryChip(
+                if (state.plans.any { it.category == PlanCategory.EXTRA_DAYS }) CategoryChip(
                     selected = state.selectedCategory == PlanCategory.EXTRA_DAYS,
                     label = stringResource(R.string.plans_cat_extra_days),
                     onClick = { viewModel.selectCategory(PlanCategory.EXTRA_DAYS) }

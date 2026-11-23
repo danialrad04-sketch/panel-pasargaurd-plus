@@ -61,6 +61,13 @@
             <a class="metric" href="#orders" id="review-metric-link"><div><span>در صف بررسی</span><strong id="review-metric">—</strong></div><i class="icon i-activity" aria-hidden="true"></i></a>
           </div>
           <div class="lead-grid">
+            <article class="surface queue-surface">
+              <div class="section-head"><div><h2>صف بررسی</h2><p>رسیدهای در انتظار تصمیم</p></div><strong class="count-pill" id="pending" aria-label="تعداد رسیدهای در انتظار">—</strong></div>
+              <p id="oldest-review" class="oldest-review text-muted" hidden></p>
+              <div id="review-queue" class="review-queue"></div>
+              <a href="#orders" class="button primary full" id="pending-link">مشاهدهٔ همهٔ رسیدها</a>
+              <a href="#deposits" class="unmatched-link" id="unmatched-link"><span>واریزهای بدون سفارش</span><strong id="unmatched">—</strong></a>
+            </article>
             <article class="surface chart-surface" aria-labelledby="chart-title">
               <div class="chart-head">
                 <div>
@@ -82,13 +89,7 @@
                 <div><span>تأیید دستی</span><strong id="manual">—</strong></div>
               </div>
             </article>
-            <article class="surface queue-surface">
-              <div class="section-head"><div><h2>صف بررسی</h2><p>رسیدهای در انتظار تصمیم</p></div><strong class="count-pill" id="pending" aria-label="تعداد رسیدهای در انتظار">—</strong></div>
-              <p id="oldest-review" class="oldest-review text-muted" hidden></p>
-              <div id="review-queue" class="review-queue"></div>
-              <a href="#orders" class="button primary full" id="pending-link">مشاهدهٔ همهٔ رسیدها</a>
-              <a href="#deposits" class="unmatched-link" id="unmatched-link"><span>واریزهای بدون سفارش</span><strong id="unmatched">—</strong></a>
-            </article>
+
           </div>
           <div class="support-grid">
             <article class="surface">
@@ -130,6 +131,7 @@
           <div class="page-heading page-heading-row"><div><h1>پلن‌ها</h1><p>قیمت، حجم و نمایش پلن‌های خرید</p></div>
             <button type="button" id="new-plan" class="button primary">افزودن پلن</button>
           </div>
+          <form id="display-form" class="surface filters"><label class="field">حداکثر پلن‌های قابل خرید و تمدید<input type="number" id="display-limit" min="0" max="10000" required></label><button class="button primary">ذخیرهٔ تعداد</button><small>صفر یعنی همهٔ پلن‌های فعالِ «اشتراک یا تمدید»، به ترتیب نمایش.</small></form>
           <article class="surface"><div id="catalog-table" class="table-area"></div></article>
         </section>
         <section id="activity" data-view hidden>

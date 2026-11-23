@@ -455,3 +455,22 @@ a.metric:hover { border-color: var(--focus); }
 .account-item > div { min-width: 0; overflow-wrap: anywhere; }
 .account-item p { color: var(--muted); font-size: .85rem; }
 .account-item .button { margin-inline-end: .35rem; }
+
+/* Operations workspace */
+.sidebar { background: linear-gradient(165deg,#122d38,#14232c 70%); }
+.navigation a[aria-current="page"] { background: #294857; box-shadow: inset -3px 0 #7cd7c6; }
+#overview .page-heading { background: linear-gradient(110deg,#203a50,#174c4a); color: white; padding: clamp(1rem,3vw,2rem); border-radius: 18px; }
+#overview .page-heading p, #overview .period-box label { color: #d5e6e7; }
+#overview .metrics { gap: .85rem; }
+.metric, .surface { border-radius: 16px; }
+.queue-surface { border-block-start: 3px solid #428678; }
+#display-form { margin-block-end: 1rem; align-items: end; }
+@media(min-width:896px) {
+  .lead-grid { grid-template-columns: minmax(255px,.85fr) minmax(0,1.65fr); }
+  .topbar { position: sticky; inset-block-start: 0; z-index: 3; background: var(--surface); }
+  .content { max-width: 1440px; }
+}
+@media(max-width:740px) {
+  .navigation { background: #142932; }
+  .top-search input { min-width: 0; }
+}
