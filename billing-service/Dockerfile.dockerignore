@@ -2,6 +2,8 @@
 !billing-service/
 !billing-service/main.py
 !billing-service/requirements.txt
+!billing-service/web/
+!billing-service/web/**
 !android-client/
 !android-client/app/
 !android-client/app/src/

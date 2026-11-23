@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>پرداخت پاسارگارد پلاس</title>
+  <link rel="stylesheet" href="/checkout.css">
+  <script src="/checkout.js" defer></script>
+</head>
+<body>
+  <header>
+    <a class="brand" href="/">پاسارگارد پلاس</a>
+    <a href="/admin">پنل مدیریت</a>
+  </header>
+  <main>
+    <div class="intro">
+      <h1>پرداخت کارت‌به‌کارت</h1>
+      <p>پلن‌تان را انتخاب کنید و وضعیت واریز را همین‌جا پیگیری کنید.</p>
+    </div>
+    <noscript>برای ثبت و پیگیری پرداخت، جاوااسکریپت مرورگر را فعال کنید.</noscript>
+    <p id="notice" role="status" hidden></p>
+    <section class="surface" id="signin">
+      <h2>ورود با اشتراک</h2>
+      <form id="signin-form">
+        <label for="subscription">لینک یا توکن اشتراک</label>
+        <input id="subscription" type="password" dir="ltr" required maxlength="2048" autocomplete="off" spellcheck="false">
+        <button type="submit">نمایش پلن‌ها و سفارش‌ها</button>
+      </form>
+    </section>
+    <div id="account" hidden>
+      <div class="account-tools"><button type="button" class="secondary" id="signout">خروج از اشتراک</button></div>
+      <div class="workspace">
+        <section class="surface">
+          <h2>سفارش جدید</h2>
+          <form id="plan-form">
+            <label for="plan">پلن</label>
+            <select id="plan" required></select>
+            <button type="submit">ثبت سفارش</button>
+          </form>
+          <h2 class="history-title">سفارش‌های قبلی</h2>
+          <p id="empty-history">هنوز سفارشی ثبت نشده.</p>
+          <ul id="history"></ul>
+        </section>
+        <section class="surface" id="order" aria-labelledby="order-title" hidden>
+          <div class="order-head">
+            <h2 id="order-title">وضعیت سفارش</h2>
+            <span id="status" class="status" role="status"></span>
+          </div>
+          <p id="plan-name"></p>
+          <p id="status-description"></p>
+          <dl>
+            <div><dt>مبلغ دقیق</dt><dd id="amount"></dd></div>
+            <div><dt>شناسهٔ سفارش</dt><dd id="order-id" dir="ltr"></dd></div>
+            <div id="deadline-row"><dt>مهلت پرداخت</dt><dd id="deadline"></dd></div>
+          </dl>
+          <div id="payment-details" hidden>
+            <div class="card">
+              <span>کارت مقصد</span>
+              <strong id="card-number" dir="ltr"></strong>
+              <span id="card-owner"></span>
+              <button type="button" class="secondary" id="copy">کپی شماره کارت</button>
+            </div>
+            <details>
+              <summary>ثبت شماره پیگیری برای بررسی دستی</summary>
+              <form id="receipt-form">
+                <label for="tracking">شماره پیگیری بانکی</label>
+                <input id="tracking" dir="ltr" inputmode="numeric" required minlength="4" maxlength="64">
+                <button type="submit">ارسال برای بررسی</button>
+              </form>
+            </details>
+          </div>
+          <button type="button" class="secondary" id="refresh">به‌روزرسانی وضعیت</button>
+        </section>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

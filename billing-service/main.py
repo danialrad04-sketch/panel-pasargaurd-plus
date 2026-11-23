@@ -14,7 +14,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 from uuid import UUID, uuid4
 
 from fastapi import Depends, FastAPI, Form, Header, HTTPException, Request as IncomingRequest
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
@@ -22,6 +22,20 @@ app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 basic = HTTPBasic()
 WINDOW_MS = 30 * 60 * 1000
 DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "0123456789" * 2)
+WEB = Path(__file__).with_name("web")
+CHECKOUT_HEADERS = {
+    "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; "
+    "connect-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'",
+    "Referrer-Policy": "no-referrer",
+    "X-Content-Type-Options": "nosniff",
+}
+ORDER_STATUS_LABELS = {
+    "AWAITING_RECEIPT": "در انتظار واریز",
+    "PENDING_REVIEW": "در انتظار بررسی",
+    "APPROVED": "تأیید شد",
+    "REJECTED": "رد شد",
+    "EXPIRED": "مهلت پایان یافت",
+}
 
 
 def setting(name):
@@ -75,6 +89,34 @@ def initialize():
         db.execute("""CREATE TABLE IF NOT EXISTS decisions (
             order_id TEXT NOT NULL, decision TEXT NOT NULL, timestamp INTEGER NOT NULL
         )""")
+
+
+@app.middleware("http")
+async def prevent_billing_cache(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith(("/v1/billing/", "/admin")):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@app.get("/healthz")
+def health():
+    return {"status": "ok"}
+
+
+@app.get("/")
+def checkout():
+    return FileResponse(WEB / "checkout.html", headers=CHECKOUT_HEADERS)
+
+
+@app.get("/checkout.js")
+def checkout_script():
+    return FileResponse(WEB / "checkout.js", media_type="text/javascript", headers=CHECKOUT_HEADERS)
+
+
+@app.get("/checkout.css")
+def checkout_styles():
+    return FileResponse(WEB / "checkout.css", media_type="text/css", headers=CHECKOUT_HEADERS)
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -283,7 +325,7 @@ def submit_reference(order_id: str, tracking_number: str = Form(default="", max_
         row = db.execute("SELECT * FROM orders WHERE id=? AND owner=?", (order_id, owner)).fetchone()
         if not row:
             raise HTTPException(404)
-        if row["status"] in ("APPROVED", "PENDING_REVIEW"):
+        if row["status"] in ("APPROVED", "PENDING_REVIEW", "REJECTED"):
             return present(row)
         if row["expires"] <= now():
             raise HTTPException(409)
@@ -308,6 +350,7 @@ def dashboard():
     rows = []
     for order in orders:
         oid = escape(order["id"])
+        status = escape(ORDER_STATUS_LABELS.get(order["status"], order["status"]))
         review = ""
         if order["status"] == "PENDING_REVIEW":
             review = (f'<form method="post" action="/admin/orders/{oid}">'
@@ -315,8 +358,9 @@ def dashboard():
                       '<button name="decision" value="REJECTED">رد</button></form>')
         rows.append(f"<tr><td>{oid}</td><td>{escape(order.get('subscriber', '—'))}</td>"
                     f"<td>{escape(order['plan_title_fa'])}</td>"
-                    f"<td>{order['final_price_toman']:,}</td><td>{order['status']}</td>"
-                    f"<td>{escape(order.get('tracking_number') or '—')}</td><td>{review}</td></tr>")
+                    f"<td>{order['final_price_toman']:,}</td><td>{status}</td>"
+                    f"<td>{escape(order.get('tracking_number') or '—')}</td>"
+                    f"<td>{escape(order.get('payer_card_last4') or '—')}</td><td>{review}</td></tr>")
     events = "".join(f"<li>{row['amount']:,} تومان · "
                      f"{escape(row['order_id'] or 'بدون سفارش منطبق')}</li>" for row in deposits)
     return HTMLResponse("""<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8">
@@ -325,9 +369,10 @@ def dashboard():
 table{border-collapse:collapse;background:white;width:100%}th,td{padding:12px;border-bottom:1px solid #ddd}
 section{overflow:auto}button{padding:8px;cursor:pointer}</style>
 <h1>مدیریت پرداخت کارت‌به‌کارت</h1><section><table><thead><tr>
-<th>سفارش</th><th>اشتراک</th><th>پلن</th><th>تومان</th><th>وضعیت</th><th>پیگیری</th><th>عملیات</th>
-</tr></thead><tbody>""" + "".join(rows) + "</tbody></table></section>"
-        + "<h2>واریزهای دریافتی</h2><ul>" + events + "</ul></html>",
+<th>سفارش</th><th>اشتراک</th><th>پلن</th><th>تومان</th><th>وضعیت</th><th>پیگیری</th><th>چهار رقم کارت</th><th>عملیات</th>
+</tr></thead><tbody>""" + ("".join(rows) or '<tr><td colspan="8">هنوز سفارشی ثبت نشده.</td></tr>')
+        + "</tbody></table></section><h2>واریزهای دریافتی</h2><ul>"
+        + (events or "<li>هنوز واریزی ثبت نشده.</li>") + "</ul></html>",
         headers={"Cache-Control": "no-store", "X-Frame-Options": "DENY",
                  "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'"})
 

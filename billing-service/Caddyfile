@@ -1,0 +1,11 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$BILLING_HOST} {
+	header Strict-Transport-Security "max-age=31536000"
+	request_body {
+		max_size 16KB
+	}
+	reverse_proxy billing:8080
+}
