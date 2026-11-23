@@ -15,7 +15,7 @@ import { fromBase64Url, serializeCredential } from '@/utils/passkeys'
 import { queryClient } from '@/utils/query-client'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { retrieveRawInitData } from '@telegram-apps/sdk'
-import { ArrowLeft, CircleAlertIcon, KeyRound, LogInIcon, RotateCcw, ShieldCheck, Trash2, UserRoundKey } from 'lucide-react'
+import { ArrowLeft, CircleAlertIcon, KeyRound, LogInIcon, RotateCcw, ShieldCheck, Smartphone, Trash2, UserRoundKey } from 'lucide-react'
 import { FC, useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -474,6 +474,13 @@ export const Login: FC = () => {
                           <ShieldCheck className="h-3.5 w-3.5" />
                           <span>{t('setup.ownerAccess', { defaultValue: 'Owner access' })}</span>
                         </Button>
+                        <a
+                          href="/android-download"
+                          className="border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 mt-2 flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors"
+                        >
+                          <Smartphone className="h-3.5 w-3.5" />
+                          <span>{fa ? 'دانلود اپلیکیشن اندروید (v1.3.0 APK)' : 'Download Android App (v1.3.0 APK)'}</span>
+                        </a>
                       </div>
                     </div>
                   </form>

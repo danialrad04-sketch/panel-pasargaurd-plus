@@ -26,6 +26,7 @@
         android:name=".PasarGuardApplication"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
+        android:enableOnBackInvokedCallback="true"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -70,7 +71,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Native Android VpnService powered by sing-box (libbox) -->
+        <!-- Native Android VpnService powered by Xray-core (primary) + sing-box (secondary) -->
         <service
             android:name=".vpn.service.PasarGuardVpnService"
             android:exported="false"
@@ -81,8 +82,34 @@
             </intent-filter>
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Encrypted VPN tunnel service using sing-box native TUN" />
+                android:value="Encrypted VPN tunnel service using Xray-core and sing-box native TUN" />
         </service>
+
+        <!-- Quick Settings Tile (Android 7+) -->
+        <service
+            android:name=".vpn.service.VpnQuickSettingsTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_vpn_shield_notif"
+            android:label="${appName}"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!-- Home-Screen VPN Widget -->
+        <receiver
+            android:name=".widget.PasarGuardWidgetProvider"
+            android:exported="true"
+            android:label="${appName}">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.pasarguard.vpn.action.REFRESH_WIDGET" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/vpn_widget_info" />
+        </receiver>
 
         <!-- Auto-connect on device reboot -->
         <receiver
@@ -116,5 +143,16 @@
                 android:name="autoStoreLocales"
                 android:value="true" />
         </service>
+
+        <!-- FileProvider for sharing generated PNG order receipts -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

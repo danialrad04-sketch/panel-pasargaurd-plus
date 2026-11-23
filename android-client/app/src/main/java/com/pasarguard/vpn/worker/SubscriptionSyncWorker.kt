@@ -26,6 +26,7 @@ import com.pasarguard.vpn.R
 import com.pasarguard.vpn.domain.model.SubscriptionStatus
 import com.pasarguard.vpn.domain.repository.SettingsRepository
 import com.pasarguard.vpn.domain.repository.SubscriptionRepository
+import com.pasarguard.vpn.ui.navigation.Routes
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -50,39 +51,63 @@ class NotificationHelper @Inject constructor(
             setShowBadge(false)
         }
 
-        val alertsChannel = NotificationChannel(
-            CHANNEL_ALERTS,
-            context.getString(R.string.notif_channel_alerts_name),
+        val expiryChannel = NotificationChannel(
+            CHANNEL_EXPIRY_ALERTS,
+            context.getString(R.string.notif_channel_expiry_name),
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = context.getString(R.string.notif_channel_alerts_desc)
+            description = context.getString(R.string.notif_channel_expiry_desc)
+        }
+
+        val trafficChannel = NotificationChannel(
+            CHANNEL_TRAFFIC_ALERTS,
+            context.getString(R.string.notif_channel_traffic_name),
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = context.getString(R.string.notif_channel_traffic_desc)
+        }
+
+        val orderChannel = NotificationChannel(
+            CHANNEL_ORDER_UPDATES,
+            context.getString(R.string.notif_channel_orders_name),
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = context.getString(R.string.notif_channel_orders_desc)
         }
 
         nm.createNotificationChannel(vpnChannel)
-        nm.createNotificationChannel(alertsChannel)
+        nm.createNotificationChannel(expiryChannel)
+        nm.createNotificationChannel(trafficChannel)
+        nm.createNotificationChannel(orderChannel)
     }
 
     fun buildVpnNotification(
         title: String,
         subtitle: String,
         contentIntent: PendingIntent,
-        disconnectIntent: PendingIntent
+        disconnectIntent: PendingIntent,
+        disguise: Boolean = false
     ): Notification {
         ensureChannels()
-        return NotificationCompat.Builder(context, CHANNEL_VPN)
+        val effectiveTitle = if (disguise) context.getString(R.string.notif_disguise_title) else title
+        val effectiveSubtitle = if (disguise) context.getString(R.string.notif_disguise_subtitle) else subtitle
+        val builder = NotificationCompat.Builder(context, CHANNEL_VPN)
             .setSmallIcon(R.drawable.ic_vpn_shield_notif)
-            .setContentTitle(title)
-            .setContentText(subtitle)
+            .setContentTitle(effectiveTitle)
+            .setContentText(effectiveSubtitle)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setContentIntent(contentIntent)
-            .addAction(
+
+        if (!disguise) {
+            builder.addAction(
                 R.drawable.ic_vpn_shield_notif,
                 context.getString(R.string.notif_action_disconnect),
                 disconnectIntent
             )
-            .build()
+        }
+        return builder.build()
     }
 
     fun notifyVpnStatus(notification: Notification) {
@@ -93,39 +118,82 @@ class NotificationHelper @Inject constructor(
     fun showExpiryWarning(daysLeft: Int) {
         if (!canPostNotifications()) return
         ensureChannels()
-        val intent = PendingIntent.getActivity(
+        val renewIntent = PendingIntent.getActivity(
             context,
             10,
-            Intent(context, MainActivity::class.java),
+            Intent(context, MainActivity::class.java).apply {
+                putExtra(MainActivity.EXTRA_OPEN_ROUTE, Routes.RENEWAL)
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val notification = NotificationCompat.Builder(context, CHANNEL_ALERTS)
+        val body = if (daysLeft <= 0) {
+            context.getString(R.string.notif_expiry_expired_body)
+        } else {
+            context.getString(R.string.notif_expiry_body, daysLeft)
+        }
+        val notification = NotificationCompat.Builder(context, CHANNEL_EXPIRY_ALERTS)
             .setSmallIcon(R.drawable.ic_vpn_shield_notif)
             .setContentTitle(context.getString(R.string.notif_expiry_title))
-            .setContentText(context.getString(R.string.notif_expiry_body, daysLeft))
+            .setContentText(body)
             .setAutoCancel(true)
-            .setContentIntent(intent)
+            .setContentIntent(renewIntent)
             .build()
         NotificationManagerCompat.from(context).notify(NOTIF_ID_EXPIRY, notification)
     }
 
-    fun showLowTrafficWarning(percentThreshold: Int) {
+    fun showLowTrafficWarning(usedPercent: Int) {
         if (!canPostNotifications()) return
         ensureChannels()
-        val intent = PendingIntent.getActivity(
+        val renewIntent = PendingIntent.getActivity(
             context,
             11,
-            Intent(context, MainActivity::class.java),
+            Intent(context, MainActivity::class.java).apply {
+                putExtra(MainActivity.EXTRA_OPEN_ROUTE, Routes.RENEWAL)
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val notification = NotificationCompat.Builder(context, CHANNEL_ALERTS)
+        val body = if (usedPercent >= 100) {
+            context.getString(R.string.notif_low_traffic_exhausted_body)
+        } else {
+            context.getString(R.string.notif_low_traffic_used_body, usedPercent)
+        }
+        val notification = NotificationCompat.Builder(context, CHANNEL_TRAFFIC_ALERTS)
             .setSmallIcon(R.drawable.ic_vpn_shield_notif)
             .setContentTitle(context.getString(R.string.notif_low_traffic_title))
-            .setContentText(context.getString(R.string.notif_low_traffic_body, percentThreshold))
+            .setContentText(body)
             .setAutoCancel(true)
-            .setContentIntent(intent)
+            .setContentIntent(renewIntent)
             .build()
         NotificationManagerCompat.from(context).notify(NOTIF_ID_TRAFFIC, notification)
+    }
+
+    fun showOrderApprovedNotification(orderId: String, planTitle: String) {
+        if (!canPostNotifications()) return
+        ensureChannels()
+        val ordersIntent = PendingIntent.getActivity(
+            context,
+            12,
+            Intent(context, MainActivity::class.java).apply {
+                putExtra(MainActivity.EXTRA_OPEN_ROUTE, Routes.ORDERS)
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_ORDER_UPDATES)
+            .setSmallIcon(R.drawable.ic_vpn_shield_notif)
+            .setContentTitle(context.getString(R.string.notif_order_approved_title))
+            .setContentText(context.getString(R.string.notif_order_approved_body, planTitle, orderId))
+            .setAutoCancel(true)
+            .setContentIntent(ordersIntent)
+            .build()
+        NotificationManagerCompat.from(context).notify(NOTIF_ID_ORDER, notification)
+    }
+
+    fun cancelSubscriptionAlerts() {
+        NotificationManagerCompat.from(context).cancel(NOTIF_ID_EXPIRY)
+        NotificationManagerCompat.from(context).cancel(NOTIF_ID_TRAFFIC)
     }
 
     private fun canPostNotifications(): Boolean {
@@ -138,16 +206,20 @@ class NotificationHelper @Inject constructor(
 
     companion object {
         const val CHANNEL_VPN = "channel_vpn_status"
-        const val CHANNEL_ALERTS = "channel_subscription_alerts"
+        const val CHANNEL_EXPIRY_ALERTS = "channel_expiry_alerts"
+        const val CHANNEL_TRAFFIC_ALERTS = "channel_traffic_alerts"
+        const val CHANNEL_ORDER_UPDATES = "channel_order_updates"
         const val NOTIF_ID_VPN = 1001
         const val NOTIF_ID_EXPIRY = 2001
         const val NOTIF_ID_TRAFFIC = 2002
+        const val NOTIF_ID_ORDER = 2003
     }
 }
 
 /**
- * Periodically refreshes the PasarGuard subscription and server configs in the background,
- * and triggers local Expiry / Low-Traffic alerts when enabled by the customer.
+ * Periodically refreshes the PasarGuard subscription and triggers multi-threshold
+ * Expiry (7d / 3d / 1d / expired) and Low-Traffic (80% / 90% / 100%) alerts with
+ * direct deep links to the Renewal screen.
  */
 @HiltWorker
 class SubscriptionSyncWorker @AssistedInject constructor(
@@ -165,41 +237,57 @@ class SubscriptionSyncWorker @AssistedInject constructor(
         val sub = syncResult.getOrNull() ?: return Result.retry()
         val settings = settingsRepository.getSnapshot()
 
-        if (sub.status == SubscriptionStatus.ACTIVE) {
-            if (settings.expiryWarningEnabled) {
+        if (settings.expiryWarningEnabled) {
+            if (sub.status == SubscriptionStatus.EXPIRED) {
+                notificationHelper.showExpiryWarning(0)
+            } else {
                 val daysLeft = sub.remainingDays()
-                if (daysLeft != null && daysLeft <= BrandConfig.expiryWarningDaysThreshold) {
-                    notificationHelper.showExpiryWarning(daysLeft.coerceAtLeast(1))
-                }
-            }
-            if (settings.lowTrafficWarningEnabled && !sub.isUnlimitedTraffic) {
-                val pctRemaining = (sub.remainingTrafficFraction * 100f).toInt()
-                if (pctRemaining <= BrandConfig.lowTrafficWarningPercentThreshold) {
-                    notificationHelper.showLowTrafficWarning(BrandConfig.lowTrafficWarningPercentThreshold)
+                if (daysLeft != null && daysLeft in listOf(0, 1, 3, 7) || (daysLeft != null && daysLeft <= 7)) {
+                    notificationHelper.showExpiryWarning(daysLeft)
                 }
             }
         }
+
+        if (settings.lowTrafficWarningEnabled && !sub.isUnlimitedTraffic) {
+            val usedPct = ((1f - sub.remainingTrafficFraction) * 100f).toInt().coerceIn(0, 100)
+            when {
+                sub.status == SubscriptionStatus.LIMITED || usedPct >= 100 ->
+                    notificationHelper.showLowTrafficWarning(100)
+                usedPct >= 90 -> notificationHelper.showLowTrafficWarning(90)
+                usedPct >= 80 -> notificationHelper.showLowTrafficWarning(80)
+            }
+        }
+
         return Result.success()
     }
 
     companion object {
         private const val WORK_NAME = "pasarguard_sub_periodic_sync"
 
-        fun schedule(context: Context) {
+        fun schedule(
+            context: Context,
+            intervalHours: Long = BrandConfig.autoRefreshIntervalHours
+        ) {
+            val wm = WorkManager.getInstance(context)
+            if (intervalHours <= 0L) {
+                wm.cancelUniqueWork(WORK_NAME)
+                return
+            }
+            val safeHours = intervalHours.coerceIn(1L, 168L)
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
 
             val request = PeriodicWorkRequestBuilder<SubscriptionSyncWorker>(
-                BrandConfig.autoRefreshIntervalHours,
+                safeHours,
                 TimeUnit.HOURS
             )
                 .setConstraints(constraints)
                 .build()
 
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            wm.enqueueUniquePeriodicWork(
                 WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
+                ExistingPeriodicWorkPolicy.UPDATE,
                 request
             )
         }

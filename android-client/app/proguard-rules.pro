@@ -7,13 +7,15 @@
 -keepclasseswithmembers class kotlinx.serialization.json.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
--keep,includedescriptorclasses class com.pasarguard.vpn.data.api.dto.**$$serializer { *; }
--keepclassmembers class com.pasarguard.vpn.data.api.dto.** {
+-keep,includedescriptorclasses class com.pasarguard.vpn.**$$serializer { *; }
+-keepclassmembers class com.pasarguard.vpn.** {
     *** Companion;
 }
--keepclasseswithmembers class com.pasarguard.vpn.data.api.dto.** {
+-keepclasseswithmembers class com.pasarguard.vpn.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
+-keep class com.pasarguard.vpn.widget.PasarGuardWidgetProvider { *; }
+-dontwarn com.google.zxing.**
 
 # Keep Retrofit & OkHttp
 -keepattributes Signature, Exceptions
@@ -29,10 +31,13 @@
 -keep @androidx.room.Entity class *
 -dontwarn androidx.room.paging.**
 
-# Keep sing-box libbox JNI/Go bindings intact
+# Keep Xray-core (AndroidLibXrayLite) & sing-box libbox JNI/Go bindings intact
+-keep class libv2ray.** { *; }
+-keep interface libv2ray.** { *; }
 -keep class io.nekohasekai.libbox.** { *; }
 -keep interface io.nekohasekai.libbox.** { *; }
 -keep class go.** { *; }
+-dontwarn libv2ray.**
 -dontwarn io.nekohasekai.libbox.**
 -dontwarn go.**
 

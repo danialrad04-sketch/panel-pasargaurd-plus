@@ -2,7 +2,6 @@ package com.pasarguard.vpn.ui.screens.login
 
 import android.Manifest
 import android.util.Size
-import androidx.annotation.OptIn
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
@@ -295,7 +294,7 @@ fun LoginScreen(
     }
 }
 
-@OptIn(ExperimentalPermissionsApi::class, ExperimentalGetImage::class)
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 private fun QrScannerSheetContent(
     onCodeDetected: (String) -> Unit,
@@ -360,7 +359,7 @@ private fun QrScannerSheetContent(
     }
 }
 
-@OptIn(ExperimentalGetImage::class)
+@androidx.annotation.OptIn(ExperimentalGetImage::class)
 @Composable
 private fun CameraQrPreview(
     onQrScanned: (String) -> Unit,

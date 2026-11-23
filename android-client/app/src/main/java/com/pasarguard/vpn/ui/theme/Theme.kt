@@ -1,10 +1,13 @@
 package com.pasarguard.vpn.ui.theme
 
 import android.content.Context
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -23,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pasarguard.vpn.BrandConfig
 import com.pasarguard.vpn.domain.model.AppLanguage
+import com.pasarguard.vpn.domain.model.CalendarSystem
 import com.pasarguard.vpn.domain.model.ThemeMode
 
 /**
@@ -53,7 +57,9 @@ data class PasarGuardExtendedColors(
     val textPrimary: Color,
     val textSecondary: Color,
     val textMuted: Color
-)
+) {
+    val glassBorder: Color get() = glassBorderTop
+}
 
 private val DarkExtendedColors = PasarGuardExtendedColors(
     isDark = true,
@@ -90,6 +96,8 @@ private val LightExtendedColors = PasarGuardExtendedColors(
 )
 
 val LocalPasarGuardColors = staticCompositionLocalOf { DarkExtendedColors }
+val LocalPersianDigits = staticCompositionLocalOf { true }
+val LocalCalendarSystem = staticCompositionLocalOf { CalendarSystem.JALALI }
 
 private val DarkColorScheme = darkColorScheme(
     primary = BrandConfig.accentSecondary,
@@ -127,11 +135,6 @@ private val LightColorScheme = lightColorScheme(
     outline = Color(0x240F172A)
 )
 
-/**
- * Loads bundled Vazirmatn (for Persian) or Inter (for English) fonts from `res/font/`
- * when present, falling back gracefully to system sans-serif so the project builds cleanly
- * immediately out of the box.
- */
 private fun resolveBrandFontFamily(context: Context, language: AppLanguage): FontFamily {
     val prefix = if (language == AppLanguage.PERSIAN) "vazirmatn" else "inter"
     val regularId = context.resources.getIdentifier("${prefix}_regular", "font", context.packageName)
@@ -204,6 +207,9 @@ private fun buildTypography(fontFamily: FontFamily): Typography = Typography(
 fun PasarGuardVpnTheme(
     themeMode: ThemeMode = ThemeMode.DARK,
     language: AppLanguage = AppLanguage.PERSIAN,
+    dynamicColorEnabled: Boolean = false,
+    persianDigitsEnabled: Boolean = true,
+    calendarSystem: CalendarSystem = CalendarSystem.JALALI,
     content: @Composable () -> Unit
 ) {
     val systemDark = isSystemInDarkTheme()
@@ -216,15 +222,37 @@ fun PasarGuardVpnTheme(
     val context = LocalContext.current
     val fontFamily = remember(language) { resolveBrandFontFamily(context, language) }
     val typography = remember(fontFamily) { buildTypography(fontFamily) }
-    val extendedColors = if (useDark) DarkExtendedColors else LightExtendedColors
+
+    val useDynamic = dynamicColorEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val colorScheme = when {
+        useDynamic && useDark -> dynamicDarkColorScheme(context)
+        useDynamic && !useDark -> dynamicLightColorScheme(context)
+        useDark -> DarkColorScheme
+        else -> LightColorScheme
+    }
+
+    val baseExtended = if (useDark) DarkExtendedColors else LightExtendedColors
+    val extendedColors = if (useDynamic) {
+        baseExtended.copy(
+            heroStart = colorScheme.secondary,
+            heroEnd = colorScheme.primary,
+            backgroundCanvas = if (useDark) colorScheme.background else baseExtended.backgroundCanvas
+        )
+    } else {
+        baseExtended
+    }
+
     val layoutDirection = if (language == AppLanguage.PERSIAN) LayoutDirection.Rtl else LayoutDirection.Ltr
+    val effectivePersianDigits = language == AppLanguage.PERSIAN && persianDigitsEnabled
 
     CompositionLocalProvider(
         LocalPasarGuardColors provides extendedColors,
-        LocalLayoutDirection provides layoutDirection
+        LocalLayoutDirection provides layoutDirection,
+        LocalPersianDigits provides effectivePersianDigits,
+        LocalCalendarSystem provides calendarSystem
     ) {
         MaterialTheme(
-            colorScheme = if (useDark) DarkColorScheme else LightColorScheme,
+            colorScheme = colorScheme,
             typography = typography,
             content = content
         )

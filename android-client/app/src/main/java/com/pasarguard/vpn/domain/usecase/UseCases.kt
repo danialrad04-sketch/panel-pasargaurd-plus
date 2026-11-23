@@ -2,6 +2,7 @@ package com.pasarguard.vpn.domain.usecase
 
 import android.net.Uri
 import com.pasarguard.vpn.BrandConfig
+import com.pasarguard.vpn.domain.model.AutoSelectMode
 import com.pasarguard.vpn.domain.model.SubscriptionCredentials
 import com.pasarguard.vpn.domain.model.SubscriptionInfo
 import com.pasarguard.vpn.domain.model.VpnServer
@@ -10,6 +11,7 @@ import com.pasarguard.vpn.domain.repository.SettingsRepository
 import com.pasarguard.vpn.domain.repository.SubscriptionRepository
 import com.pasarguard.vpn.domain.repository.VpnController
 import kotlinx.coroutines.delay
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 
 /**
@@ -23,7 +25,6 @@ class ParseSubscriptionInputUseCase @Inject constructor() {
             return Result.failure(IllegalArgumentException("EMPTY_INPUT"))
         }
 
-        // Handle deep-link format: pasarguardvpn://import?url=https://.../sub/token
         if (cleaned.startsWith("${BrandConfig.paymentCallbackScheme}://", ignoreCase = true)) {
             val uri = Uri.parse(cleaned)
             val embedded = uri.getQueryParameter("url") ?: uri.getQueryParameter("token")
@@ -57,7 +58,6 @@ class ParseSubscriptionInputUseCase @Inject constructor() {
                 Result.success(SubscriptionCredentials(baseUrl = baseUrl, token = token))
             }
         } else {
-            // Bare token uses the configured BrandConfig.defaultBaseUrl
             val sanitizedToken = cleaned.substringAfterLast("/").trim()
             if (sanitizedToken.length < 3 || sanitizedToken.contains(" ")) {
                 Result.failure(IllegalArgumentException("INVALID_TOKEN"))
@@ -90,8 +90,15 @@ class SyncSubscriptionUseCase @Inject constructor(
         subscriptionRepository.syncSubscription()
 }
 
+/**
+ * Selects a server using the user's explicit selection or Auto-select mode:
+ * - LOWEST_PING: picks the server with minimum positive latency
+ * - MOST_STABLE: picks the server with highest stability score (lowest loss + jitter + ping)
+ * - ROUND_ROBIN_TOP_N: rotates across the top 3 reachable servers
+ */
 class SelectBestServerUseCase @Inject constructor(
-    private val serverRepository: ServerRepository
+    private val serverRepository: ServerRepository,
+    private val settingsRepository: SettingsRepository
 ) {
     suspend operator fun invoke(preferredServerId: String?): Pair<VpnServer?, Boolean> {
         val cached = serverRepository.getCachedServers()
@@ -102,21 +109,49 @@ class SelectBestServerUseCase @Inject constructor(
             if (exact != null) return exact to false
         }
 
-        // Auto (Best Ping): test live latency and pick lowest positive ping
-        val tested = serverRepository.pingAllServers()
-        val best = tested
-            .filter { (it.pingMs ?: -1) > 0 }
-            .minByOrNull { it.pingMs ?: Int.MAX_VALUE }
-            ?: tested.firstOrNull()
+        val settings = settingsRepository.getSnapshot()
+        val hasAnyPing = cached.any { (it.pingMs ?: -1) > 0 }
+        val pool = if (settings.autoTestBeforeAutoSelect || !hasAnyPing) {
+            serverRepository.pingAllServers()
+        } else {
+            cached
+        }
 
-        return best to true
+        val reachable = pool.filter { (it.pingMs ?: -1) > 0 }
+        if (reachable.isEmpty()) {
+            return pool.firstOrNull() to true
+        }
+
+        val chosen = when (settings.autoSelectMode) {
+            AutoSelectMode.LOWEST_PING ->
+                reachable.minByOrNull { it.pingMs ?: Int.MAX_VALUE }
+
+            AutoSelectMode.MOST_STABLE ->
+                reachable.maxWithOrNull(
+                    compareBy<VpnServer> { it.stabilityScore }
+                        .thenByDescending { -(it.pingMs ?: Int.MAX_VALUE) }
+                )
+
+            AutoSelectMode.ROUND_ROBIN_TOP_N -> {
+                val top = reachable
+                    .sortedWith(
+                        compareByDescending<VpnServer> { it.stabilityScore }
+                            .thenBy { it.pingMs ?: Int.MAX_VALUE }
+                    )
+                    .take(3)
+                val idx = roundRobinCounter.getAndIncrement() % top.size
+                top[idx]
+            }
+        }
+
+        return (chosen ?: pool.firstOrNull()) to true
+    }
+
+    companion object {
+        private val roundRobinCounter = AtomicInteger(0)
     }
 }
 
-/**
- * Polls PasarGuard's /sub/{token}/info after a Chrome Custom Tabs payment redirect
- * until expiry or data limit increases relative to the pre-checkout snapshot.
- */
 class PollRenewalStatusUseCase @Inject constructor(
     private val subscriptionRepository: SubscriptionRepository
 ) {

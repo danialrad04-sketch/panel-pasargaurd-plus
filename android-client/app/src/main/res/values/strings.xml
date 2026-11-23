@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">PasarGuard VPN</string>
+
     <!-- Navigation -->
     <string name="nav_home">Home</string>
     <string name="nav_servers">Servers</string>
@@ -11,7 +13,7 @@
     <string name="onboarding_next">Next</string>
     <string name="onboarding_get_started">Get Started</string>
     <string name="onboarding_title_1">Fast, Encrypted Freedom</string>
-    <string name="onboarding_desc_1">Powered by sing-box native TUN with VLESS Reality, VMess, Trojan, and Shadowsocks for rock-solid stability.</string>
+    <string name="onboarding_desc_1">Powered by Xray-core v26 (primary) &amp; sing-box with VLESS Reality, XHTTP, Vision, post-quantum encryption, VMess, Trojan, and Shadowsocks.</string>
     <string name="onboarding_title_2">Smart Auto-Best Ping</string>
     <string name="onboarding_desc_2">Automatically probes server latency and connects you to the fastest location with a single tap.</string>
     <string name="onboarding_title_3">Live Sync &amp; Instant Renewal</string>
@@ -116,6 +118,17 @@
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_system">System</string>
     <string name="settings_section_vpn">VPN &amp; Routing</string>
+    <string name="settings_core_title">VPN Core Engine</string>
+    <string name="settings_core_desc">Auto uses Xray-core for VLESS/VMess/Trojan/SS and sing-box for Hysteria2/TUIC/WireGuard</string>
+    <string name="settings_core_auto">Auto</string>
+    <string name="settings_core_xray">Xray</string>
+    <string name="settings_core_singbox">sing-box</string>
+    <string name="settings_sub_format_title">Subscription Format</string>
+    <string name="settings_sub_format_desc">Prefer panel Xray-JSON config when exposed by PasarGuard</string>
+    <string name="settings_sub_format_xray_json">Prefer Xray JSON</string>
+    <string name="settings_sub_format_links_only">Links Only</string>
+    <string name="settings_ipv6_title">Enable IPv6 Routing</string>
+    <string name="settings_ipv6_desc">Route IPv6 traffic through the VPN tunnel (requires IPv6-capable server)</string>
     <string name="settings_split_tunnel">Per-App Split Tunneling</string>
     <string name="settings_split_tunnel_desc">Choose which apps bypass or use the VPN</string>
     <string name="settings_auto_connect">Auto-Connect</string>
@@ -158,4 +171,288 @@
     <string name="notif_expiry_body">Only %1$d day(s) left on your VPN plan. Tap to renew now.</string>
     <string name="notif_low_traffic_title">Low Remaining Traffic</string>
     <string name="notif_low_traffic_body">Less than %1$d%% of your traffic quota remains. Tap to extend.</string>
+    <string name="notif_disguise_title">System Sync Service</string>
+    <string name="notif_disguise_subtitle">Background network synchronization active</string>
+
+    <!-- Common Actions & Widget -->
+    <string name="action_connect">Connect</string>
+    <string name="action_disconnect">Disconnect</string>
+    <string name="action_save">Save</string>
+    <string name="action_add">Add</string>
+    <string name="action_close">Close</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_copied">Copied to clipboard</string>
+    <string name="action_paste">Paste</string>
+    <string name="action_delete">Delete</string>
+    <string name="auto_best_server">Auto (Best Server)</string>
+    <string name="widget_description">Quick VPN status and 1-tap connect toggle</string>
+
+    <!-- Coach Tips & App Lock -->
+    <string name="coach_tip_title">Pro Tip: Smarter Server Selection</string>
+    <string name="coach_tip_body">Tap the tune icon in Servers to choose Multi-URL testing, stability scoring, or manual config import.</string>
+    <string name="app_lock_title">App Lock (PIN)</string>
+    <string name="app_lock_subtitle">Enter your PIN to access PasarGuard VPN</string>
+    <string name="app_lock_pin_hint">PIN (4–8 digits)</string>
+    <string name="app_lock_wrong_pin">Incorrect PIN. Try again.</string>
+    <string name="app_lock_unlock">Unlock</string>
+    <string name="app_lock_setting_desc">Require a PIN when opening the app</string>
+    <string name="app_lock_set_pin_title">Set App Lock PIN</string>
+
+    <!-- Advanced Servers & Ping -->
+    <string name="servers_import_title">Import Config Links</string>
+    <string name="servers_import_result">Imported %1$d server(s)</string>
+    <string name="servers_import_file">From File</string>
+    <string name="servers_import_action">Import Servers</string>
+    <string name="servers_ping_progress">%1$d / %2$d tested</string>
+    <string name="servers_sort_ping">Lowest Ping</string>
+    <string name="servers_sort_stability">Most Stable</string>
+    <string name="servers_sort_country">Country</string>
+    <string name="servers_sort_name">Name</string>
+    <string name="servers_hide_dead">Hide Dead</string>
+    <string name="servers_qr_unavailable">QR code unavailable for this server.</string>
+    <string name="auto_select_mode_label">Auto-Select Strategy</string>
+    <string name="auto_mode_lowest_ping">Lowest Ping</string>
+    <string name="auto_mode_most_stable">Most Stable</string>
+    <string name="auto_mode_round_robin">Round-Robin Top 3</string>
+    <string name="server_detail_title">Server Details</string>
+    <string name="server_detail_history">Recent Latency History (Last 10)</string>
+    <string name="server_detail_no_history">Run a ping test to record history.</string>
+    <string name="server_detail_test_again">Test Again</string>
+    <string name="ping_metric_avg">Avg</string>
+    <string name="ping_metric_jitter">Jitter</string>
+    <string name="ping_metric_loss">Loss</string>
+    <string name="ping_metric_stability">Stability</string>
+    <string name="ping_settings_title">Ping &amp; Selection Settings</string>
+    <string name="ping_mode_label">Test Mode</string>
+    <string name="ping_mode_core">Through-Core</string>
+    <string name="ping_mode_tcp">TCP Handshake</string>
+    <string name="ping_mode_multi">Multi-URL</string>
+    <string name="ping_url_label">Test URL</string>
+    <string name="ping_samples_label">Samples per server: %1$d</string>
+    <string name="ping_timeout_label">Timeout: %1$d sec</string>
+    <string name="ping_concurrency_label">Max concurrent tests: %1$d</string>
+    <string name="ping_auto_test_before_select">Auto-test before auto-select</string>
+
+    <!-- Diagnostics -->
+    <string name="diagnostics_title">Connection Diagnostics</string>
+    <string name="diagnostics_short">Diagnostics</string>
+    <string name="diagnostics_exit_ip">Exit IP &amp; DNS Check</string>
+    <string name="diagnostics_ip_label">Exit IP</string>
+    <string name="diagnostics_location_label">Location</string>
+    <string name="diagnostics_isp_label">ISP / Network</string>
+    <string name="diagnostics_dns_check">DNS Leak Check</string>
+    <string name="diagnostics_speed_test">Through-Tunnel Speed Test</string>
+    <string name="diagnostics_testing">Measuring…</string>
+    <string name="diagnostics_download_speed">Download Speed</string>
+    <string name="diagnostics_peak">Peak</string>
+    <string name="diagnostics_avg">Average</string>
+    <string name="diagnostics_transferred">Transferred</string>
+    <string name="diagnostics_start_speed">Start Speed Test</string>
+    <string name="diagnostics_stop_speed">Stop Test</string>
+    <string name="diagnostics_custom_endpoints">Diagnostic Endpoints (Tap to edit)</string>
+    <string name="diagnostics_ip_endpoint">IP Info Endpoint URL</string>
+    <string name="diagnostics_speed_endpoint">Speed Test Download URL</string>
+
+    <!-- Routing Rules -->
+    <string name="routing_title">Routing Rules</string>
+    <string name="routing_mode_label">Routing Mode</string>
+    <string name="routing_global">Global (All Proxy)</string>
+    <string name="routing_bypass_lan">Bypass LAN</string>
+    <string name="routing_bypass_iran">Bypass Iran (.ir &amp; Local)</string>
+    <string name="routing_custom">Custom Rules</string>
+    <string name="routing_mode_hint">Bypass Iran routes Iranian banking &amp; .ir domains directly without slowing down local apps.</string>
+    <string name="routing_add_rule">Add Custom Rule</string>
+    <string name="routing_action_direct">Direct</string>
+    <string name="routing_action_proxy">Proxy</string>
+    <string name="routing_action_block">Block</string>
+
+    <!-- Multi-Subscription Profiles -->
+    <string name="profiles_title">Subscription Profiles</string>
+    <string name="profiles_short">Profiles</string>
+    <string name="profiles_refresh_interval">Auto-Refresh Interval</string>
+    <string name="profiles_interval_manual">Manual</string>
+    <string name="profiles_empty_title">No Saved Profiles</string>
+    <string name="profiles_empty_desc">Tap + to add another PasarGuard subscription profile.</string>
+    <string name="profiles_add">Add Subscription Profile</string>
+    <string name="profiles_name_hint">Profile Name</string>
+
+    <!-- Statistics -->
+    <string name="stats_title">Usage Statistics</string>
+    <string name="stats_short">Stats</string>
+    <string name="stats_total_time">Total Connected</string>
+    <string name="stats_sessions_count">Sessions</string>
+    <string name="stats_empty_title">No Sessions Recorded Yet</string>
+    <string name="stats_empty_desc">Connect to a server and your traffic &amp; duration history will appear here.</string>
+    <string name="stats_top_servers">Most Used Servers</string>
+    <string name="stats_recent_sessions">Recent Sessions</string>
+
+    <!-- Logs -->
+    <string name="logs_title">Connection Logs</string>
+    <string name="logs_subtitle">Sanitized diagnostics (tokens &amp; secrets redacted)</string>
+    <string name="logs_empty_title">No Logs Recorded</string>
+    <string name="logs_empty_desc">VPN connection events and diagnostics will appear here.</string>
+
+    <!-- Split Tunnel Preset & Settings Stage 2A -->
+    <string name="split_preset_iran_banks">Preset: Bypass Iranian Banking Apps</string>
+    <string name="settings_persian_digits">Persian Digits (۰–۹)</string>
+    <string name="settings_calendar">Calendar System</string>
+    <string name="settings_calendar_jalali">Jalali (Shamsi)</string>
+    <string name="settings_calendar_gregorian">Gregorian</string>
+    <string name="settings_dynamic_color">Material You Dynamic Colors</string>
+    <string name="settings_dynamic_color_desc">Match accent colors to your Android wallpaper</string>
+    <string name="settings_dns_title">DNS Server</string>
+    <string name="settings_remote_dns_proxy">Route Remote DNS Through Proxy</string>
+    <string name="settings_mtu_title">TUN MTU Size</string>
+    <string name="settings_fragment_title">TLS Fragmentation</string>
+    <string name="settings_fragment_desc">Split TLS ClientHello packets to improve DPI bypass</string>
+    <string name="settings_mux_title">Multiplexing (Mux)</string>
+    <string name="settings_mux_desc">Share TCP connections (auto-skipped for XTLS-Vision)</string>
+    <string name="settings_sniffing_title">Traffic Sniffing (HTTP/TLS/QUIC)</string>
+    <string name="settings_allow_insecure_title">Allow Insecure TLS (Global)</string>
+    <string name="settings_allow_insecure_desc">Skip TLS certificate verification globally (not recommended)</string>
+    <string name="settings_allow_insecure_warning">Disabling TLS certificate verification globally reduces transport security against man-in-the-middle attacks. Enable only if your server uses a self-signed certificate.</string>
+    <string name="settings_section_automation">Automation &amp; Reliability</string>
+    <string name="settings_auto_reconnect">Auto-Reconnect</string>
+    <string name="settings_auto_reconnect_desc">Automatically reconnect on Wi-Fi / mobile switch with backoff</string>
+    <string name="settings_auto_failover">Auto-Failover</string>
+    <string name="settings_auto_failover_desc">Switch to next-best reachable server if active server drops</string>
+    <string name="settings_auto_test_open">Auto-Test Ping on App Open</string>
+    <string name="settings_network_rule">Auto-Connect Network Rule</string>
+    <string name="settings_net_wifi">Untrusted Wi-Fi</string>
+    <string name="settings_net_mobile">Mobile Data</string>
+    <string name="settings_net_always">Always</string>
+    <string name="settings_block_on_drop">Block Traffic on Drop</string>
+    <string name="settings_section_privacy">Privacy &amp; Security</string>
+    <string name="settings_hide_recents">Hide Preview in Recents</string>
+    <string name="settings_hide_recents_desc">Apply FLAG_SECURE to prevent screenshots and task-switcher previews</string>
+    <string name="settings_disguise_notif">Disguise Notification</string>
+    <string name="settings_disguise_notif_desc">Show neutral system text instead of VPN server name</string>
+    <string name="settings_section_tools">Pro Tools &amp; Backup</string>
+    <string name="settings_export_backup">Export Settings Backup (JSON)</string>
+    <string name="settings_export_backup_desc">Saves preferences without exposing your subscription token</string>
+    <string name="settings_import_backup">Restore Settings Backup</string>
+    <string name="settings_backup_saved">Settings backup exported</string>
+    <string name="settings_backup_restored">Settings restored successfully</string>
+    <string name="settings_backup_invalid">Invalid backup JSON file</string>
+    <string name="settings_check_updates">Check for Updates</string>
+    <string name="settings_update_url_hint">Update JSON Endpoint URL</string>
+    <string name="settings_update_available">New version available: v%1$s</string>
+    <string name="settings_update_download">Download Update</string>
+    <string name="settings_update_latest">You are on the latest version.</string>
+    <string name="settings_check_now">Check Now</string>
+
+    <!-- Stage 2B — Notifications, Subscription Insights, Plans, Checkout & Orders -->
+    <string name="action_share">Share</string>
+    <string name="action_remove">Remove</string>
+    <string name="copied_to_clipboard">Copied to clipboard</string>
+    <string name="coming_soon">Coming soon</string>
+    <string name="currency_toman">Toman</string>
+
+    <string name="notif_channel_expiry_name">Expiry Alerts</string>
+    <string name="notif_channel_expiry_desc">Notifications 7d, 3d, 1d before expiry and on expiration</string>
+    <string name="notif_channel_traffic_name">Traffic Quota Alerts</string>
+    <string name="notif_channel_traffic_desc">Warnings at 80%%, 90%%, and 100%% traffic usage</string>
+    <string name="notif_channel_orders_name">Order &amp; Payment Updates</string>
+    <string name="notif_channel_orders_desc">Alerts when a renewal order is approved or updated</string>
+    <string name="notif_expiry_expired_body">Your VPN subscription has expired. Tap to renew right away.</string>
+    <string name="notif_low_traffic_used_body">You have used %1$d%% of your data quota. Tap to add traffic or renew.</string>
+    <string name="notif_low_traffic_exhausted_body">Your traffic quota is exhausted. Tap to top up or renew now.</string>
+    <string name="notif_order_approved_title">Subscription Activated!</string>
+    <string name="notif_order_approved_body">%1$s (%2$s) has been approved and synced.</string>
+
+    <string name="sub_expired_banner_title">Subscription Expired</string>
+    <string name="sub_limited_banner_title">Traffic Quota Reached</string>
+    <string name="sub_expired_banner_desc">Renew directly inside the app — works even when VPN is disconnected.</string>
+    <string name="sub_renew_now_cta">Renew Now</string>
+    <string name="sub_avg_daily">Daily Average</string>
+    <string name="sub_peak_day">Peak Day</string>
+    <string name="sub_forecast_days">At your current rate, your data will last ~%1$s days.</string>
+    <string name="sub_forecast_runout_warning">Likely to run out before expiry (~%1$s days left at current usage).</string>
+    <string name="sub_link_tools_title">Subscription Link</string>
+    <string name="sub_link_private_warning">Private link — never share publicly or post in groups.</string>
+    <string name="sub_qr_title">Subscription QR Code</string>
+    <string name="sub_account_actions_title">Account &amp; Devices</string>
+    <string name="sub_manage_devices">Devices (HWID)</string>
+    <string name="sub_devices_subtitle">Devices currently using this subscription</string>
+    <string name="sub_this_device">This device</string>
+    <string name="sub_request_reset">Reset Traffic</string>
+    <string name="sub_request_new_link">New Sub Link</string>
+    <string name="sub_confirm_reset_desc">Request a traffic counter reset from the billing backend?</string>
+    <string name="sub_confirm_new_link_desc">Request a fresh subscription token? Your old link will stop working after rotation.</string>
+    <string name="sub_contact_support">Contact Support</string>
+    <string name="sub_ticket_title">Send Support Ticket</string>
+    <string name="sub_ticket_subject">Subject</string>
+    <string name="sub_ticket_message">Describe your issue…</string>
+    <string name="sub_ticket_send">Submit Ticket</string>
+
+    <string name="plans_title">Plans &amp; Renewal</string>
+    <string name="plans_compare">Compare Plans</string>
+    <string name="plans_cat_renew">Renew</string>
+    <string name="plans_cat_upgrade">Upgrade</string>
+    <string name="plans_cat_extra_traffic">Extra GB</string>
+    <string name="plans_cat_extra_days">Extra Days</string>
+    <string name="plans_recommended_for_you">Recommended for your usage</string>
+    <string name="plans_choose_cta">Select Plan</string>
+    <string name="plans_resume_order_title">Unfinished Order Found</string>
+    <string name="plans_resume_cta">Resume</string>
+    <string name="plans_error_title">Could Not Load Plans</string>
+    <string name="plans_empty_title">No Plans in This Category</string>
+    <string name="plans_empty_desc">Switch tabs to browse renewal plans or add-on packs.</string>
+    <string name="compare_data">Traffic</string>
+    <string name="compare_duration">Duration</string>
+    <string name="compare_devices">Devices</string>
+    <string name="compare_per_gb">Per GB</string>
+
+    <string name="checkout_summary_title">Order Summary</string>
+    <string name="checkout_card_title">Card-to-Card Transfer</string>
+    <string name="checkout_waiting_title">Order Verification</string>
+    <string name="checkout_success_title">Payment Approved</string>
+    <string name="checkout_base_price">Plan Price</string>
+    <string name="checkout_discount">Discount</string>
+    <string name="checkout_wallet_slot">Wallet Credit</string>
+    <string name="checkout_final_price">Total to Pay</string>
+    <string name="checkout_discount_title">Discount Code</string>
+    <string name="checkout_apply_code">Apply</string>
+    <string name="checkout_method_title">Payment Method</string>
+    <string name="checkout_method_card">Card-to-Card Transfer</string>
+    <string name="checkout_method_card_desc">Direct Iranian bank transfer with receipt upload</string>
+    <string name="checkout_method_gateway">Online Bank Gateway</string>
+    <string name="checkout_method_crypto">Crypto (USDT / TON)</string>
+    <string name="checkout_continue_card">Continue to Card-to-Card</string>
+    <string name="checkout_window_remaining">Payment Window Remaining</string>
+    <string name="checkout_exact_amount">Exact Amount to Transfer</string>
+    <string name="checkout_do_not_round_note">Please transfer the exact amount shown — do not round up or down.</string>
+    <string name="checkout_steps_title">How to Pay</string>
+    <string name="checkout_step_1">1. Copy the destination card number and exact amount above.</string>
+    <string name="checkout_step_2">2. Complete the transfer via your banking app and verify the holder name.</string>
+    <string name="checkout_step_3">3. Enter your card last 4 digits / tracking number, attach receipt, and submit.</string>
+    <string name="checkout_payer_form_title">Transfer Confirmation</string>
+    <string name="checkout_payer_last4">Last 4 digits of your card</string>
+    <string name="checkout_tracking_number">Tracking / Reference number</string>
+    <string name="checkout_upload_receipt">Attach Receipt Screenshot (Optional)</string>
+    <string name="checkout_receipt_attached">Receipt compressed &amp; attached</string>
+    <string name="checkout_submit_receipt_cta">Submit Payment Receipt</string>
+    <string name="checkout_pending_heading">Waiting for Confirmation</string>
+    <string name="checkout_pending_desc">Order %1$s has been received. Status updates automatically — you may safely leave this screen and track it in Orders.</string>
+    <string name="checkout_leave_and_track">Track in Orders History</string>
+    <string name="checkout_rejected_heading">Receipt Rejected</string>
+    <string name="checkout_rejected_default">Your receipt could not be verified. Please submit again.</string>
+    <string name="checkout_retry_receipt">Re-submit Receipt</string>
+    <string name="checkout_expired_heading">Payment Window Expired</string>
+    <string name="checkout_expired_desc">The 30-minute window for this order elapsed. Start a new order to get a fresh window.</string>
+    <string name="checkout_start_new_order">Start New Order</string>
+    <string name="checkout_syncing_sub">Refreshing subscription &amp; servers…</string>
+
+    <string name="orders_title">Orders History</string>
+    <string name="order_status_pending">Pending</string>
+    <string name="order_status_approved">Approved</string>
+    <string name="order_status_rejected">Rejected</string>
+    <string name="order_status_expired">Expired</string>
+    <string name="orders_empty_title">No Orders Yet</string>
+    <string name="orders_empty_desc">Your renewal and top-up orders will appear here with live status and receipts.</string>
+    <string name="orders_date_label">Order Date</string>
+    <string name="orders_timeline_title">Order Timeline</string>
+    <string name="orders_share_invoice">Download / Share Receipt</string>
+    <string name="orders_view_receipt">View Receipt in Orders</string>
+    <string name="orders_invoice_error">Could not generate receipt image</string>
 </resources>

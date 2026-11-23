@@ -21,7 +21,12 @@ import javax.inject.Singleton
 @Singleton
 class SingBoxConfigBuilder @Inject constructor() {
 
-    fun buildConfigJson(server: VpnServer, enableClashApi: Boolean = true): String {
+    fun buildConfigJson(
+        server: VpnServer,
+        enableClashApi: Boolean = true,
+        mtu: Int = 1500,
+        enableIpv6: Boolean = false
+    ): String {
         val root = buildJsonObject {
             putJsonObject("log") {
                 put("level", "warn")
@@ -48,7 +53,7 @@ class SingBoxConfigBuilder @Inject constructor() {
                     })
                 }
                 put("final", "dns-remote")
-                put("strategy", "prefer_ipv4")
+                put("strategy", if (enableIpv6) "prefer_ipv4" else "ipv4_only")
             }
 
             putJsonArray("inbounds") {
@@ -58,8 +63,11 @@ class SingBoxConfigBuilder @Inject constructor() {
                     put("interface_name", "tun0")
                     putJsonArray("address") {
                         add(JsonPrimitive("172.19.0.1/30"))
+                        if (enableIpv6) {
+                            add(JsonPrimitive("fdfe:dcba:9876::1/126"))
+                        }
                     }
-                    put("mtu", 9000)
+                    put("mtu", mtu)
                     put("auto_route", true)
                     put("strict_route", true)
                     put("stack", "gvisor")
@@ -118,7 +126,7 @@ class SingBoxConfigBuilder @Inject constructor() {
             put("server_port", server.port)
             put("uuid", cfg.uuid)
             if (cfg.flow.isNotBlank()) put("flow", cfg.flow)
-            put("packet_encoding", "xudp")
+            put("packet_encoding", cfg.packetEncoding.ifBlank { "xudp" })
             buildTlsObject(
                 security = cfg.security,
                 sni = cfg.sni.ifBlank { server.address },
@@ -157,7 +165,7 @@ class SingBoxConfigBuilder @Inject constructor() {
                 network = cfg.network,
                 path = cfg.path,
                 host = cfg.host,
-                serviceName = ""
+                serviceName = cfg.serviceName
             )?.let { put("transport", it) }
         }
 
@@ -172,7 +180,9 @@ class SingBoxConfigBuilder @Inject constructor() {
                 sni = cfg.sni.ifBlank { server.address },
                 fingerprint = cfg.fingerprint,
                 alpn = cfg.alpn,
-                allowInsecure = cfg.allowInsecure
+                allowInsecure = cfg.allowInsecure,
+                realityPublicKey = cfg.publicKey,
+                realityShortId = cfg.shortId
             )?.let { put("tls", it) }
             buildTransportObject(
                 network = cfg.network,
@@ -193,6 +203,76 @@ class SingBoxConfigBuilder @Inject constructor() {
                 put("plugin", cfg.plugin)
                 if (cfg.pluginOpts.isNotBlank()) put("plugin_opts", cfg.pluginOpts)
             }
+        }
+
+        is ProtocolConfig.SingBoxOnly -> buildSingBoxOnlyOutbound(server, cfg)
+    }
+
+    private fun buildSingBoxOnlyOutbound(
+        server: VpnServer,
+        cfg: ProtocolConfig.SingBoxOnly
+    ): JsonObject {
+        val p = cfg.params
+        val sni = p["sni"].orEmpty().ifBlank { server.address }
+        val insecure = p["insecure"] in setOf("1", "true") || p["allowInsecure"] in setOf("1", "true")
+        return when (cfg.protocol) {
+            com.pasarguard.vpn.domain.model.ProxyProtocol.HYSTERIA2 -> buildJsonObject {
+                put("type", "hysteria2")
+                put("tag", "proxy")
+                put("server", server.address)
+                put("server_port", server.port)
+                put("password", p["userInfo"].orEmpty())
+                val obfs = p["obfs"].orEmpty()
+                if (obfs.isNotBlank()) {
+                    putJsonObject("obfs") {
+                        put("type", obfs)
+                        put("password", p["obfs-password"].orEmpty())
+                    }
+                }
+                putJsonObject("tls") {
+                    put("enabled", true)
+                    put("server_name", sni)
+                    if (insecure) put("insecure", true)
+                }
+            }
+
+            com.pasarguard.vpn.domain.model.ProxyProtocol.TUIC -> {
+                val creds = p["userInfo"].orEmpty()
+                val uuid = creds.substringBefore(":")
+                val password = creds.substringAfter(":", "")
+                buildJsonObject {
+                    put("type", "tuic")
+                    put("tag", "proxy")
+                    put("server", server.address)
+                    put("server_port", server.port)
+                    put("uuid", uuid)
+                    put("password", password)
+                    put("congestion_control", p["congestion_control"].orEmpty().ifBlank { "bbr" })
+                    putJsonObject("tls") {
+                        put("enabled", true)
+                        put("server_name", sni)
+                        if (insecure) put("insecure", true)
+                    }
+                }
+            }
+
+            com.pasarguard.vpn.domain.model.ProxyProtocol.WIREGUARD -> buildJsonObject {
+                put("type", "wireguard")
+                put("tag", "proxy")
+                put("server", server.address)
+                put("server_port", server.port)
+                put("private_key", p["userInfo"].orEmpty())
+                put("peer_public_key", p["publickey"].orEmpty().ifBlank { p["publicKey"].orEmpty() })
+                val addr = p["address"].orEmpty().ifBlank { "172.16.0.2/32" }
+                putJsonArray("local_address") {
+                    addr.split(",").map { it.trim() }.filter { it.isNotEmpty() }.forEach {
+                        add(JsonPrimitive(it))
+                    }
+                }
+                put("mtu", p["mtu"]?.toIntOrNull() ?: 1280)
+            }
+
+            else -> throw IllegalArgumentException("Unsupported sing-box protocol: ${cfg.protocol.label}")
         }
     }
 

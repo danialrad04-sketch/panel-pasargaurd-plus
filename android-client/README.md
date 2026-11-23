@@ -28,30 +28,36 @@ All white-label values are centralized with zero hardcoded secrets:
 
 ---
 
-## 2. Add the `sing-box` Native Core (`libbox.aar`)
+## 2. Multi-Core VPN Engine (Xray-core Primary + sing-box Secondary)
 
-The app already includes `SingBoxConfigBuilder` (VLESS Reality/Vision/WS/gRPC, VMess, Trojan, Shadowsocks -> `sing-box` TUN JSON) and `SingBoxEngineWrapper` (native `PlatformInterface` + Clash API live speed telemetry).
+The app uses a clean `VpnCore` abstraction (`vpn/core/VpnCore.kt`) with automatic routing via `CoreSelector`:
+- **Primary Core — `XrayCore` (`app/libs/libv2ray.aar`)**:
+  - **Bundled binding**: [`2dust/AndroidLibXrayLite`](https://github.com/2dust/AndroidLibXrayLite) **`v26.11.9`** (`github.com/xtls/xray-core v1.260327.1-0.20261109052709-676eaf66f8f0`)
+  - **Native TUN**: Uses Xray-core v26's built-in Android TUN inbound (`protocol: "tun"` fed directly by `VpnService` fd via `CoreController.startLoop(configJson, tunFd)` — no external `tun2socks` binary required).
+  - **Supported features**: VLESS (Reality, XTLS-Vision, XHTTP/SplitHTTP with `mode` & URL-encoded `extra` JSON, VLESS post-quantum `encryption` & `pqv`, gRPC, WS, HTTPUpgrade, mKCP, raw/TCP), VMess, Trojan, Shadowsocks, plus verbatim PasarGuard panel Xray-JSON subscriptions (`/sub/{token}/xray` & `/sub/{token}/v2ray-json`).
+  - **How to update Xray-core**:
+    1. Download the newest `libv2ray.aar` from [`2dust/AndroidLibXrayLite/releases`](https://github.com/2dust/AndroidLibXrayLite/releases).
+    2. Replace `android-client/app/libs/libv2ray.aar`.
+    3. Run `./gradlew :app:testDebugUnitTest :app:assembleDebug` to verify JNI compatibility and build fresh universal + ABI-split APKs.
 
-To enable native packet forwarding in production:
-1. Build or download `libbox.aar` from the official [`SagerNet/sing-box`](https://github.com/SagerNet/sing-box) release (`gomobile` Android target).
-2. Place `libbox.aar` into `android-client/app/libs/libbox.aar`.
-3. `app/build.gradle.kts` automatically picks up `app/libs/*.aar` via `fileTree`.
+- **Secondary Core — `SingBoxCore` (optional `app/libs/libbox.aar`)**:
+  - Used automatically for protocols Xray-core does not support (`Hysteria2`, `TUIC`, `WireGuard`) or when manually selected in **Settings -> VPN Core Engine**.
+  - To bundle `sing-box`, drop `libbox.aar` from [`SagerNet/sing-box`](https://github.com/SagerNet/sing-box) into `android-client/app/libs/libbox.aar`.
 
 ---
 
-## 3. Plug In Your Payment Gateway
+## 3. Plug In Your Billing & Payment Backend (Stage 2B)
 
-In-app renewal is isolated behind the clean `PaymentRepository` interface:
-- Interface: `domain/repository/Repositories.kt` -> `PaymentRepository`
-- Placeholder implementation: `data/repository/PlaceholderPaymentRepository.kt`
+In-app plans, manual card-to-card checkout, receipt upload, order tracking, and account self-service actions are isolated behind clean repository interfaces:
+- Interfaces: `domain/repository/Repositories.kt` -> `PaymentRepository` & `AccountActionsRepository`
+- Frontend simulation (default): `data/repository/FakePaymentRepository.kt` (backed by Room `OrderDao` + `assets/plans_config.json`)
+- Backend Retrofit contract & DTOs: `data/api/BillingBackendContract.kt`
+- Full API specification (auth, idempotency, rate limits, multipart receipt upload, admin approval & push webhook flow): [`API_CONTRACT.md`](./API_CONTRACT.md)
 
-To connect Zarinpal, Cryptomus, Stripe, Telegram Bot storefront, or a custom billing backend:
-1. Create your implementation class (e.g. `ZarinpalPaymentRepository : PaymentRepository`) injecting `OkHttpClient` / Retrofit.
-2. Return your real plan list in `getAvailablePlans()`.
-3. In `createCheckoutSession(planId, subscriptionToken, callbackUrl)`, request a gateway payment link and configure your backend's post-payment redirect URL to `callbackUrl` (default: `pasarguardvpn://payment/callback`).
-4. When your backend webhook receives successful payment confirmation, extend the user in PasarGuard (`PUT /api/user/{username}` or `POST /api/user/from_template/{username}`) and redirect the browser to `pasarguardvpn://payment/callback?status=success`.
-5. Bind your class in `di/AppModule.kt` -> `RepositoryModule.bindPaymentRepository(...)`.
-6. Upon return from Chrome Custom Tabs, `RenewalViewModel` automatically polls `GET /sub/{token}/info` until the updated `expire` / `data_limit` appears and refreshes Room + servers.
+To switch from `FakePaymentRepository` to your production billing server:
+1. Implement `RemotePaymentRepository : PaymentRepository, AccountActionsRepository` using `BillingBackendApi`.
+2. Bind it in `di/AppModule.kt` -> `RepositoryModule.bindPaymentRepository(...)` & `bindAccountActionsRepository(...)`.
+3. Never embed PasarGuard panel admin tokens in the app; authenticate customer calls via `X-Subscription-Token` or a customer JWT.
 
 ---
 

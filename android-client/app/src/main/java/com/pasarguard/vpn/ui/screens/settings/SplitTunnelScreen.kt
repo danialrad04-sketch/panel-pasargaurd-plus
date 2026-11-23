@@ -3,6 +3,7 @@ package com.pasarguard.vpn.ui.screens.settings
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,14 +15,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -31,11 +36,17 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -124,6 +135,33 @@ class SplitTunnelViewModel @Inject constructor(
             settingsRepository.setSplitTunnelPackages(current)
         }
     }
+
+    /**
+     * 1-tap preset that switches to BYPASS_SELECTED and selects installed Iranian banking,
+     * payment, and local service apps automatically.
+     */
+    fun applyIranianBankingPreset() {
+        viewModelScope.launch {
+            val keywords = listOf(
+                "bank", "blu", "melli", "mellat", "saderat", "tejarat", "sepah",
+                "saman", "pasargad", "parsian", "keshavarzi", "refah", "resalat",
+                "ayandeh", "shahr", "asanpardakht", "ap.ir", "shaparak", "snapp",
+                "digikala", "divar", "bazaar", "myket", "rubika", "eitaa", "bale"
+            )
+            val matched = installedApps.value
+                .filter { app ->
+                    val pkg = app.packageName.lowercase()
+                    val label = app.label.lowercase()
+                    pkg.startsWith("ir.") || keywords.any { kw -> pkg.contains(kw) || label.contains(kw) }
+                }
+                .map { it.packageName }
+                .toSet()
+
+            val updated = settingsRepository.getSnapshot().splitTunnelPackages + matched
+            settingsRepository.setSplitTunnelMode(SplitTunnelMode.BYPASS_SELECTED)
+            settingsRepository.setSplitTunnelPackages(updated)
+        }
+    }
 }
 
 @Composable
@@ -133,6 +171,7 @@ fun SplitTunnelScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val colors = PasarGuardTheme.colors
+    val context = LocalContext.current
 
     DeepSpaceBackground {
         Column(
@@ -186,7 +225,20 @@ fun SplitTunnelScreen(
                 }
             }
 
-            Spacer(Modifier.height(Spacing.sm))
+            AssistChip(
+                onClick = viewModel::applyIranianBankingPreset,
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Rounded.AccountBalance,
+                        contentDescription = null,
+                        tint = colors.heroEnd,
+                        modifier = Modifier.size(18.dp)
+                    )
+                },
+                label = { Text(stringResource(R.string.split_preset_iran_banks)) }
+            )
+
+            Spacer(Modifier.height(Spacing.xs))
 
             OutlinedTextField(
                 value = state.query,
@@ -207,6 +259,16 @@ fun SplitTunnelScreen(
             ) {
                 items(items = state.apps, key = { it.packageName }) { app ->
                     val checked = app.packageName in state.selectedPackages
+                    val iconBitmap by produceState<ImageBitmap?>(initialValue = null, key1 = app.packageName) {
+                        value = withContext(Dispatchers.IO) {
+                            runCatching {
+                                context.packageManager.getApplicationIcon(app.packageName)
+                                    .toBitmap(96, 96)
+                                    .asImageBitmap()
+                            }.getOrNull()
+                        }
+                    }
+
                     GlassCard(
                         modifier = Modifier.fillMaxWidth(),
                         cornerRadius = 18.dp,
@@ -218,6 +280,16 @@ fun SplitTunnelScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
+                            if (iconBitmap != null) {
+                                Image(
+                                    bitmap = iconBitmap!!,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                )
+                                Spacer(Modifier.width(Spacing.sm))
+                            }
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = app.label,

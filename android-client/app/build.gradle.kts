@@ -29,8 +29,8 @@ android {
         applicationId = "com.pasarguard.vpn"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 4
+        versionName = "1.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -49,9 +49,14 @@ android {
 
         manifestPlaceholders["appName"] = appName
         manifestPlaceholders["paymentScheme"] = paymentScheme
+    }
 
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = true
         }
     }
 
@@ -63,6 +68,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -92,10 +98,6 @@ android {
         jniLibs {
             useLegacyPackaging = true
         }
-    }
-
-    androidResources {
-        generateLocaleConfig = true
     }
 }
 
@@ -155,4 +157,7 @@ dependencies {
     implementation(libs.camerax.view)
     implementation(libs.mlkit.barcode)
     implementation(libs.accompanist.permissions)
+    implementation(libs.zxing.core)
+
+    testImplementation(libs.junit)
 }

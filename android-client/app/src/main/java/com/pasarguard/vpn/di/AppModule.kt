@@ -7,14 +7,16 @@ import com.pasarguard.vpn.BuildConfig
 import com.pasarguard.vpn.data.api.ExponentialRetryInterceptor
 import com.pasarguard.vpn.data.api.HwidHeaderInterceptor
 import com.pasarguard.vpn.data.api.PasarGuardApi
+import com.pasarguard.vpn.data.db.OrderDao
 import com.pasarguard.vpn.data.db.PasarGuardDatabase
 import com.pasarguard.vpn.data.db.ServerDao
 import com.pasarguard.vpn.data.db.SubscriptionDao
 import com.pasarguard.vpn.data.db.UsageDao
 import com.pasarguard.vpn.data.local.SettingsDataStore
-import com.pasarguard.vpn.data.repository.PlaceholderPaymentRepository
+import com.pasarguard.vpn.data.repository.FakePaymentRepository
 import com.pasarguard.vpn.data.repository.ServerRepositoryImpl
 import com.pasarguard.vpn.data.repository.SubscriptionRepositoryImpl
+import com.pasarguard.vpn.domain.repository.AccountActionsRepository
 import com.pasarguard.vpn.domain.repository.PaymentRepository
 import com.pasarguard.vpn.domain.repository.ServerRepository
 import com.pasarguard.vpn.domain.repository.SettingsRepository
@@ -99,6 +101,21 @@ object NetworkAndDbModule {
 
     @Provides
     fun provideUsageDao(db: PasarGuardDatabase): UsageDao = db.usageDao()
+
+    @Provides
+    fun providePingHistoryDao(db: PasarGuardDatabase): com.pasarguard.vpn.data.db.PingHistoryDao =
+        db.pingHistoryDao()
+
+    @Provides
+    fun provideSubscriptionProfileDao(db: PasarGuardDatabase): com.pasarguard.vpn.data.db.SubscriptionProfileDao =
+        db.subscriptionProfileDao()
+
+    @Provides
+    fun provideSessionStatDao(db: PasarGuardDatabase): com.pasarguard.vpn.data.db.SessionStatDao =
+        db.sessionStatDao()
+
+    @Provides
+    fun provideOrderDao(db: PasarGuardDatabase): OrderDao = db.orderDao()
 }
 
 @Module
@@ -120,8 +137,14 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindPaymentRepository(
-        impl: PlaceholderPaymentRepository
+        impl: FakePaymentRepository
     ): PaymentRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAccountActionsRepository(
+        impl: FakePaymentRepository
+    ): AccountActionsRepository
 
     @Binds
     @Singleton

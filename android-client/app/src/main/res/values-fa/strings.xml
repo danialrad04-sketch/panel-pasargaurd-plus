@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">پاسارگارد VPN</string>
+
     <!-- Navigation -->
     <string name="nav_home">خانه</string>
     <string name="nav_servers">سرورها</string>
@@ -11,7 +13,7 @@
     <string name="onboarding_next">بعدی</string>
     <string name="onboarding_get_started">شروع کنید</string>
     <string name="onboarding_title_1">آزادی سریع و رمزنگاری‌شده</string>
-    <string name="onboarding_desc_1">مجهز به هسته بومی sing-box با پشتیبانی کامل از VLESS Reality، VMess، Trojan و Shadowsocks.</string>
+    <string name="onboarding_desc_1">مجهز به هسته اصلی Xray-core v26 و sing-box با پشتیبانی کامل از VLESS Reality، XHTTP، Vision، رمزنگاری پساکوانتومی، VMess، Trojan و Shadowsocks.</string>
     <string name="onboarding_title_2">انتخاب هوشمند کمترین پینگ</string>
     <string name="onboarding_desc_2">تست خودکار تأخیر سرورها و اتصال به سریع‌ترین لوکیشن تنها با یک لمس.</string>
     <string name="onboarding_title_3">همگام‌سازی خودکار و تمدید آنی</string>
@@ -116,6 +118,17 @@
     <string name="settings_theme_light">روشن</string>
     <string name="settings_theme_system">سیستم</string>
     <string name="settings_section_vpn">وی‌پی‌ان و مسیریابی</string>
+    <string name="settings_core_title">هسته اتصال (VPN Core)</string>
+    <string name="settings_core_desc">حالت خودکار از Xray برای VLESS/VMess/Trojan/SS و از sing-box برای Hysteria2/TUIC/WireGuard استفاده می‌کند</string>
+    <string name="settings_core_auto">خودکار</string>
+    <string name="settings_core_xray">Xray</string>
+    <string name="settings_core_singbox">sing-box</string>
+    <string name="settings_sub_format_title">فرمت دریافت اشتراک</string>
+    <string name="settings_sub_format_desc">در صورت پشتیبانی پنل پاسارگارد، کانفیگ کامل Xray-JSON را ترجیح می‌دهد</string>
+    <string name="settings_sub_format_xray_json">اولویت با Xray JSON</string>
+    <string name="settings_sub_format_links_only">فقط لینک‌ها</string>
+    <string name="settings_ipv6_title">فعال‌سازی مسیریابی IPv6</string>
+    <string name="settings_ipv6_desc">عبور ترافیک IPv6 از تونل وی‌پی‌ان (نیازمند پشتیبانی سرور)</string>
     <string name="settings_split_tunnel">تقسیم تونل برنامه‌ها (Split Tunneling)</string>
     <string name="settings_split_tunnel_desc">انتخاب کنید کدام برنامه‌ها از وی‌پی‌ان عبور یا استثنا شوند</string>
     <string name="settings_auto_connect">اتصال خودکار</string>
@@ -158,4 +171,288 @@
     <string name="notif_expiry_body">تنها %1$d روز از اشتراک وی‌پی‌ان شما باقی مانده است. برای تمدید لمس کنید.</string>
     <string name="notif_low_traffic_title">حجم اشتراک رو به اتمام است</string>
     <string name="notif_low_traffic_body">کمتر از %1$d%% از حجم اشتراک شما باقی مانده است. برای تمدید لمس کنید.</string>
+    <string name="notif_disguise_title">سرویس همگام‌سازی سیستم</string>
+    <string name="notif_disguise_subtitle">همگام‌سازی پس‌زمینه شبکه فعال است</string>
+
+    <!-- Common Actions & Widget -->
+    <string name="action_connect">اتصال</string>
+    <string name="action_disconnect">قطع اتصال</string>
+    <string name="action_save">ذخیره</string>
+    <string name="action_add">افزودن</string>
+    <string name="action_close">بستن</string>
+    <string name="action_copy">کپی</string>
+    <string name="action_copied">در حافظه کپی شد</string>
+    <string name="action_paste">جای‌گذاری</string>
+    <string name="action_delete">حذف</string>
+    <string name="auto_best_server">خودکار (بهترین سرور)</string>
+    <string name="widget_description">نمایش وضعیت وی‌پی‌ان و اتصال تک‌لمسی</string>
+
+    <!-- Coach Tips & App Lock -->
+    <string name="coach_tip_title">نکته حرفه‌ای: تست و انتخاب هوشمند</string>
+    <string name="coach_tip_body">در صفحه سرورها آیکون تنظیمات پینگ را لمس کنید تا تست چندآدرسه، امتیاز پایداری یا افزودن دستی لینک را فعال کنید.</string>
+    <string name="app_lock_title">قفل برنامه (رمز عددی)</string>
+    <string name="app_lock_subtitle">برای ورود به برنامه رمز عددی خود را وارد کنید</string>
+    <string name="app_lock_pin_hint">رمز عددی (۴ تا ۸ رقم)</string>
+    <string name="app_lock_wrong_pin">رمز اشتباه است. دوباره تلاش کنید.</string>
+    <string name="app_lock_unlock">باز کردن قفل</string>
+    <string name="app_lock_setting_desc">درخواست رمز عددی هنگام باز کردن برنامه</string>
+    <string name="app_lock_set_pin_title">تعیین رمز قفل برنامه</string>
+
+    <!-- Advanced Servers & Ping -->
+    <string name="servers_import_title">افزودن دستی کانفیگ</string>
+    <string name="servers_import_result">%1$d سرور با موفقیت اضافه شد</string>
+    <string name="servers_import_file">از فایل</string>
+    <string name="servers_import_action">افزودن سرورها</string>
+    <string name="servers_ping_progress">تست‌شده: %1$d از %2$d</string>
+    <string name="servers_sort_ping">کمترین پینگ</string>
+    <string name="servers_sort_stability">پایدارترین</string>
+    <string name="servers_sort_country">کشور</string>
+    <string name="servers_sort_name">نام</string>
+    <string name="servers_hide_dead">مخفی‌کردن قطع‌ها</string>
+    <string name="servers_qr_unavailable">کد QR برای این سرور در دسترس نیست.</string>
+    <string name="auto_select_mode_label">روش انتخاب خودکار</string>
+    <string name="auto_mode_lowest_ping">کمترین پینگ</string>
+    <string name="auto_mode_most_stable">پایدارترین سرور</string>
+    <string name="auto_mode_round_robin">چرخشی بین ۳ سرور برتر</string>
+    <string name="server_detail_title">جزئیات سرور</string>
+    <string name="server_detail_history">تاریخچه پینگ (۱۰ تست اخیر)</string>
+    <string name="server_detail_no_history">برای ثبت نمودار، یک‌بار تست پینگ بگیرید.</string>
+    <string name="server_detail_test_again">تست مجدد</string>
+    <string name="ping_metric_avg">میانگین</string>
+    <string name="ping_metric_jitter">جیتر</string>
+    <string name="ping_metric_loss">پکت‌لاس</string>
+    <string name="ping_metric_stability">پایداری</string>
+    <string name="ping_settings_title">تنظیمات تست پینگ و انتخاب</string>
+    <string name="ping_mode_label">حالت تست</string>
+    <string name="ping_mode_core">از داخل هسته (واقعی)</string>
+    <string name="ping_mode_tcp">تست TCP</string>
+    <string name="ping_mode_multi">چندآدرسه (Multi-URL)</string>
+    <string name="ping_url_label">آدرس تست پینگ</string>
+    <string name="ping_samples_label">تعداد نمونه هر سرور: %1$d</string>
+    <string name="ping_timeout_label">زمان انتظار: %1$d ثانیه</string>
+    <string name="ping_concurrency_label">تست همزمان: %1$d سرور</string>
+    <string name="ping_auto_test_before_select">تست خودکار پیش از انتخاب هوشمند</string>
+
+    <!-- Diagnostics -->
+    <string name="diagnostics_title">عیب‌یابی و تست سرعت</string>
+    <string name="diagnostics_short">تست سرعت</string>
+    <string name="diagnostics_exit_ip">آی‌پی خروجی و تست DNS</string>
+    <string name="diagnostics_ip_label">آی‌پی خروجی</string>
+    <string name="diagnostics_location_label">موقعیت مکانی</string>
+    <string name="diagnostics_isp_label">سرویس‌دهنده (ISP)</string>
+    <string name="diagnostics_dns_check">بررسی نشت DNS</string>
+    <string name="diagnostics_speed_test">تست سرعت دانلود از تونل</string>
+    <string name="diagnostics_testing">در حال اندازه‌گیری…</string>
+    <string name="diagnostics_download_speed">سرعت دانلود</string>
+    <string name="diagnostics_peak">حداکثر</string>
+    <string name="diagnostics_avg">میانگین</string>
+    <string name="diagnostics_transferred">حجم تست</string>
+    <string name="diagnostics_start_speed">شروع تست سرعت</string>
+    <string name="diagnostics_stop_speed">توقف تست</string>
+    <string name="diagnostics_custom_endpoints">آدرس‌های عیب‌یابی (برای ویرایش لمس کنید)</string>
+    <string name="diagnostics_ip_endpoint">آدرس بررسی آی‌پی</string>
+    <string name="diagnostics_speed_endpoint">آدرس فایل تست سرعت</string>
+
+    <!-- Routing Rules -->
+    <string name="routing_title">قوانین مسیریابی (Routing)</string>
+    <string name="routing_mode_label">حالت مسیریابی</string>
+    <string name="routing_global">سراسری (همه از وی‌پی‌ان)</string>
+    <string name="routing_bypass_lan">استثنای شبکه محلی (LAN)</string>
+    <string name="routing_bypass_iran">استثنای ایران (.ir و بانک‌ها)</string>
+    <string name="routing_custom">قوانین سفارشی</string>
+    <string name="routing_mode_hint">حالت استثنای ایران باعث می‌شود سایت‌های .ir و سرویس‌های داخلی بدون افت سرعت مستقیم باز شوند.</string>
+    <string name="routing_add_rule">افزودن قانون جدید</string>
+    <string name="routing_action_direct">مستقیم (Direct)</string>
+    <string name="routing_action_proxy">وی‌پی‌ان (Proxy)</string>
+    <string name="routing_action_block">مسدود (Block)</string>
+
+    <!-- Multi-Subscription Profiles -->
+    <string name="profiles_title">پروفایل‌های اشتراک</string>
+    <string name="profiles_short">پروفایل‌ها</string>
+    <string name="profiles_refresh_interval">بازه بروزرسانی خودکار</string>
+    <string name="profiles_interval_manual">دستی</string>
+    <string name="profiles_empty_title">پروفایلی ذخیره نشده</string>
+    <string name="profiles_empty_desc">برای افزودن اشتراک پاسارگارد دیگر دکمه + را بزنید.</string>
+    <string name="profiles_add">افزودن پروفایل اشتراک</string>
+    <string name="profiles_name_hint">نام پروفایل</string>
+
+    <!-- Statistics -->
+    <string name="stats_title">آمار مصرف و نشست‌ها</string>
+    <string name="stats_short">آمار</string>
+    <string name="stats_total_time">کل زمان اتصال</string>
+    <string name="stats_sessions_count">تعداد نشست‌ها</string>
+    <string name="stats_empty_title">هنوز نشستی ثبت نشده</string>
+    <string name="stats_empty_desc">پس از اتصال به سرور، آمار مصرف و زمان اتصال شما در اینجا ثبت می‌شود.</string>
+    <string name="stats_top_servers">پرمصرف‌ترین سرورها</string>
+    <string name="stats_recent_sessions">نشست‌های اخیر</string>
+
+    <!-- Logs -->
+    <string name="logs_title">گزارش‌های اتصال (Logs)</string>
+    <string name="logs_subtitle">گزارش پاک‌سازی‌شده (بدون توکن و کلید محرمانه)</string>
+    <string name="logs_empty_title">گزارشی ثبت نشده</string>
+    <string name="logs_empty_desc">رویدادهای اتصال وی‌پی‌ان در اینجا نمایش داده می‌شوند.</string>
+
+    <!-- Split Tunnel Preset & Settings Stage 2A -->
+    <string name="split_preset_iran_banks">پیش‌تنظیم: استثنای اپلیکیشن‌های بانکی ایران</string>
+    <string name="settings_persian_digits">نمایش ارقام فارسی (۰ تا ۹)</string>
+    <string name="settings_calendar">نوع تقویم</string>
+    <string name="settings_calendar_jalali">شمسی (جلالی)</string>
+    <string name="settings_calendar_gregorian">میلادی</string>
+    <string name="settings_dynamic_color">رنگ پویا (Material You)</string>
+    <string name="settings_dynamic_color_desc">هماهنگ‌سازی رنگ برنامه با تصویر زمینه اندروید</string>
+    <string name="settings_dns_title">سرور DNS</string>
+    <string name="settings_remote_dns_proxy">عبور DNS از تونل پروکسی</string>
+    <string name="settings_mtu_title">اندازه MTU تونل</string>
+    <string name="settings_fragment_title">تکه‌تکه‌سازی (TLS Fragment)</string>
+    <string name="settings_fragment_desc">تقسیم بسته‌های TLS ClientHello برای عبور بهتر از محدودیت شبکه</string>
+    <string name="settings_mux_title">مالتی‌پلکسینگ (Mux)</string>
+    <string name="settings_mux_desc">اشتراک‌گذاری اتصال‌های TCP (در XTLS-Vision خودکار غیرفعال می‌شود)</string>
+    <string name="settings_sniffing_title">تشخیص پروتکل (Sniffing)</string>
+    <string name="settings_allow_insecure_title">اجازه TLS ناامن (سراسری)</string>
+    <string name="settings_allow_insecure_desc">نادیده گرفتن خطای گواهی TLS (توصیه نمی‌شود)</string>
+    <string name="settings_allow_insecure_warning">غیرفعال کردن بررسی گواهی TLS به صورت سراسری امنیت اتصال را در برابر حملات کاهش می‌دهد. تنها در صورت استفاده از گواهی خودامضا فعال کنید.</string>
+    <string name="settings_section_automation">خودکارسازی و پایداری</string>
+    <string name="settings_auto_reconnect">اتصال مجدد خودکار</string>
+    <string name="settings_auto_reconnect_desc">تلاش هوشمند برای اتصال مجدد هنگام تغییر وای‌فای و اینترنت همراه</string>
+    <string name="settings_auto_failover">تعویض خودکار سرور (Failover)</string>
+    <string name="settings_auto_failover_desc">انتقال خودکار به بهترین سرور بعدی در صورت قطعی سرور فعلی</string>
+    <string name="settings_auto_test_open">تست خودکار پینگ هنگام باز کردن برنامه</string>
+    <string name="settings_network_rule">قانون اتصال خودکار شبکه</string>
+    <string name="settings_net_wifi">وای‌فای ناشناس</string>
+    <string name="settings_net_mobile">اینترنت همراه</string>
+    <string name="settings_net_always">همیشه</string>
+    <string name="settings_block_on_drop">مسدودسازی ترافیک هنگام قطعی</string>
+    <string name="settings_section_privacy">حریم خصوصی و امنیت</string>
+    <string name="settings_hide_recents">مخفی‌سازی در برنامه‌های اخیر</string>
+    <string name="settings_hide_recents_desc">جلوگیری از اسکرین‌شات و پیش‌نمایش در لیست برنامه‌های باز</string>
+    <string name="settings_disguise_notif">مخفی‌سازی متن اعلان</string>
+    <string name="settings_disguise_notif_desc">نمایش متن خنثی سیستمی به جای نام سرور و وی‌پی‌ان</string>
+    <string name="settings_section_tools">ابزارهای حرفه‌ای و پشتیبان‌گیری</string>
+    <string name="settings_export_backup">خروجی پشتیبان تنظیمات (JSON)</string>
+    <string name="settings_export_backup_desc">ذخیره تنظیمات بدون افشای توکن اشتراک</string>
+    <string name="settings_import_backup">بازیابی تنظیمات از فایل</string>
+    <string name="settings_backup_saved">فایل پشتیبان تنظیمات ذخیره شد</string>
+    <string name="settings_backup_restored">تنظیمات با موفقیت بازیابی شد</string>
+    <string name="settings_backup_invalid">فایل پشتیبان نامعتبر است</string>
+    <string name="settings_check_updates">بررسی بروزرسانی</string>
+    <string name="settings_update_url_hint">آدرس JSON بررسی نسخه جدید</string>
+    <string name="settings_update_available">نسخه جدید در دسترس است: v%1$s</string>
+    <string name="settings_update_download">دانلود نسخه جدید</string>
+    <string name="settings_update_latest">شما از آخرین نسخه استفاده می‌کنید.</string>
+    <string name="settings_check_now">بررسی اکنون</string>
+
+    <!-- Stage 2B — Notifications, Subscription Insights, Plans, Checkout & Orders -->
+    <string name="action_share">اشتراک‌گذاری</string>
+    <string name="action_remove">حذف</string>
+    <string name="copied_to_clipboard">در کلیپ‌بورد کپی شد</string>
+    <string name="coming_soon">به‌زودی</string>
+    <string name="currency_toman">تومان</string>
+
+    <string name="notif_channel_expiry_name">هشدارهای انقضا</string>
+    <string name="notif_channel_expiry_desc">اعلان ۷، ۳ و ۱ روز پیش از پایان اعتبار و هنگام انقضا</string>
+    <string name="notif_channel_traffic_name">هشدارهای مصرف حجم</string>
+    <string name="notif_channel_traffic_desc">هشدار هنگام مصرف ۸۰٪، ۹۰٪ و ۱۰۰٪ حجم اشتراک</string>
+    <string name="notif_channel_orders_name">وضعیت سفارش و پرداخت</string>
+    <string name="notif_channel_orders_desc">اطلاع‌رسانی تأیید یا تغییر وضعیت سفارش تمدید</string>
+    <string name="notif_expiry_expired_body">اعتبار اشتراک VPN شما به پایان رسیده است. برای تمدید لمس کنید.</string>
+    <string name="notif_low_traffic_used_body">%1$d٪ از حجم اشتراک شما مصرف شده است. برای افزایش حجم یا تمدید لمس کنید.</string>
+    <string name="notif_low_traffic_exhausted_body">حجم اشتراک شما تمام شده است. برای خرید بسته اضافه یا تمدید لمس کنید.</string>
+    <string name="notif_order_approved_title">اشتراک با موفقیت فعال شد!</string>
+    <string name="notif_order_approved_body">سفارش %1$s (%2$s) تأیید و همگام‌سازی شد.</string>
+
+    <string name="sub_expired_banner_title">اشتراک منقضی شده است</string>
+    <string name="sub_limited_banner_title">حجم اشتراک به پایان رسیده است</string>
+    <string name="sub_expired_banner_desc">تمدید مستقیم داخل برنامه حتی زمانی که VPN قطع است کار می‌کند.</string>
+    <string name="sub_renew_now_cta">تمدید فوری اشتراک</string>
+    <string name="sub_avg_daily">میانگین مصرف روزانه</string>
+    <string name="sub_peak_day">پرمصرف‌ترین روز</string>
+    <string name="sub_forecast_days">با سرعت مصرف فعلی، حجم شما حدود %1$s روز دوام می‌آورد.</string>
+    <string name="sub_forecast_runout_warning">احتمال اتمام حجم پیش از تاریخ انقضا (حدود %1$s روز باقی‌مانده با مصرف فعلی).</string>
+    <string name="sub_link_tools_title">لینک اشتراک شما</string>
+    <string name="sub_link_private_warning">لینک محرمانه است — آن را در گروه‌ها یا برای دیگران منتشر نکنید.</string>
+    <string name="sub_qr_title">کد QR لینک اشتراک</string>
+    <string name="sub_account_actions_title">مدیریت حساب و دستگاه‌ها</string>
+    <string name="sub_manage_devices">دستگاه‌ها (HWID)</string>
+    <string name="sub_devices_subtitle">دستگاه‌های متصل به این اشتراک</string>
+    <string name="sub_this_device">این دستگاه</string>
+    <string name="sub_request_reset">ریست ترافیک</string>
+    <string name="sub_request_new_link">لینک اشتراک جدید</string>
+    <string name="sub_confirm_reset_desc">آیا درخواست ریست شمارنده مصرف ترافیک به سرور ارسال شود؟</string>
+    <string name="sub_confirm_new_link_desc">آیا درخواست صدور لینک اشتراک جدید ثبت شود؟ پس از تعویض، لینک قبلی غیرفعال می‌شود.</string>
+    <string name="sub_contact_support">ارتباط با پشتیبانی</string>
+    <string name="sub_ticket_title">ارسال تیکت پشتیبانی</string>
+    <string name="sub_ticket_subject">موضوع</string>
+    <string name="sub_ticket_message">توضیح مشکل یا درخواست شما…</string>
+    <string name="sub_ticket_send">ثبت تیکت</string>
+
+    <string name="plans_title">پلن‌ها و تمدید</string>
+    <string name="plans_compare">مقایسه پلن‌ها</string>
+    <string name="plans_cat_renew">تمدید اشتراک</string>
+    <string name="plans_cat_upgrade">ارتقا / پلن جدید</string>
+    <string name="plans_cat_extra_traffic">حجم اضافه</string>
+    <string name="plans_cat_extra_days">زمان اضافه</string>
+    <string name="plans_recommended_for_you">پیشنهادی برای مصرف شما</string>
+    <string name="plans_choose_cta">انتخاب این پلن</string>
+    <string name="plans_resume_order_title">سفارش ناتمام دارید</string>
+    <string name="plans_resume_cta">ادامه پرداخت</string>
+    <string name="plans_error_title">خطا در دریافت لیست پلن‌ها</string>
+    <string name="plans_empty_title">پلنی در این دسته موجود نیست</string>
+    <string name="plans_empty_desc">از تب‌های بالا پلن‌های تمدید یا بسته‌های اضافه را مشاهده کنید.</string>
+    <string name="compare_data">حجم</string>
+    <string name="compare_duration">مدت</string>
+    <string name="compare_devices">دستگاه</string>
+    <string name="compare_per_gb">هر گیگ</string>
+
+    <string name="checkout_summary_title">خلاصه سفارش</string>
+    <string name="checkout_card_title">پرداخت کارت‌به‌کارت</string>
+    <string name="checkout_waiting_title">بررسی و تأیید پرداخت</string>
+    <string name="checkout_success_title">پرداخت تأیید شد</string>
+    <string name="checkout_base_price">قیمت پلن</string>
+    <string name="checkout_discount">تخفیف</string>
+    <string name="checkout_wallet_slot">اعتبار کیف پول</string>
+    <string name="checkout_final_price">مبلغ نهایی قابل پرداخت</string>
+    <string name="checkout_discount_title">کد تخفیف</string>
+    <string name="checkout_apply_code">اعمال</string>
+    <string name="checkout_method_title">روش پرداخت</string>
+    <string name="checkout_method_card">کارت‌به‌کارت</string>
+    <string name="checkout_method_card_desc">انتقال وجه مستقیم بانکی و ثبت رسید</string>
+    <string name="checkout_method_gateway">درگاه پرداخت آنلاین</string>
+    <string name="checkout_method_crypto">پرداخت ارزی (USDT / TON)</string>
+    <string name="checkout_continue_card">ادامه و نمایش شماره کارت</string>
+    <string name="checkout_window_remaining">مهلت باقی‌مانده پرداخت</string>
+    <string name="checkout_exact_amount">مبلغ دقیق واریزی</string>
+    <string name="checkout_do_not_round_note">لطفاً دقیقاً مبلغ فوق را واریز کنید و مبلغ را رند ننمایید.</string>
+    <string name="checkout_steps_title">راهنمای گام‌به‌گام پرداخت</string>
+    <string name="checkout_step_1">۱. شماره کارت مقصد و مبلغ دقیق را با یک لمس کپی کنید.</string>
+    <string name="checkout_step_2">۲. از همراه بانک واریز را انجام دهید و نام صاحب حساب را تطبیق دهید.</string>
+    <string name="checkout_step_3">۳. ۴ رقم آخر کارت خود یا کد پیگیری را وارد کرده، تصویر رسید را ضمیمه و ثبت کنید.</string>
+    <string name="checkout_payer_form_title">اطلاعات واریز شما</string>
+    <string name="checkout_payer_last4">۴ رقم آخر کارت مبدا</string>
+    <string name="checkout_tracking_number">شماره پیگیری / ارجاع</string>
+    <string name="checkout_upload_receipt">پیوست تصویر رسید (اختیاری)</string>
+    <string name="checkout_receipt_attached">تصویر رسید فشرده و پیوست شد</string>
+    <string name="checkout_submit_receipt_cta">ثبت رسید و ارسال برای تأیید</string>
+    <string name="checkout_pending_heading">در انتظار تأیید پرداخت</string>
+    <string name="checkout_pending_desc">سفارش %1$s ثبت شد. وضعیت به‌طور خودکار بروز می‌شود؛ می‌توانید صفحه را ببندید و بعداً از بخش سفارش‌ها پیگیری کنید.</string>
+    <string name="checkout_leave_and_track">پیگیری در تاریخچه سفارش‌ها</string>
+    <string name="checkout_rejected_heading">رسید تأیید نشد</string>
+    <string name="checkout_rejected_default">رسید ارسال‌شده قابل تأیید نبود. لطفاً مجدداً ارسال کنید.</string>
+    <string name="checkout_retry_receipt">ارسال مجدد رسید</string>
+    <string name="checkout_expired_heading">مهلت پرداخت به پایان رسید</string>
+    <string name="checkout_expired_desc">مهلت ۳۰ دقیقه‌ای این سفارش منقضی شد. برای پرداخت، سفارش جدیدی ثبت کنید.</string>
+    <string name="checkout_start_new_order">ثبت سفارش جدید</string>
+    <string name="checkout_syncing_sub">در حال بروزرسانی اشتراک و سرورها…</string>
+
+    <string name="orders_title">تاریخچه سفارش‌ها</string>
+    <string name="order_status_pending">در انتظار</string>
+    <string name="order_status_approved">تأیید شده</string>
+    <string name="order_status_rejected">رد شده</string>
+    <string name="order_status_expired">منقضی شده</string>
+    <string name="orders_empty_title">هنوز سفارشی ثبت نشده است</string>
+    <string name="orders_empty_desc">سفارش‌های تمدید و خرید حجم شما با وضعیت زنده و رسید قابل اشتراک اینجا نمایش داده می‌شوند.</string>
+    <string name="orders_date_label">تاریخ ثبت</string>
+    <string name="orders_timeline_title">مراحل سفارش</string>
+    <string name="orders_share_invoice">دریافت / اشتراک رسید</string>
+    <string name="orders_view_receipt">مشاهده رسید در سفارش‌ها</string>
+    <string name="orders_invoice_error">خطا در ساخت تصویر رسید</string>
 </resources>

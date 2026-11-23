@@ -1,0 +1,230 @@
+{
+  "currency": "TOMAN",
+  "paymentWindowMinutes": 30,
+  "destinationCard": {
+    "cardNumber": "6037997512348901",
+    "holderNameFa": "شرکت فناوری پاسارگارد نتورک",
+    "holderNameEn": "PasarGuard Network Tech",
+    "bankNameFa": "بانک ملی ایران",
+    "bankNameEn": "Bank Melli Iran"
+  },
+  "plans": [
+    {
+      "id": "renew_1m_50g",
+      "category": "RENEW",
+      "titleFa": "یک‌ماهه • ۵۰ گیگابایت",
+      "titleEn": "1 Month • 50 GB",
+      "durationDays": 30,
+      "dataLimitGb": 50,
+      "priceToman": 165000,
+      "oldPriceToman": 195000,
+      "tagFa": null,
+      "tagEn": null,
+      "isPopular": false,
+      "isBestValue": false,
+      "maxDevices": 2,
+      "featuresFa": [
+        "سرعت نامحدود روی تمام لوکیشن‌ها",
+        "پشتیبانی کامل VLESS Reality و XHTTP",
+        "اتصال همزمان ۲ دستگاه"
+      ],
+      "featuresEn": [
+        "Full speed on all locations",
+        "Full VLESS Reality & XHTTP support",
+        "Up to 2 simultaneous devices"
+      ]
+    },
+    {
+      "id": "renew_3m_150g",
+      "category": "RENEW",
+      "titleFa": "سه‌ماهه • ۱۵۰ گیگابایت",
+      "titleEn": "3 Months • 150 GB",
+      "durationDays": 90,
+      "dataLimitGb": 150,
+      "priceToman": 420000,
+      "oldPriceToman": 525000,
+      "tagFa": "محبوب‌ترین",
+      "tagEn": "Most Popular",
+      "isPopular": true,
+      "isBestValue": false,
+      "maxDevices": 3,
+      "featuresFa": [
+        "۲۰٪ صرفه‌جویی نسبت به خرید ماهانه",
+        "اولویت اتصال در سرورهای اروپا و امارات",
+        "اتصال همزمان ۳ دستگاه"
+      ],
+      "featuresEn": [
+        "20% savings vs monthly renewal",
+        "Priority EU & UAE high-speed nodes",
+        "Up to 3 simultaneous devices"
+      ]
+    },
+    {
+      "id": "renew_6m_unlimited",
+      "category": "RENEW",
+      "titleFa": "شش‌ماهه • حجم نامحدود",
+      "titleEn": "6 Months • Unlimited",
+      "durationDays": 180,
+      "dataLimitGb": null,
+      "priceToman": 890000,
+      "oldPriceToman": 1150000,
+      "tagFa": "به‌صرفه‌ترین",
+      "tagEn": "Best Value",
+      "isPopular": false,
+      "isBestValue": true,
+      "maxDevices": 4,
+      "featuresFa": [
+        "ترافیک بدون محدودیت (سیاست مصرف منصفانه)",
+        "پشتیبانی اختصاصی سریع تلگرام",
+        "اتصال همزمان ۴ دستگاه"
+      ],
+      "featuresEn": [
+        "Unlimited traffic (fair use)",
+        "Priority Telegram support",
+        "Up to 4 simultaneous devices"
+      ]
+    },
+    {
+      "id": "upgrade_pro_250g",
+      "category": "UPGRADE",
+      "titleFa": "ارتقا به پرو • ۲۵۰ گیگ (۳ ماهه)",
+      "titleEn": "Pro Upgrade • 250 GB (90d)",
+      "durationDays": 90,
+      "dataLimitGb": 250,
+      "priceToman": 590000,
+      "oldPriceToman": 720000,
+      "tagFa": "مناسب مصرف بالا",
+      "tagEn": "Heavy Usage",
+      "isPopular": true,
+      "isBestValue": false,
+      "maxDevices": 5,
+      "featuresFa": [
+        "مناسب استریم 4K و تماس تصویری مداوم",
+        "دسترسی به نودهای ویژه گیم و ترید",
+        "اتصال همزمان ۵ دستگاه"
+      ],
+      "featuresEn": [
+        "Built for 4K streaming & video calls",
+        "Dedicated low-jitter gaming & trading nodes",
+        "Up to 5 simultaneous devices"
+      ]
+    },
+    {
+      "id": "upgrade_family_500g",
+      "category": "UPGRADE",
+      "titleFa": "پلن خانواده • ۵۰۰ گیگ (۶ ماهه)",
+      "titleEn": "Family Plan • 500 GB (180d)",
+      "durationDays": 180,
+      "dataLimitGb": 500,
+      "priceToman": 1090000,
+      "oldPriceToman": 1350000,
+      "tagFa": "به‌صرفه‌ترین",
+      "tagEn": "Best Value",
+      "isPopular": false,
+      "isBestValue": true,
+      "maxDevices": 8,
+      "featuresFa": [
+        "قابل استفاده روی ۸ دستگاه همزمان",
+        "پایداری تضمینی و آی‌پی ثابت تمیز",
+        "مدیریت دستگاه‌ها داخل اپلیکیشن"
+      ],
+      "featuresEn": [
+        "Share across up to 8 devices",
+        "Clean static-grade exit IPs",
+        "In-app device management"
+      ]
+    },
+    {
+      "id": "addon_traffic_10g",
+      "category": "EXTRA_TRAFFIC",
+      "titleFa": "بسته حجم اضافه • ۱۰ گیگابایت",
+      "titleEn": "Extra Traffic • +10 GB",
+      "durationDays": 0,
+      "dataLimitGb": 10,
+      "priceToman": 45000,
+      "oldPriceToman": null,
+      "tagFa": null,
+      "tagEn": null,
+      "isPopular": false,
+      "isBestValue": false,
+      "maxDevices": null,
+      "featuresFa": [
+        "افزودن فوری ۱۰ گیگ به حجم باقی‌مانده",
+        "بدون تغییر در تاریخ انقضای فعلی"
+      ],
+      "featuresEn": [
+        "Instant +10 GB added to current quota",
+        "Keeps your existing expiry date"
+      ]
+    },
+    {
+      "id": "addon_traffic_50g",
+      "category": "EXTRA_TRAFFIC",
+      "titleFa": "بسته حجم اضافه • ۵۰ گیگابایت",
+      "titleEn": "Extra Traffic • +50 GB",
+      "durationDays": 0,
+      "dataLimitGb": 50,
+      "priceToman": 149000,
+      "oldPriceToman": 185000,
+      "tagFa": "محبوب‌ترین",
+      "tagEn": "Most Popular",
+      "isPopular": true,
+      "isBestValue": false,
+      "maxDevices": null,
+      "featuresFa": [
+        "افزودن فوری ۵۰ گیگ به حجم اشتراک",
+        "قیمت هر گیگ کمتر از ۳ هزار تومان"
+      ],
+      "featuresEn": [
+        "Instant +50 GB added to subscription",
+        "Less than 3,000 Toman per GB"
+      ]
+    },
+    {
+      "id": "addon_days_15d",
+      "category": "EXTRA_DAYS",
+      "titleFa": "افزایش زمان • ۱۵ روز اضافه",
+      "titleEn": "Extra Time • +15 Days",
+      "durationDays": 15,
+      "dataLimitGb": 0,
+      "priceToman": 65000,
+      "oldPriceToman": null,
+      "tagFa": null,
+      "tagEn": null,
+      "isPopular": false,
+      "isBestValue": false,
+      "maxDevices": null,
+      "featuresFa": [
+        "تمدید ۱۵ روزه تاریخ انقضای فعلی",
+        "حفظ کامل حجم مصرف‌نشده قبلی"
+      ],
+      "featuresEn": [
+        "Extends expiry date by 15 days",
+        "Preserves all unused traffic"
+      ]
+    },
+    {
+      "id": "addon_days_30d",
+      "category": "EXTRA_DAYS",
+      "titleFa": "افزایش زمان • ۳۰ روز اضافه",
+      "titleEn": "Extra Time • +30 Days",
+      "durationDays": 30,
+      "dataLimitGb": 0,
+      "priceToman": 115000,
+      "oldPriceToman": 130000,
+      "tagFa": "به‌صرفه‌ترین",
+      "tagEn": "Best Value",
+      "isPopular": false,
+      "isBestValue": true,
+      "maxDevices": null,
+      "featuresFa": [
+        "تمدید ۳۰ روزه تاریخ انقضای فعلی",
+        "مناسب وقتی هنوز حجم زیادی دارید"
+      ],
+      "featuresEn": [
+        "Extends expiry date by 30 days",
+        "Ideal when you still have plenty of GB left"
+      ]
+    }
+  ]
+}
