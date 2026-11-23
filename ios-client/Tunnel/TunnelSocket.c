@@ -3,10 +3,7 @@
 #include <ifaddrs.h>
 #include <net/if.h>
 #include <string.h>
-#include <sys/ioctl.h>
-#include <sys/kern_control.h>
 #include <sys/socket.h>
-#include <sys/sys_domain.h>
 
 int32_t PasarGuardTunnelDescriptor(const char *ipv4Address) {
     struct in_addr target;
@@ -26,21 +23,13 @@ int32_t PasarGuardTunnelDescriptor(const char *ipv4Address) {
     freeifaddrs(interfaces);
     if (!interfaceName[0]) return -1;
 
-    // Locate the utun socket associated with the settings installed by Network Extension.
-    struct ctl_info control = {0};
-    strlcpy(control.ctl_name, "com.apple.net.utun_control", sizeof(control.ctl_name));
+    // Kernel-control socket level and utun interface name option on Darwin.
+    const int kernelControl = 2;
+    const int utunInterfaceName = 2;
     for (int32_t fd = 0; fd < 1024; fd++) {
-        struct sockaddr_ctl peer = {0};
-        socklen_t peerSize = sizeof(peer);
-        if (getpeername(fd, (struct sockaddr *)&peer, &peerSize) != 0) continue;
-        if (peerSize != sizeof(peer) || peer.sc_family != AF_SYSTEM || peer.ss_sysaddr != AF_SYS_CONTROL) continue;
-        if (!control.ctl_id && ioctl(fd, CTLIOCGINFO, &control) != 0) continue;
-        if (peer.sc_id != control.ctl_id) continue;
-
-        // UTUN_OPT_IFNAME (2) is the kernel-control socket option for the utun name.
         char name[IF_NAMESIZE] = {0};
         socklen_t size = sizeof(name);
-        if (getsockopt(fd, SYSPROTO_CONTROL, 2, name, &size) != 0) continue;
+        if (getsockopt(fd, kernelControl, utunInterfaceName, name, &size) != 0) continue;
         if (strncmp(name, interfaceName, sizeof(name)) == 0) return fd;
     }
     return -1;
