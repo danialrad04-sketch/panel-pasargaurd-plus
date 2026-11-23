@@ -2,6 +2,7 @@
 
 const get = (id) => document.getElementById(id);
 const fa = new Intl.NumberFormat("fa-IR");
+const compact = new Intl.NumberFormat("fa-IR", { notation: "compact", maximumFractionDigits: 1 });
 const fullDate = new Intl.DateTimeFormat("fa-IR", { timeZone: "Asia/Tehran", dateStyle: "medium", timeStyle: "short" });
 const dayLabel = new Intl.DateTimeFormat("fa-IR", { timeZone: "Asia/Tehran", month: "numeric", day: "numeric" });
 const today = new Intl.DateTimeFormat("fa-IR", { timeZone: "Asia/Tehran", dateStyle: "full" });
@@ -21,6 +22,8 @@ let depositPage = 1;
 let detailVersion = 0;
 let saving = false;
 let chosenGroups = [];
+let chartSeries = [];
+let showingCount = false;
 
 function node(tag, text, className) {
   const element = document.createElement(tag);
@@ -103,6 +106,7 @@ function ordersTable(target, orders) {
   table(target, [["اشتراک و پلن"], ["مبلغ"], ["وضعیت"], ["زمان ثبت", "optional"], ["جزئیات"]], orders.map((order) => {
     const customer = node("div");
     customer.append(node("strong", order.subscriber || "—"), node("p", order.plan_title_fa));
+    if (order.has_receipt_image) customer.append(node("span", "عکس فیش", "receipt-flag"));
     return [
       customer, money(order.final_price_toman), status(order.status), date(order.created_at_ms),
       button(order.status === "PENDING_REVIEW" ? "بررسی" : "باز کردن", () => showOrder(order.id), "text-button"),
@@ -122,24 +126,56 @@ function pages(target, total, size, current, change) {
   target.replaceChildren(info, actions);
 }
 
-function chart(series) {
+function renderChart() {
+  const series = chartSeries;
   const diagram = get("chart");
   diagram.classList.toggle("dense", series.length > 7);
-  const maximum = Math.max(1, ...series.map((point) => point.amount));
-  get("chart-tip").textContent = "";
+  const metric = showingCount ? "count" : "amount";
+  const peak = Math.max(0, ...series.map((point) => point[metric]));
+  const targetStep = Math.max(1, peak / 4);
+  const magnitude = 10 ** Math.floor(Math.log10(targetStep));
+  const step = [1, 2, 2.5, 5, 10].map((factor) => factor * magnitude)
+    .find((value) => value >= targetStep && (!showingCount || Number.isInteger(value)));
+  const axis = get("chart-axis");
+  axis.replaceChildren(...(peak ? [4, 3, 2, 1, 0] : [0]).map((tick) =>
+    node("span", (showingCount ? fa : compact).format(tick * step))));
+  const tip = get("chart-tip");
+  tip.textContent = peak ? "برای دیدن جزئیات، یک روز را انتخاب کنید." :
+    series.length ? "در این بازه سفارش تأییدشده‌ای ثبت نشده است." : "";
+  diagram.setAttribute("aria-label", showingCount ? "روند روزانهٔ تعداد سفارش‌های تأییدشده" :
+    "روند روزانهٔ مبلغ تأییدشده");
   diagram.replaceChildren(...series.map((point) => {
-    const description = dayLabel.format(point.start) + "، " + money(point.amount);
+    const description = dayLabel.format(point.start) + "، " + money(point.amount) + " · " + fa.format(point.count) + " سفارش";
     const wrap = node("button", null, "bar-wrap");
     wrap.type = "button";
     wrap.title = description;
     wrap.setAttribute("aria-label", description);
-    wrap.addEventListener("click", () => { get("chart-tip").textContent = description + " · " + fa.format(point.count) + " سفارش"; });
+    wrap.addEventListener("click", () => { tip.textContent = description; });
     const bar = node("progress");
-    bar.max = maximum;
-    bar.value = point.amount;
+    bar.max = step * 4;
+    bar.value = point[metric];
     bar.setAttribute("aria-hidden", "true");
     wrap.append(bar, node("time", dayLabel.format(point.start)));
     return wrap;
+  }));
+}
+
+function renderReviewQueue(orders) {
+  const queue = get("review-queue");
+  if (!orders.length) {
+    queue.replaceChildren(node("p", "رسیدی در صف بررسی نیست.", "empty"));
+    return;
+  }
+  queue.replaceChildren(...orders.map((order) => {
+    const item = node("div", null, "review-item");
+    const identity = node("div");
+    identity.append(node("h3", order.subscriber || "اشتراک جدید"), node("p", order.plan_title_fa));
+    if (order.has_receipt_image) identity.append(node("span", "عکس فیش", "receipt-flag"));
+    const actions = node("div", null, "review-side");
+    actions.append(node("strong", money(order.final_price_toman)),
+      button("بررسی", () => showOrder(order.id), "text-button"));
+    item.append(identity, actions);
+    return item;
   }));
 }
 
@@ -148,7 +184,8 @@ async function overview(signal) {
   if (signal.aborted) return;
   get("revenue").textContent = fa.format(data.approved_amount);
   get("approved").textContent = fa.format(data.approved_count);
-  get("automatic").textContent = fa.format(data.automatic_count) + " تأیید خودکار";
+  get("automatic").textContent = fa.format(data.automatic_count);
+  get("manual").textContent = fa.format(data.approved_count - data.automatic_count);
   get("pending").textContent = fa.format(data.pending_count);
   get("unmatched").textContent = fa.format(data.unmatched_count);
   get("bank-name").textContent = data.bank || "کارت مقصد فعال نشده";
@@ -156,11 +193,16 @@ async function overview(signal) {
   const accountMode = data.sms_account_configured ? "شناسهٔ حساب" : "شناسهٔ حساب ثبت نشده";
   get("sms-mode").textContent = data.sms_format === "blu" ? "بلو" : accountMode;
   ordersTable(get("recent"), data.orders);
-  chart(data.series);
+  renderReviewQueue(data.review_queue);
+  chartSeries = data.series;
+  renderChart();
 }
 
 async function orderList(signal) {
-  const query = new URLSearchParams({ page: orderPage, q: get("search").value.trim(), status: get("order-status").value });
+  const query = new URLSearchParams({
+    page: orderPage, q: get("search").value.trim(), status: get("order-status").value,
+    receipt: get("receipt-filter").value,
+  });
   const data = await request("/api/orders?" + query, { signal });
   if (signal.aborted) return;
   ordersTable(get("orders-table"), data.orders);
@@ -306,29 +348,60 @@ async function showOrder(orderId) {
       const image = node("img");
       image.src = receipt.href;
       image.alt = "عکس فیش پرداخت";
+      image.addEventListener("error", () => {
+        image.replaceWith(node("p", "پیش‌نمایش بارگیری نشد."));
+      });
       receipt.append(image, node("span", "باز کردن تصویر کامل فیش"));
       errorNotice.after(receipt);
     }
     if (data.order.status === "PENDING_REVIEW") {
       const actions = node("div", null, "dialog-actions");
-      async function review(decision, prompt) {
-        if (!window.confirm(prompt)) return;
-        for (const action of actions.children) action.disabled = true;
+      const confirmation = node("div", null, "confirmation");
+      confirmation.hidden = true;
+      const question = node("p");
+      const choices = node("div", null, "dialog-actions");
+      let decision;
+      let trigger;
+      const confirm = button("ثبت تصمیم", async () => {
+        confirm.disabled = true;
+        cancel.disabled = true;
+        setNotice("", false, errorNotice);
         try {
           await request("/orders/" + encodeURIComponent(orderId), { method: "POST", body: new URLSearchParams({ decision }) });
-          if (version === detailVersion && dialog.open) await showOrder(orderId);
+          if (version === detailVersion && dialog.open) {
+            await showOrder(orderId);
+            dialog.querySelector("button").focus();
+          }
           await load();
           setNotice("نتیجهٔ بررسی ثبت شد.");
         } catch (error) {
           setNotice(error.message, true, errorNotice);
-          for (const action of actions.children) action.disabled = false;
+          errorNotice.scrollIntoView({ block: "nearest" });
+          confirm.disabled = false;
+          cancel.disabled = false;
         }
+      }, "primary");
+      const cancel = button("انصراف", () => {
+        confirmation.hidden = true;
+        actions.hidden = false;
+        trigger.focus();
+      });
+      function ask(event, value, text) {
+        trigger = event.currentTarget;
+        decision = value;
+        question.textContent = text;
+        confirm.className = value === "APPROVED" ? "button primary" : "button danger";
+        actions.hidden = true;
+        confirmation.hidden = false;
+        cancel.focus();
       }
       actions.append(
-        button("تأیید واریز", () => review("APPROVED", "واریز را با گردش حساب بانک تطبیق داده‌اید؟"), "primary"),
-        button("رد رسید", () => review("REJECTED", "رسید این سفارش رد شود؟"), "danger"),
+        button("تأیید واریز", (event) => ask(event, "APPROVED", "واریز را با گردش حساب بانک تطبیق داده‌اید؟"), "primary"),
+        button("رد رسید", (event) => ask(event, "REJECTED", "رسید این سفارش رد شود؟"), "danger"),
       );
-      content.append(actions);
+      choices.append(confirm, cancel);
+      confirmation.append(question, choices);
+      content.append(actions, confirmation);
     }
   } catch (error) {
     if (version === detailVersion && dialog.open) content.replaceChildren(node("p", error.message, "empty"));
@@ -337,13 +410,57 @@ async function showOrder(orderId) {
 
 get("order-dialog").addEventListener("close", () => { detailVersion++; });
 window.addEventListener("hashchange", navigate);
+document.querySelector(".skip").addEventListener("click", (event) => {
+  event.preventDefault();
+  get("main").focus();
+  get("main").scrollIntoView();
+});
 get("today").textContent = today.format(Date.now());
 get("refresh").addEventListener("click", () => load());
 get("period").addEventListener("change", () => load());
 get("order-filters").addEventListener("submit", (event) => { event.preventDefault(); orderPage = 1; load(); });
-get("order-status").addEventListener("change", () => { orderPage = 1; load(); });
+for (const id of ["order-status", "receipt-filter"]) {
+  get(id).addEventListener("change", () => { orderPage = 1; load(); });
+}
+get("global-search-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  get("search").value = get("global-search").value.trim();
+  get("order-status").value = "";
+  get("receipt-filter").value = "";
+  orderPage = 1;
+  if (active === "orders") load();
+  else location.hash = "orders";
+});
+get("chart-count-toggle").addEventListener("click", (event) => {
+  showingCount = !showingCount;
+  event.currentTarget.setAttribute("aria-pressed", String(showingCount));
+  event.currentTarget.textContent = showingCount ? "نمایش مبلغ" : "نمایش تعداد";
+  renderChart();
+});
+const themePreference = window.matchMedia("(prefers-color-scheme: dark)");
+let savedTheme;
+try { savedTheme = localStorage.getItem("billing-theme"); } catch {}
+function setTheme(dark) {
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+  get("theme").setAttribute("aria-pressed", String(dark));
+}
+setTheme(savedTheme ? savedTheme === "dark" : themePreference.matches);
+themePreference.addEventListener("change", (event) => {
+  if (!savedTheme) setTheme(event.matches);
+});
+get("theme").addEventListener("click", () => {
+  const dark = document.documentElement.dataset.theme !== "dark";
+  savedTheme = dark ? "dark" : "light";
+  setTheme(dark);
+  try { localStorage.setItem("billing-theme", savedTheme); } catch {}
+});
 get("deposit-match").addEventListener("change", () => { depositPage = 1; load(); });
-get("pending-link").addEventListener("click", () => { get("search").value = ""; get("order-status").value = "PENDING_REVIEW"; orderPage = 1; });
+get("pending-link").addEventListener("click", () => {
+  get("search").value = "";
+  get("order-status").value = "PENDING_REVIEW";
+  get("receipt-filter").value = "";
+  orderPage = 1;
+});
 get("unmatched-link").addEventListener("click", () => { get("deposit-match").value = "unmatched"; depositPage = 1; });
 
 get("card-form").addEventListener("submit", async (event) => {

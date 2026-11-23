@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <title>مدیریت پرداخت | پاسارگارد پلاس</title>
+  <link rel="preload" href="/assets/fonts/vazirmatn.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/admin/dashboard.css">
   <script src="/admin/dashboard.js" defer></script>
 </head>
@@ -16,66 +17,87 @@
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
         <span><strong>پاسارگارد پلاس</strong><small>مدیریت پرداخت</small></span>
       </a>
-      <nav aria-label="منوی مدیریت">
-        <a href="#overview" data-tab="overview" aria-current="page"><span aria-hidden="true">⌂</span> نمای کلی</a>
-        <a href="#orders" data-tab="orders"><span aria-hidden="true">≡</span> سفارش‌ها</a>
-        <a href="#deposits" data-tab="deposits"><span aria-hidden="true">↓</span> واریزی‌ها</a>
-        <a href="#settings" data-tab="settings"><span class="nav-card" aria-hidden="true"></span> کارت مقصد</a>
+      <nav class="navigation" aria-label="منوی مدیریت">
+        <a href="#overview" data-tab="overview" aria-current="page"><i class="icon i-grid" aria-hidden="true"></i>نمای کلی</a>
+        <a href="#orders" data-tab="orders"><i class="icon i-order" aria-hidden="true"></i>سفارش‌ها</a>
+        <a href="#deposits" data-tab="deposits"><i class="icon i-deposit" aria-hidden="true"></i>واریزی‌ها</a>
+        <a href="#settings" data-tab="settings"><i class="icon i-card" aria-hidden="true"></i>تنظیمات</a>
       </nav>
       <div class="sidebar-footer">
-        <a href="/" target="_blank" rel="noopener">صفحهٔ پرداخت <span class="external-mark" aria-hidden="true"></span></a>
-        <div class="profile"><span aria-hidden="true">م</span><div><strong>مدیر پرداخت</strong><small>دسترسی مدیریت</small></div></div>
+        <a href="/" target="_blank" rel="noopener"><i class="icon i-external" aria-hidden="true"></i>صفحهٔ پرداخت</a>
+        <div class="profile"><span aria-hidden="true">م</span><div><strong>مدیر پرداخت</strong><small>پاسارگارد پلاس</small></div></div>
       </div>
     </aside>
-    <main id="main">
+    <main id="main" tabindex="-1">
       <header class="topbar">
         <div class="crumb">مدیریت پرداخت <span aria-hidden="true">/</span> <strong id="title">نمای کلی</strong></div>
+        <form id="global-search-form" class="top-search" role="search">
+          <label class="sr-only" for="global-search">جست‌وجوی سفارش</label>
+          <button class="button icon-button" type="submit" aria-label="جست‌وجوی سفارش"><i class="icon i-search" aria-hidden="true"></i></button>
+          <input id="global-search" name="q" type="search" autocomplete="off" maxlength="100" placeholder="جست‌وجوی سفارش…">
+        </form>
         <div class="toolbar">
-          <span id="updated"></span>
-          <button type="button" id="refresh" class="button subtle">↻ <span>به‌روزرسانی</span></button>
+          <button type="button" id="theme" class="button subtle icon-button" aria-label="حالت تاریک" aria-pressed="false"><i class="icon i-theme" aria-hidden="true"></i></button>
+          <button type="button" id="refresh" class="button subtle" aria-label="به‌روزرسانی داده‌ها"><span class="refresh-mark" aria-hidden="true">↻</span><span class="refresh-label">به‌روزرسانی</span></button>
         </div>
       </header>
       <div class="content">
         <noscript><p class="notice">برای کار با پنل، جاوااسکریپت مرورگر را فعال کنید.</p></noscript>
         <p id="notice" class="notice" role="status" hidden></p>
         <section id="overview" data-view>
-          <div class="hero">
-            <div><p id="today" class="hero-date"></p><h1>داشبورد پرداخت</h1><p>واریزهای کارت‌به‌کارت و سفارش‌های اندروید و وب را پیگیری کنید.</p></div>
-            <div class="hero-action">
-              <label for="period">بازه گزارش</label>
-              <select id="period"><option value="7">۷ روز اخیر</option><option value="30">۳۰ روز اخیر</option></select>
-            </div>
+          <div class="page-heading page-heading-row">
+            <div><h1>داشبورد پرداخت</h1><p id="today"></p></div>
+            <div class="period-box"><label for="period">بازهٔ گزارش</label><select id="period"><option value="7">۷ روز اخیر</option><option value="30">۳۰ روز اخیر</option></select></div>
           </div>
-          <div class="metrics">
-            <article class="metric"><span class="metric-mark mint" aria-hidden="true"><i class="trend-mark"></i></span><p>مبلغ تأییدشده</p><strong id="revenue">—</strong><small>تومان در بازهٔ گزارش</small></article>
-            <article class="metric"><span class="metric-mark blue" aria-hidden="true">✓</span><p>سفارش تأییدشده</p><strong id="approved">—</strong><small id="automatic">در بازهٔ گزارش</small></article>
-            <article class="metric"><span class="metric-mark amber" aria-hidden="true">◷</span><p>در انتظار بررسی</p><strong id="pending">—</strong><a href="#orders" id="pending-link">مشاهدهٔ صف بررسی ←</a></article>
-            <article class="metric"><span class="metric-mark violet" aria-hidden="true">↓</span><p>واریز بدون سفارش</p><strong id="unmatched">—</strong><a href="#deposits" id="unmatched-link">مشاهدهٔ واریزی‌ها ←</a></article>
+          <div class="lead-grid">
+            <article class="surface chart-surface" aria-labelledby="chart-title">
+              <div class="chart-head">
+                <div>
+                  <h2 id="chart-title">مبلغ تأییدشده</h2>
+                  <div class="total-line"><strong id="revenue">—</strong><span>تومان</span></div>
+                </div>
+                <button id="chart-count-toggle" type="button" class="button subtle" aria-pressed="false">نمایش تعداد</button>
+              </div>
+              <figure class="sales-chart">
+                <div class="chart-frame">
+                  <div id="chart-axis" class="chart-axis" aria-hidden="true"></div>
+                  <div id="chart" class="chart" aria-label="روند روزانهٔ مبلغ تأییدشده"></div>
+                </div>
+                <figcaption><p id="chart-tip" class="chart-tip" role="status"></p></figcaption>
+              </figure>
+              <div class="approval-strip">
+                <div><span>سفارش تأییدشده</span><strong id="approved">—</strong></div>
+                <div><span>تأیید خودکار</span><strong id="automatic">—</strong></div>
+                <div><span>تأیید دستی</span><strong id="manual">—</strong></div>
+              </div>
+            </article>
+            <article class="surface queue-surface">
+              <div class="section-head"><div><h2>صف بررسی</h2><p>رسیدهای در انتظار تصمیم</p></div><strong class="count-pill" id="pending" aria-label="تعداد رسیدهای در انتظار">—</strong></div>
+              <div id="review-queue" class="review-queue"></div>
+              <a href="#orders" class="button primary full" id="pending-link">مشاهدهٔ همهٔ رسیدها</a>
+              <a href="#deposits" class="unmatched-link" id="unmatched-link"><span>واریزهای بدون سفارش</span><strong id="unmatched">—</strong></a>
+            </article>
           </div>
-          <div class="split">
-            <article class="surface chart-surface">
-              <div class="section-head"><div><h2>روند مبلغ تأییدشده</h2><p>جمع روزانهٔ پرداخت‌ها به تومان</p></div><span class="legend">پرداخت تأییدشده</span></div>
-              <div id="chart" class="chart" aria-label="مبلغ تأییدشده در هر روز"></div>
-              <p id="chart-tip" class="chart-tip" role="status"></p>
+          <div class="support-grid">
+            <article class="surface">
+              <div class="section-head"><div><h2>آخرین سفارش‌ها</h2><p>ثبت‌شده در اپ و صفحهٔ پرداخت</p></div><a class="button subtle" href="#orders">همهٔ سفارش‌ها</a></div>
+              <div id="recent" class="table-area"></div>
             </article>
             <article class="surface connection">
-              <div class="section-head"><div><h2>تنظیمات پرداخت</h2><p>کارت مقصد و قالب ثبت واریز</p></div></div>
+              <div class="section-head"><div><h2>کارت مقصد</h2><p>کارت فعال برای سفارش‌های جدید</p></div></div>
               <div class="bank-card"><span id="bank-name">—</span><strong id="card-preview" dir="ltr">•••• •••• •••• —</strong></div>
               <div class="connection-detail"><span>قالب پیامک</span><strong id="sms-mode">—</strong></div>
-              <a class="button subtle full" href="#settings">مدیریت کارت مقصد</a>
+              <a class="button subtle full" href="#settings">مدیریت کارت و اتصال</a>
             </article>
           </div>
-          <article class="surface">
-            <div class="section-head"><div><h2>آخرین سفارش‌ها</h2><p>سفارش‌های ثبت‌شده در اپ و وب</p></div><a class="button subtle" href="#orders">همهٔ سفارش‌ها</a></div>
-            <div id="recent" class="table-area"></div>
-          </article>
         </section>
         <section id="orders" data-view hidden>
-          <div class="page-heading"><h1>سفارش‌ها</h1><p>پرداخت‌ها را جست‌وجو کنید و رسیدهای در انتظار بررسی را مدیریت کنید.</p></div>
-          <article class="surface">
+          <div class="page-heading"><h1>سفارش‌ها</h1><p>پیگیری سفارش و بررسی تصویر فیش</p></div>
+          <article class="surface listing">
             <form class="filters" id="order-filters">
-              <label class="grow">جست‌وجو<input id="search" placeholder="اشتراک، پلن، شناسه یا شمارهٔ پیگیری" maxlength="100"></label>
-              <label>وضعیت<select id="order-status"><option value="">همهٔ وضعیت‌ها</option><option value="PENDING_REVIEW">در انتظار بررسی</option><option value="AWAITING_RECEIPT">در انتظار واریز</option><option value="APPROVED">تأییدشده</option><option value="REJECTED">ردشده</option><option value="EXPIRED">منقضی</option></select></label>
+              <label class="field field-grow">جست‌وجو<input id="search" name="q" type="search" autocomplete="off" placeholder="اشتراک، پلن، شناسه یا شمارهٔ پیگیری…" maxlength="100"></label>
+              <label class="field">وضعیت<select id="order-status" name="status"><option value="">همهٔ وضعیت‌ها</option><option value="PENDING_REVIEW">در انتظار بررسی</option><option value="AWAITING_RECEIPT">در انتظار واریز</option><option value="APPROVED">تأییدشده</option><option value="REJECTED">ردشده</option><option value="EXPIRED">منقضی</option></select></label>
+              <label class="field">فیش تصویری<select id="receipt-filter" name="receipt"><option value="">همهٔ سفارش‌ها</option><option value="image">دارای عکس فیش</option></select></label>
               <button type="submit" class="button primary">جست‌وجو</button>
             </form>
             <div id="orders-table" class="table-area"></div>
@@ -83,46 +105,49 @@
           </article>
         </section>
         <section id="deposits" data-view hidden>
-          <div class="page-heading"><h1>واریزی‌ها</h1><p>واریزی‌های ثبت‌شده از مسیر پیامک بانک و سفارش‌های مرتبط.</p></div>
-          <article class="surface">
-            <div class="filters"><label>تطبیق با سفارش<select id="deposit-match"><option value="">همهٔ واریزی‌ها</option><option value="matched">دارای سفارش</option><option value="unmatched">بدون سفارش</option></select></label></div>
+          <div class="page-heading"><h1>واریزی‌ها</h1><p>واریزهای پیامکی و وضعیت تطبیق آن‌ها</p></div>
+          <article class="surface listing">
+            <div class="filters"><label class="field">تطبیق با سفارش<select id="deposit-match" name="match"><option value="">همهٔ واریزی‌ها</option><option value="matched">دارای سفارش</option><option value="unmatched">بدون سفارش</option></select></label></div>
             <div id="deposits-table" class="table-area"></div>
             <div id="deposits-pages" class="pagination"></div>
           </article>
         </section>
         <section id="settings" data-view hidden>
-          <div class="page-heading"><h1>کارت مقصد</h1><p>کارت پرداخت سفارش‌های جدید اندروید و وب را مدیریت کنید.</p></div>
+          <div class="page-heading"><h1>تنظیمات پرداخت</h1><p>کارت مقصد و اتصال به پنل پاسارگارد</p></div>
           <div class="settings-grid">
             <article class="surface">
-              <div class="section-head"><div><h2>اطلاعات کارت</h2><p>سفارش‌های قبلی اطلاعات کارت زمان ثبت خود را نگه می‌دارند.</p></div></div>
+              <div class="section-head"><div><h2>اطلاعات کارت مقصد</h2><p>تغییرات برای سفارش‌های بعدی اعمال می‌شوند.</p></div></div>
               <form id="card-form" class="settings-form">
-                <label>شماره کارت<input id="card-number" type="text" dir="ltr" inputmode="numeric" autocomplete="off" maxlength="32" required></label>
-                <label>نام دارنده<input id="card-holder" maxlength="100" required></label>
-                <label>نام بانک<input id="card-bank" maxlength="80" required></label>
-                <label class="check"><input id="same-account" type="checkbox" required> کارت متعلق به همان حساب متصل به سامانهٔ پیامک است.</label>
+                <label class="field">شماره کارت<input id="card-number" name="card-number" type="text" dir="ltr" inputmode="numeric" autocomplete="off" maxlength="32" required></label>
+                <div class="field-pair">
+                  <label class="field">نام دارنده<input id="card-holder" name="card-holder" autocomplete="off" maxlength="100" required></label>
+                  <label class="field">نام بانک<input id="card-bank" name="card-bank" autocomplete="off" maxlength="80" required></label>
+                </div>
+                <label class="check"><input id="same-account" name="same-account" type="checkbox" required> این کارت متعلق به حسابی است که پیامک واریز را می‌فرستد.</label>
                 <button type="submit" class="button primary">ذخیرهٔ کارت مقصد</button>
               </form>
             </article>
             <article class="surface">
-              <div class="section-head"><div><h2>سابقهٔ تغییرات کارت</h2><p>زمان تغییر و چهار رقم آخر کارت‌ها</p></div></div>
-              <div id="card-history" class="table-area"></div>
-            </article>
-            <article class="surface">
               <div class="section-head"><div><h2>ساخت خودکار اشتراک</h2><p id="provision-state"></p></div></div>
               <form id="provision-form" class="settings-form">
-                <label>کلید API پاسارگارد<input id="provision-key" type="password" dir="ltr" autocomplete="off" maxlength="2048"></label>
+                <label class="field">کلید API پاسارگارد<input id="provision-key" name="provision-key" type="password" dir="ltr" autocomplete="off" spellcheck="false" maxlength="2048"></label>
                 <button id="load-groups" type="button" class="button subtle">دریافت گروه‌های سرور</button>
                 <fieldset id="group-options" hidden><legend>گروه‌های اشتراک جدید</legend><div id="provision-groups"></div></fieldset>
                 <button id="save-provision" type="submit" class="button primary" disabled>ذخیرهٔ اتصال</button>
               </form>
             </article>
+            <article class="surface history">
+              <div class="section-head"><div><h2>سابقهٔ تغییرات کارت</h2><p>زمان تغییر و چهار رقم آخر کارت‌ها</p></div></div>
+              <div id="card-history" class="table-area"></div>
+            </article>
           </div>
         </section>
+        <footer class="content-footer"><span id="updated"></span><a href="/" target="_blank" rel="noopener">باز کردن صفحهٔ پرداخت</a></footer>
       </div>
     </main>
   </div>
   <dialog id="order-dialog" aria-labelledby="detail-title">
-    <div class="dialog-head"><div><h2 id="detail-title">جزئیات سفارش</h2><p id="detail-id" dir="ltr"></p></div><form method="dialog"><button class="button subtle" type="submit">بستن</button></form></div>
+    <div class="dialog-head"><div><h2 id="detail-title">جزئیات سفارش</h2><p id="detail-id" dir="ltr"></p></div><form method="dialog"><button class="button subtle" type="submit" aria-label="بستن جزئیات سفارش">بستن</button></form></div>
     <div id="detail-content"></div>
   </dialog>
 </body>

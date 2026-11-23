@@ -241,6 +241,16 @@ def checkout_styles():
     return FileResponse(WEB / "checkout.css", media_type="text/css", headers=CHECKOUT_HEADERS)
 
 
+@app.get("/assets/fonts/{name}")
+def web_font(name: str):
+    if name not in {"vazirmatn.woff2", "estedad.woff2"}:
+        raise HTTPException(404)
+    return FileResponse(WEB / "fonts" / name, media_type="font/woff2", headers={
+        "Cache-Control": "public, max-age=604800",
+        "X-Content-Type-Options": "nosniff",
+    })
+
+
 def secret_digest(value):
     return hmac.new(setting("BILLING_KEY").encode(), value.encode(), "sha256").hexdigest()
 
@@ -670,6 +680,9 @@ def admin_overview(days: int = 7):
         recent_orders = [present(row, admin=True) for row in db.execute(
             "SELECT * FROM orders ORDER BY created DESC, id DESC LIMIT 6"
         )]
+        review_queue = [present(row, admin=True) for row in db.execute(
+            "SELECT * FROM orders WHERE status='PENDING_REVIEW' ORDER BY created, id LIMIT 4"
+        )]
         card = destination_card(db)
     series = []
     for start, end in pairwise(boundaries):
@@ -683,6 +696,7 @@ def admin_overview(days: int = 7):
         "pending_count": pending,
         "unmatched_count": unmatched,
         "orders": recent_orders,
+        "review_queue": review_queue,
         "card_last4": card["number"][-4:],
         "bank": card["bank"],
         "sms_format": os.getenv("SMS_FORMAT", "account"),
@@ -691,9 +705,9 @@ def admin_overview(days: int = 7):
 
 
 @admin.get("/api/orders")
-def admin_orders(status: str = "", q: str = Query(default="", max_length=100),
+def admin_orders(status: str = "", q: str = Query(default="", max_length=100), receipt: str = "",
                  page: int = Query(default=1, ge=1, le=1_000_000)):
-    if status and status not in ORDER_STATES:
+    if (status and status not in ORDER_STATES) or receipt not in ("", "image"):
         raise HTTPException(422)
     current = now()
     search = q.strip().translate(DIGITS).lower()
@@ -704,12 +718,14 @@ def admin_orders(status: str = "", q: str = Query(default="", max_length=100),
                     THEN 'EXPIRED' ELSE status END AS shown_status
                 FROM orders
             )
-            WHERE (?='' OR shown_status=?) AND (?='' OR instr(lower(id), ?)>0
+            WHERE (?='' OR shown_status=?)
+            AND (?='' OR json_extract(details, '$.has_receipt_image')=1)
+            AND (?='' OR instr(lower(id), ?)>0
                 OR instr(lower(json_extract(details, '$.subscriber')), ?)>0
                 OR instr(lower(json_extract(details, '$.plan_title_fa')), ?)>0
                 OR instr(json_extract(details, '$.tracking_number'), ?)>0)
         """
-        values = (current, status, status, search, search, search, search, search)
+        values = (current, status, status, receipt, search, search, search, search, search)
         total = db.execute("SELECT count(*) " + query, values).fetchone()[0]
         rows = db.execute(
             "SELECT * " + query + " ORDER BY created DESC, id DESC LIMIT ? OFFSET ?",
