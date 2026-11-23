@@ -60,16 +60,17 @@ struct SubscriptionService {
     }()
 
     func load(_ address: SubscriptionAddress) async throws -> SubscriptionSnapshot {
-        async let info = subscriptionInfo(address.url.appendingPathComponent("info"))
+        let device = try SubscriptionKeychain.deviceIdentifier()
+        async let info = subscriptionInfo(address.url.appendingPathComponent("info"), device: device)
         for endpoint in ["xray", "v2ray-json"] {
             try Task.checkCancellation()
-            guard let data = try? await fetch(address.url.appendingPathComponent(endpoint)) else { continue }
+            guard let data = try? await fetch(address.url.appendingPathComponent(endpoint), device: device) else { continue }
             let servers = PanelConfig.objects(from: data).enumerated().compactMap(Self.server)
             if !servers.isEmpty { return await SubscriptionSnapshot(info: info, servers: servers) }
         }
         for url in [address.url.appendingPathComponent("raw"), address.url] {
             try Task.checkCancellation()
-            guard let data = try? await fetch(url) else { continue }
+            guard let data = try? await fetch(url, device: device) else { continue }
             let servers = Self.links(from: data).enumerated().map { index, link in
                 let pieces = link.split(separator: "#", maxSplits: 1)
                 let name = pieces.count == 2 ? String(pieces[1]).removingPercentEncoding : nil
@@ -83,16 +84,18 @@ struct SubscriptionService {
         throw SubscriptionError.panelUnavailable
     }
 
-    private func subscriptionInfo(_ url: URL) async -> SubscriptionInfo? {
+    private func subscriptionInfo(_ url: URL, device: String) async -> SubscriptionInfo? {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        guard let data = try? await fetch(url) else { return nil }
+        guard let data = try? await fetch(url, device: device) else { return nil }
         return try? decoder.decode(SubscriptionInfo.self, from: data)
     }
 
-    private func fetch(_ url: URL) async throws -> Data {
+    private func fetch(_ url: URL, device: String) async throws -> Data {
         var request = URLRequest(url: url)
         request.setValue("PasarGuard-iOS/1.0", forHTTPHeaderField: "User-Agent")
+        request.setValue(device, forHTTPHeaderField: "X-HWID")
+        request.setValue("iOS", forHTTPHeaderField: "X-Device-OS")
         let (bytes, response) = try await session.bytes(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
               response.expectedContentLength <= Int64(TunnelSelection.maximumBytes) else {

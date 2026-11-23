@@ -66,8 +66,8 @@ private struct MainView: View {
                         HStack(spacing: 12) {
                             Image(systemName: "server.rack").foregroundStyle(ocean.accent)
                             VStack(alignment: .leading, spacing: 3) {
-                                Text("سرور انتخابی").font(.caption).foregroundStyle(.secondary)
-                                Text(subscription.selectedServer?.name ?? "سروری انتخاب نشده").font(.headline)
+                                Text(vpn.connected ? "سرور فعال" : "سرور انتخابی").font(.caption).foregroundStyle(.secondary)
+                                Text(vpn.activeServerName ?? subscription.selectedServer?.name ?? "سروری انتخاب نشده").font(.headline)
                             }
                             Spacer()
                             Image(systemName: "chevron.forward").foregroundStyle(.secondary)
@@ -261,7 +261,7 @@ private struct ImportSubscriptionView: View {
                         .multilineTextAlignment(.leading)
                         .privacySensitive()
                 } footer: {
-                    Text("لینک برای دریافت سرورها به دامنهٔ اشتراک فرستاده می‌شود و در Keychain این دستگاه ذخیره می‌شود.")
+                    Text("لینک و شناسهٔ تصادفی برنامه برای دریافت سرورها به دامنهٔ اشتراک فرستاده می‌شوند و در Keychain این دستگاه ذخیره می‌شوند.")
                 }
                 Section {
                     Button {

@@ -4,6 +4,7 @@ import SwiftUI
 
 @MainActor
 final class VPNController: ObservableObject {
+    @Published private(set) var activeServerName: String?
     @Published private(set) var status: NEVPNStatus = .disconnected
     @Published private(set) var preparing = false
     @Published var message: String?
@@ -34,6 +35,8 @@ final class VPNController: ObservableObject {
             waitingForConnection = false
         }
         status = newStatus
+        activeServerName = (newStatus == .disconnected || newStatus == .invalid) ? nil :
+            (manager.protocolConfiguration as? NETunnelProviderProtocol)?.providerConfiguration?["displayName"] as? String
     }
 
     func connect(to server: VPNServer) async {
@@ -50,6 +53,7 @@ final class VPNController: ObservableObject {
             let configuration = NETunnelProviderProtocol()
             configuration.providerBundleIdentifier = extensionID
             configuration.serverAddress = "PasarGuard"
+            configuration.providerConfiguration = ["displayName": server.name]
             configuration.disconnectOnSleep = false
             try server.selection.save()
             saved.localizedDescription = "PasarGuard VPN"
@@ -61,6 +65,7 @@ final class VPNController: ObservableObject {
             try saved.connection.startVPNTunnel()
             waitingForConnection = true
             status = .connecting
+            activeServerName = server.name
         } catch {
             waitingForConnection = false
             updateStatus()
@@ -85,6 +90,7 @@ final class VPNController: ObservableObject {
         waitingForConnection = false
         manager = nil
         status = .disconnected
+        activeServerName = nil
         message = nil
     }
 
