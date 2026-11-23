@@ -278,6 +278,7 @@ async function catalogList(signal) {
         facts.append(line);
       }
       card.append(heading, node("strong", money(plan.price_toman), "plan-price"), facts, button("ویرایش پلن", () => editPlan(plan), "subtle full"));
+      card.append(button("ساخت پلن مشابه", () => editPlan({...plan, id: "", title_fa: plan.title_fa + " (کپی)", visible: false}), "text-button"));
       return card;
     }));
     if (!plans.length) shelf.append(node("p", "پلنی پیدا نشد.", "empty"));
@@ -861,7 +862,7 @@ function openSections() {
   sectionsDialog.showModal();
   sectionQuery.focus();
 }
-for (const source of document.querySelectorAll(".navigation a")) {
+for (const source of document.querySelectorAll(".navigation a, .sidebar-footer > a")) {
   const link = source.cloneNode(true);
   link.removeAttribute("data-tab");
   link.removeAttribute("aria-current");
@@ -875,4 +876,9 @@ document.addEventListener("keydown", event => {
     event.preventDefault();
     openSections();
   }
+});
+
+get("clear-order-filters").addEventListener("click", () => {
+  get("order-filters").reset();
+  get("order-filters").requestSubmit();
 });
