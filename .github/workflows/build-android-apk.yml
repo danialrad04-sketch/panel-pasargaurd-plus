@@ -23,6 +23,21 @@ on:
         description: 'Branded App Name (optional override)'
         required: false
         default: 'PasarGuard VPN'
+      app_version_code:
+        description: 'Increasing Android version code'
+        required: false
+        type: string
+      app_version_name:
+        description: 'Android release version, e.g. 1.4.0'
+        required: false
+        type: string
+      publish_release:
+        description: 'Publish signed APKs and update metadata to GitHub Releases'
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
 
 jobs:
   build-apk:
@@ -68,12 +83,39 @@ jobs:
           PASARGUARD_APP_NAME: ${{ github.event.inputs.app_name || vars.PASARGUARD_APP_NAME || 'PasarGuard VPN' }}
         run: gradle :app:assembleDebug -PpasarguardOptimizeDebug=true --stacktrace
 
+      - name: Restore the persistent release signing key
+        if: inputs.publish_release
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          PASARGUARD_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+          PASARGUARD_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          PASARGUARD_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+          VERSION_CODE: ${{ inputs.app_version_code }}
+          VERSION_NAME: ${{ inputs.app_version_name }}
+          BILLING_URL: ${{ inputs.billing_base_url || vars.PASARGUARD_BILLING_URL }}
+        run: |
+          set -euo pipefail
+          [[ -n "$KEYSTORE_BASE64" && -n "$PASARGUARD_RELEASE_STORE_PASSWORD" && -n "$PASARGUARD_RELEASE_KEY_ALIAS" && -n "$PASARGUARD_RELEASE_KEY_PASSWORD" && -n "$BILLING_URL" ]]
+          [[ "$VERSION_CODE" =~ ^[1-9][0-9]{0,9}$ && "$VERSION_NAME" =~ ^[0-9]+[.][0-9]+([.][0-9]+){0,2}$ ]]
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/pasarguard-release.jks"
+          printf 'PASARGUARD_RELEASE_KEYSTORE=%s\n' "$RUNNER_TEMP/pasarguard-release.jks" >> "$GITHUB_ENV"
+
       - name: Build Release APKs by ABI
         env:
+          PASARGUARD_VERSION_CODE: ${{ inputs.app_version_code || '5' }}
+          PASARGUARD_VERSION_NAME: ${{ inputs.app_version_name || '1.4.0' }}
+          PASARGUARD_RELEASE_STORE_PASSWORD: ${{ inputs.publish_release && secrets.ANDROID_RELEASE_STORE_PASSWORD || '' }}
+          PASARGUARD_RELEASE_KEY_ALIAS: ${{ inputs.publish_release && secrets.ANDROID_RELEASE_KEY_ALIAS || '' }}
+          PASARGUARD_RELEASE_KEY_PASSWORD: ${{ inputs.publish_release && secrets.ANDROID_RELEASE_KEY_PASSWORD || '' }}
           PASARGUARD_BASE_URL: ${{ github.event.inputs.panel_base_url || vars.PASARGUARD_BASE_URL || 'https://panel.example.com' }}
           PASARGUARD_BILLING_URL: ${{ inputs.billing_base_url || vars.PASARGUARD_BILLING_URL }}
           PASARGUARD_APP_NAME: ${{ github.event.inputs.app_name || vars.PASARGUARD_APP_NAME || 'PasarGuard VPN' }}
         run: gradle :app:assembleRelease --stacktrace
+
+      - name: Remove the release signing file
+        if: always() && inputs.publish_release
+        run: rm -f "$RUNNER_TEMP/pasarguard-release.jks"
 
       - name: Verify APK architectures and report sizes
         run: |
@@ -143,3 +185,49 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
+
+
+  publish:
+    if: inputs.publish_release
+    needs: build-apk
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION_CODE: ${{ inputs.app_version_code }}
+      VERSION_NAME: ${{ inputs.app_version_name }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: PasarGuardVPN-release-*
+          path: release-assets
+          merge-multiple: true
+      - name: Publish Android release
+        run: |
+          set -euo pipefail
+          python3 - <<'PYTHON'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          version = os.environ["VERSION_NAME"]
+          tag = f"android-v{version}"
+          release = Path("release-assets")
+          assets = []
+          for abi in ("arm64-v8a", "armeabi-v7a", "x86_64"):
+              file = release / f"app-{abi}-release.apk"
+              with file.open("rb") as payload:
+                  digest = hashlib.file_digest(payload, "sha256").hexdigest()
+              assets.append({"abi": abi, "sha256": digest,
+                             "download_url": f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/releases/download/{tag}/{file.name}"})
+          (release / "pasarguard-android.json").write_text(json.dumps({
+              "latest_version": version,
+              "latest_version_code": int(os.environ["VERSION_CODE"]),
+              "package_name": "com.pasarguard.vpn",
+              "visible": True,
+              "assets": assets,
+          }))
+          PYTHON
+          gh release create "android-v$VERSION_NAME" release-assets/* --repo "$GITHUB_REPOSITORY"             --target "$GITHUB_SHA" --title "PasarGuard Android $VERSION_NAME" --generate-notes --latest

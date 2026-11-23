@@ -15,6 +15,9 @@ struct PasarGuardApp: App {
 private struct MainView: View {
     @StateObject private var subscription = SubscriptionModel()
     @StateObject private var vpn = VPNController()
+    @StateObject private var updates = AppUpdates()
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openURL) private var openURL
     @State private var tab = 0
     @State private var importing = false
     @State private var confirmingRemoval = false
@@ -34,6 +37,21 @@ private struct MainView: View {
         .task {
             await vpn.restore()
             await subscription.restore()
+        }
+        .task(id: scenePhase) {
+            if scenePhase == .active { await updates.check(manual: false) }
+        }
+        .alert(updates.release.map { "نسخهٔ جدید \($0.latestVersion)" } ?? "بررسی به‌روزرسانی",
+               isPresented: $updates.showResult) {
+            if let release = updates.release {
+                Button(release.downloadUrl.host == "testflight.apple.com" ? "باز کردن TestFlight" : "باز کردن App Store") {
+                    updates.dismiss()
+                    openURL(release.downloadUrl)
+                }
+            }
+            Button("بستن", role: .cancel) { updates.dismiss() }
+        } message: {
+            Text(updates.message)
         }
         .onReceive(NotificationCenter.default.publisher(for: .NEVPNStatusDidChange)) { _ in vpn.updateStatus() }
         .confirmationDialog("اشتراک از این آیفون حذف شود؟", isPresented: $confirmingRemoval, titleVisibility: .visible) {
@@ -169,6 +187,17 @@ private struct MainView: View {
                         Label("حساب کاربری و کیف پول", systemImage: "wallet.pass")
                     }
                 }
+            }
+            Section("به‌روزرسانی") {
+                Button {
+                    Task { await updates.check(manual: true) }
+                } label: {
+                    if updates.checking {
+                        ProgressView("در حال بررسی نسخه")
+                    } else {
+                        Label("بررسی به‌روزرسانی", systemImage: "arrow.down.circle")
+                    }
+                }.disabled(updates.checking)
             }
             Section("اطلاعات اشتراک") {
                 if let info = subscription.info {

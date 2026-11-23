@@ -339,7 +339,6 @@
     <string name="settings_backup_restored">Settings restored successfully</string>
     <string name="settings_backup_invalid">Invalid backup JSON file</string>
     <string name="settings_check_updates">Check for Updates</string>
-    <string name="settings_update_url_hint">Update JSON Endpoint URL</string>
     <string name="settings_update_available">New version available: v%1$s</string>
     <string name="settings_update_download">Download Update</string>
     <string name="settings_update_latest">You are on the latest version.</string>
@@ -471,4 +470,10 @@
     <string name="customer_portal">Account and wallet</string>
     <string name="order_transfer_to_account">Transfer order to account</string>
     <string name="order_transfer_unavailable">Order transfer is currently unavailable.</string>
+    <string name="update_checking">Checking for an update…</string>
+    <string name="update_downloading">Downloading and verifying…</string>
+    <string name="update_check_failed">Could not check for updates.</string>
+    <string name="update_download_failed">The package could not be downloaded or verified.</string>
+    <string name="update_allow_install">Allow package installation in Android settings, then select Install.</string>
+    <string name="update_install">Install</string>
 </resources>

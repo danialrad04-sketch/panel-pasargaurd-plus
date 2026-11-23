@@ -106,6 +106,7 @@ import com.pasarguard.vpn.ui.theme.LocalCalendarSystem
 import com.pasarguard.vpn.ui.theme.LocalPersianDigits
 import com.pasarguard.vpn.ui.theme.PasarGuardTheme
 import com.pasarguard.vpn.ui.theme.Spacing
+import com.pasarguard.vpn.ui.updates.LocalCheckForUpdates
 import com.pasarguard.vpn.util.Formatters
 import com.pasarguard.vpn.util.QrCodeGenerator
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -236,6 +237,7 @@ fun SubscriptionScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val colors = PasarGuardTheme.colors
     val context = LocalContext.current
+    val checkForUpdates = LocalCheckForUpdates.current
     val persianDigits = LocalPersianDigits.current
     val calendarSystem = LocalCalendarSystem.current
     val sub = state.subscription
@@ -779,6 +781,11 @@ fun SubscriptionScreen(
                     }
                 }
 
+                checkForUpdates?.let {
+                    OutlinedButton(onClick = it, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.settings_check_updates))
+                    }
+                }
                 if (BuildConfig.BILLING_BASE_URL.isNotBlank()) {
                     OutlinedButton(
                         onClick = { Formatters.openExternalUrl(context, BuildConfig.BILLING_BASE_URL.trimEnd('/') + "/account") },

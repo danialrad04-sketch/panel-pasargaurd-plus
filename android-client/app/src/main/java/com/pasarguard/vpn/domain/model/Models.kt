@@ -1,5 +1,6 @@
 package com.pasarguard.vpn.domain.model
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.math.max
 
@@ -389,11 +390,11 @@ data class DiagnosticsIpInfo(
 
 @Serializable
 data class AppUpdateInfo(
-    val latestVersion: String,
-    val latestVersionCode: Int = 0,
-    val downloadUrl: String,
+    @SerialName("latest_version") val latestVersion: String,
+    @SerialName("latest_version_code") val latestVersionCode: Int,
+    @SerialName("download_url") val downloadUrl: String,
     val changelog: String = "",
-    val forceUpdate: Boolean = false
+    val sha256: String? = null
 )
 
 enum class ConnectionStatus {

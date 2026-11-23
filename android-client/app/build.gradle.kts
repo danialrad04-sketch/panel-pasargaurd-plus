@@ -23,6 +23,10 @@ fun resolveConfig(key: String, defaultValue: String): String {
 
 val optimizeDebugApks = providers.gradleProperty("pasarguardOptimizeDebug").orNull == "true"
 val buildUniversalApk = providers.gradleProperty("pasarguardUniversalApk").orNull == "true"
+val releaseKeyStore = System.getenv("PASARGUARD_RELEASE_KEYSTORE")
+val releaseStorePassword = System.getenv("PASARGUARD_RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = System.getenv("PASARGUARD_RELEASE_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("PASARGUARD_RELEASE_KEY_PASSWORD")
 
 android {
     namespace = "com.pasarguard.vpn"
@@ -33,8 +37,10 @@ android {
         minSdk = 24
         targetSdk = 35
         resourceConfigurations += listOf("en", "fa")
-        versionCode = 4
-        versionName = "1.3.0"
+        versionCode = resolveConfig("PASARGUARD_VERSION_CODE", "5").toInt().also { require(it in 1..2_100_000_000) }
+        versionName = resolveConfig("PASARGUARD_VERSION_NAME", "1.4.0").also {
+            require(Regex("[0-9]+(?:[.][0-9]+){1,3}").matches(it))
+        }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -69,6 +75,18 @@ android {
         }
     }
 
+    signingConfigs {
+        if (!releaseKeyStore.isNullOrBlank()) {
+            require(!releaseStorePassword.isNullOrBlank() && !releaseKeyAlias.isNullOrBlank() && !releaseKeyPassword.isNullOrBlank())
+            create("distribution") {
+                storeFile = file(releaseKeyStore)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
@@ -84,7 +102,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("distribution") ?: signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

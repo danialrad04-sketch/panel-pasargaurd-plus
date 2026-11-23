@@ -103,3 +103,9 @@ The GitHub Debug downloads use R8 and resource shrinking. Local Debug builds
 stay debuggable, and can use the same optimization with
 `-PpasarguardOptimizeDebug=true`. For a larger APK that includes every
 supported architecture, opt in with `-PpasarguardUniversalApk=true`.
+
+## انتشار برای به‌روزرسانی داخل اپ
+
+Workflow ساخت اندروید برای انتشار گزینهٔ `publish_release` دارد. در GitHub Actions Secrets فایل کلید امضای همیشگی را به صورت Base64 در `ANDROID_RELEASE_KEYSTORE_BASE64` و مقادیر مربوط به آن را در `ANDROID_RELEASE_STORE_PASSWORD`، `ANDROID_RELEASE_KEY_ALIAS` و `ANDROID_RELEASE_KEY_PASSWORD` تنظیم کنید. شمارهٔ ساخت افزایشی و نام نسخه باید در انتشار وارد شوند. برای به‌روزرسانی یک نسخهٔ نصب‌شده، شناسهٔ بسته و کلید امضا باید همان باشند. بیلدهای آزمایشی CI فقط برای نصب و تست هستند.
+
+اپ فایل را در حافظهٔ موقت دانلود می‌کند و پس از تأیید SHA-256، شناسه، شمارهٔ ساخت و امضا، نصب‌کنندهٔ اندروید را باز می‌کند.

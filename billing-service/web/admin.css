@@ -443,7 +443,7 @@ a.metric:hover { border-color: var(--focus); }
 }
 
 .plan-editor { padding: 1rem 1.05rem 1.6rem; }
-.plan-editor textarea { resize: vertical; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: .5rem .65rem; }
+.settings-form textarea { resize: vertical; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: .5rem .65rem; }
 
 .account-content { max-width: 850px; }
 .account-content .settings-form { margin-block-start: 1rem; }

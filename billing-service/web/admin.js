@@ -15,7 +15,7 @@ const statusLabels = {
 const decisionLabels = { SMS_APPROVED: "تأیید خودکار با پیامک بانک", ADMIN_APPROVED: "تأیید دستی مدیر", ADMIN_REJECTED: "رد دستی مدیر" };
 const activityLabels = {
   ...decisionLabels, LOGIN: "ورود به پنل", LOGOUT: "خروج از پنل",
-  WALLET_PAID: "پرداخت از کیف پول", CUSTOMER_CANCELLED: "لغو اشتراک و ثبت اعتبار کیف پول", CATALOG_UPDATED: "تغییر پلن فروش", CARD_UPDATED: "تغییر کارت مقصد", PROVISIONING_UPDATED: "تغییر تنظیمات ساخت اشتراک",
+  RELEASE_UPDATED: "تغییر نسخهٔ برنامه", WALLET_PAID: "پرداخت از کیف پول", CUSTOMER_CANCELLED: "لغو اشتراک و ثبت اعتبار کیف پول", CATALOG_UPDATED: "تغییر پلن فروش", CARD_UPDATED: "تغییر کارت مقصد", PROVISIONING_UPDATED: "تغییر تنظیمات ساخت اشتراک",
 };
 const date = (value) => value ? fullDate.format(value) : "—";
 const money = (value) => fa.format(value) + " تومان";
@@ -27,6 +27,7 @@ let activityPage = 1;
 let detailVersion = 0;
 let saving = false;
 let chosenGroups = [];
+let releases = {};
 let chartSeries = [];
 let showingCount = false;
 let chartTotals;
@@ -291,8 +292,12 @@ function last4(value) {
 }
 
 async function settings(signal) {
-  const [data, provision] = await Promise.all([request("/api/card", { signal }), request("/api/provisioning", { signal })]);
+  const [data, provision, appReleases] = await Promise.all([
+    request("/api/card", { signal }), request("/api/provisioning", { signal }), request("/api/releases", { signal }),
+  ]);
   if (signal.aborted) return;
+  releases = appReleases;
+  fillReleaseEditor();
   chosenGroups = provision.selected_group_ids;
   get("provision-state").textContent = provision.configured
     ? "اتصال ثبت شده است. برای تغییر گروه‌ها، فهرست را دریافت کنید."
@@ -308,6 +313,53 @@ async function settings(signal) {
     date(change.timestamp), last4(change.previous_last4), last4(change.current_last4),
   ]), "هنوز تغییری از طریق پنل ثبت نشده است.");
 }
+
+function fillReleaseEditor() {
+  const platform = get("release-platform").value;
+  const ios = platform === "ios";
+  const form = get("release-form").elements;
+  const release = releases[platform] ?? {};
+  get("release-ios-field").hidden = !ios;
+  get("release-android-field").hidden = ios;
+  form.namedItem("latest_version").value = release.latest_version ?? "";
+  form.namedItem("latest_version_code").value = release.latest_version_code ?? "";
+  form.namedItem("package_name").value = release.package_name ?? (ios ? "com.pasarguard.vpn.ios" : "com.pasarguard.vpn");
+  form.namedItem("store_url").value = release.store_url ?? "";
+  form.namedItem("assets").value = (release.assets ?? []).map(item => [item.abi, item.download_url, item.sha256].join(" ")).join("\n");
+  form.namedItem("changelog").value = release.changelog ?? "";
+  form.namedItem("visible").checked = Boolean(release.visible);
+}
+
+get("release-platform").addEventListener("change", fillReleaseEditor);
+get("release-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const platform = get("release-platform").value;
+  const submit = form.querySelector("button[type=submit]");
+  if (submit.disabled) return;
+  submit.disabled = true;
+  const fields = new FormData(form);
+  const assets = platform === "android" ? fields.get("assets").trim().split("\n").filter(Boolean).map(line => {
+    const [abi, download_url, sha256] = line.trim().split(/\s+/);
+    return { abi, download_url, sha256: sha256?.toLowerCase() };
+  }) : [];
+  try {
+    await request("/api/releases/" + platform, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        latest_version: fields.get("latest_version").trim(), latest_version_code: Number(fields.get("latest_version_code")),
+        package_name: fields.get("package_name").trim(), changelog: fields.get("changelog").trim(),
+        visible: fields.has("visible"), store_url: platform === "ios" ? fields.get("store_url").trim() || null : null, assets,
+      }),
+    });
+    await load();
+    setNotice("تنظیمات نسخه ذخیره شد.");
+  } catch (error) {
+    setNotice(error.message, true);
+  } finally {
+    submit.disabled = false;
+  }
+});
 
 function resetGroupOptions() {
   get("group-options").hidden = true;

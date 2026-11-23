@@ -14,12 +14,14 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from functools import lru_cache
 from io import BytesIO, StringIO
 from itertools import pairwise
 from pathlib import Path
 from typing import Annotated, Literal
 from urllib.error import HTTPError as UpstreamHTTPError, URLError
-from urllib.request import Request, build_opener
+from urllib.parse import urlsplit
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
@@ -187,6 +189,9 @@ def initialize():
             order_id TEXT PRIMARY KEY REFERENCES orders(id), owner TEXT NOT NULL, digest TEXT NOT NULL UNIQUE,
             expires INTEGER NOT NULL
         )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS app_releases (
+            platform TEXT PRIMARY KEY, config TEXT NOT NULL
+        )""")
         db.execute("""CREATE TABLE IF NOT EXISTS billing_plan_overrides (
             id TEXT PRIMARY KEY, config TEXT NOT NULL
         )""")
@@ -325,7 +330,7 @@ async def stop_provisioning_worker():
 @app.middleware("http")
 async def prevent_billing_cache(request, call_next):
     response = await call_next(request)
-    if request.url.path.startswith(("/v1/billing/", "/v1/customer/", "/account", "/admin")):
+    if request.url.path.startswith(("/v1/billing/", "/v1/customer/", "/v1/app/", "/account", "/admin")):
         response.headers["Cache-Control"] = "no-store"
     return response
 
@@ -1194,6 +1199,112 @@ def admin_card():
             "SELECT previous_last4, current_last4, timestamp FROM card_changes ORDER BY id DESC LIMIT 20"
         )
         return {"card": destination_card(db), "history": [dict(item) for item in history]}
+
+
+class AppReleaseAsset(BaseModel):
+    abi: Literal["arm64-v8a", "armeabi-v7a", "x86_64", "universal"]
+    download_url: str = Field(max_length=1000)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class AppReleaseUpdate(BaseModel):
+    latest_version: str = Field(pattern=r"^[0-9]+\.[0-9]+(?:\.[0-9]+){0,2}$", max_length=30)
+    latest_version_code: int = Field(ge=1, le=2_100_000_000)
+    changelog: str = Field(default="", max_length=2000)
+    package_name: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_-]*(?:\.[A-Za-z0-9_-]+)+$", max_length=160)
+    store_url: str | None = Field(default=None, max_length=1000)
+    assets: list[AppReleaseAsset] = Field(default_factory=list, max_length=4)
+    visible: bool = False
+
+
+def checked_release_url(value):
+    try:
+        parts = urlsplit(value)
+        if parts.scheme == "https" and parts.hostname and not (parts.username or parts.password or parts.fragment):
+            return parts
+    except ValueError:
+        pass
+    raise HTTPException(422, "HTTPS_RELEASE_URL_REQUIRED")
+
+
+@admin.get("/api/releases")
+def admin_app_releases():
+    with transaction(write=False) as db:
+        return {row["platform"]: json.loads(row["config"]) for row in db.execute("SELECT * FROM app_releases")}
+
+
+@admin.put("/api/releases/{platform}")
+def admin_update_release(platform: Literal["android", "ios"], body: AppReleaseUpdate, request: IncomingRequest):
+    verify_admin_origin(request)
+    if platform == "android":
+        if body.store_url or len({item.abi for item in body.assets}) != len(body.assets) or (body.visible and not body.assets):
+            raise HTTPException(422, "ANDROID_APK_REQUIRED")
+        for asset in body.assets:
+            if not checked_release_url(asset.download_url).path.lower().endswith(".apk"):
+                raise HTTPException(422, "ANDROID_APK_REQUIRED")
+    else:
+        if body.assets or (body.visible and not body.store_url):
+            raise HTTPException(422, "APPLE_STORE_REQUIRED")
+        if body.store_url and checked_release_url(body.store_url).netloc not in ("apps.apple.com", "testflight.apple.com"):
+            raise HTTPException(422, "APPLE_STORE_REQUIRED")
+    with transaction() as db:
+        db.execute("""INSERT INTO app_releases VALUES (?, ?) ON CONFLICT(platform)
+                      DO UPDATE SET config=excluded.config""", (platform, body.model_dump_json()))
+        log_admin_activity(db, "RELEASE_UPDATED", now())
+    return Response(status_code=204)
+
+
+class ReleaseRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        target = urlsplit(newurl)
+        if target.scheme != "https" or target.netloc not in ("github.com", "release-assets.githubusercontent.com"):
+            return None
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+@lru_cache(maxsize=4)
+def github_android_release(repository, _bucket):
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
+        return None
+    url = f"https://github.com/{repository}/releases/latest/download/pasarguard-android.json"
+    try:
+        with build_opener(ReleaseRedirect()).open(url, timeout=4) as response:
+            payload = response.read(65_537)
+        if len(payload) > 65_536:
+            return None
+        release = AppReleaseUpdate.model_validate_json(payload)
+        prefix = f"https://github.com/{repository}/releases/download/"
+        if release.assets and all(asset.download_url.startswith(prefix) and asset.download_url.endswith(".apk")
+                                  for asset in release.assets):
+            return release.model_dump()
+    except (OSError, URLError, ValueError):
+        pass
+    return None
+
+
+@app.get("/v1/app/config")
+def published_app_release(platform: Literal["android", "ios"], version_code: int = Query(ge=0),
+                          package_name: str = Query(max_length=160), abi: str = Query(default="", max_length=30)):
+    with transaction(write=False) as db:
+        row = db.execute("SELECT config FROM app_releases WHERE platform=?", (platform,)).fetchone()
+    release = json.loads(row["config"]) if row else None
+    if not row and platform == "android" and (repository := os.getenv("ANDROID_RELEASE_REPOSITORY", "")):
+        release = github_android_release(repository, now() // (5 * MINUTE_MS))
+    if (not release or not release["visible"] or release["package_name"] != package_name
+            or release["latest_version_code"] <= version_code):
+        return Response(status_code=204)
+    if platform == "android":
+        assets = {item["abi"]: item for item in release["assets"]}
+        asset = assets.get(abi) or assets.get("universal")
+        if not asset:
+            return Response(status_code=204)
+        url, checksum = asset["download_url"], asset["sha256"]
+    else:
+        url, checksum = release["store_url"], None
+    return {
+        "latest_version": release["latest_version"], "latest_version_code": release["latest_version_code"],
+        "download_url": url, "sha256": checksum, "changelog": release["changelog"],
+    }
 
 
 class BillingPlanUpdate(BaseModel):

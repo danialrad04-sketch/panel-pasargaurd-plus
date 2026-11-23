@@ -339,7 +339,6 @@
     <string name="settings_backup_restored">تنظیمات با موفقیت بازیابی شد</string>
     <string name="settings_backup_invalid">فایل پشتیبان نامعتبر است</string>
     <string name="settings_check_updates">بررسی بروزرسانی</string>
-    <string name="settings_update_url_hint">آدرس JSON بررسی نسخه جدید</string>
     <string name="settings_update_available">نسخه جدید در دسترس است: v%1$s</string>
     <string name="settings_update_download">دانلود نسخه جدید</string>
     <string name="settings_update_latest">شما از آخرین نسخه استفاده می‌کنید.</string>
@@ -471,4 +470,10 @@
     <string name="customer_portal">حساب کاربری و کیف پول</string>
     <string name="order_transfer_to_account">انتقال سفارش به حساب کاربری</string>
     <string name="order_transfer_unavailable">انتقال این سفارش در حال حاضر ممکن نیست.</string>
+    <string name="update_checking">در حال بررسی نسخه…</string>
+    <string name="update_downloading">در حال دانلود و بررسی فایل…</string>
+    <string name="update_check_failed">بررسی نسخه ممکن نشد.</string>
+    <string name="update_download_failed">دانلود یا اعتبارسنجی بسته انجام نشد.</string>
+    <string name="update_allow_install">اجازهٔ نصب را در تنظیمات اندروید فعال کنید و سپس نصب را بزنید.</string>
+    <string name="update_install">نصب</string>
 </resources>

@@ -59,6 +59,8 @@ import com.pasarguard.vpn.ui.theme.PasarGuardTheme
 import com.pasarguard.vpn.ui.theme.PasarGuardVpnTheme
 import com.pasarguard.vpn.ui.theme.Spacing
 import com.pasarguard.vpn.util.Formatters
+import com.pasarguard.vpn.data.diagnostics.UpdateChecker
+import com.pasarguard.vpn.ui.updates.AppUpdateHost
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -193,6 +195,7 @@ class MainViewModel @Inject constructor(
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
+    @Inject lateinit var appUpdateChecker: UpdateChecker
 
     private val viewModel: MainViewModel by viewModels()
 
@@ -235,17 +238,19 @@ class MainActivity : AppCompatActivity() {
                             onUnlocked = viewModel::unlock
                         )
                     } else {
-                        AppNavHost(
-                            startDestination = rootState.startDestination,
-                            prefilledSubscriptionUrl = rootState.prefilledSubUrl,
-                            paymentCallbackTimestamp = rootState.paymentCallbackTimestamp,
-                            toggleVpnTrigger = rootState.toggleVpnTrigger,
-                            openRouteTarget = rootState.openRouteTarget,
-                            onConsumePrefilledUrl = viewModel::consumePrefilledSubUrl,
-                            onConsumeToggleVpn = viewModel::consumeToggleVpnTrigger,
-                            onConsumeOpenRoute = viewModel::consumeOpenRouteTarget,
-                            onCompleteOnboarding = viewModel::completeOnboarding
-                        )
+                        AppUpdateHost(appUpdateChecker) {
+                            AppNavHost(
+                                startDestination = rootState.startDestination,
+                                prefilledSubscriptionUrl = rootState.prefilledSubUrl,
+                                paymentCallbackTimestamp = rootState.paymentCallbackTimestamp,
+                                toggleVpnTrigger = rootState.toggleVpnTrigger,
+                                openRouteTarget = rootState.openRouteTarget,
+                                onConsumePrefilledUrl = viewModel::consumePrefilledSubUrl,
+                                onConsumeToggleVpn = viewModel::consumeToggleVpnTrigger,
+                                onConsumeOpenRoute = viewModel::consumeOpenRouteTarget,
+                                onCompleteOnboarding = viewModel::completeOnboarding
+                            )
+                        }
                     }
                 }
             }

@@ -89,10 +89,8 @@ import androidx.lifecycle.viewModelScope
 import com.pasarguard.vpn.BrandConfig
 import com.pasarguard.vpn.BuildConfig
 import com.pasarguard.vpn.R
-import com.pasarguard.vpn.data.diagnostics.UpdateChecker
 import com.pasarguard.vpn.domain.model.AppLanguage
 import com.pasarguard.vpn.domain.model.AppSettings
-import com.pasarguard.vpn.domain.model.AppUpdateInfo
 import com.pasarguard.vpn.domain.model.CalendarSystem
 import com.pasarguard.vpn.domain.model.CorePreference
 import com.pasarguard.vpn.domain.model.DnsPreset
@@ -108,13 +106,12 @@ import com.pasarguard.vpn.ui.theme.LocalPersianDigits
 import com.pasarguard.vpn.ui.theme.PasarGuardTheme
 import com.pasarguard.vpn.ui.theme.Spacing
 import com.pasarguard.vpn.ui.theme.tokens
+import com.pasarguard.vpn.ui.updates.LocalCheckForUpdates
 import com.pasarguard.vpn.util.Formatters
 import com.pasarguard.vpn.vpn.core.XrayCore
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -123,8 +120,7 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val logoutUseCase: LogoutUseCase,
-    private val xrayCore: XrayCore,
-    private val updateChecker: UpdateChecker
+    private val xrayCore: XrayCore
 ) : ViewModel() {
 
     val settings: StateFlow<AppSettings> = settingsRepository.settings.stateIn(
@@ -132,9 +128,6 @@ class SettingsViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = AppSettings()
     )
-
-    private val _updateResult = MutableStateFlow<Pair<AppUpdateInfo?, String?>?>(null)
-    val updateResult: StateFlow<Pair<AppUpdateInfo?, String?>?> = _updateResult.asStateFlow()
 
     val xrayVersion: String by lazy { xrayCore.versionInfo() }
 
@@ -273,22 +266,6 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun checkForUpdates(url: String) {
-        viewModelScope.launch {
-            settingsRepository.setUpdateCheckUrl(url)
-            val res = updateChecker.checkForUpdate(url)
-            res.onSuccess { info ->
-                _updateResult.value = info to null
-            }.onFailure { err ->
-                _updateResult.value = null to (err.localizedMessage ?: "Check failed")
-            }
-        }
-    }
-
-    fun clearUpdateResult() {
-        _updateResult.value = null
-    }
-
     fun logout(onComplete: () -> Unit) {
         viewModelScope.launch {
             logoutUseCase()
@@ -310,7 +287,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
-    val updateResult by viewModel.updateResult.collectAsStateWithLifecycle()
+    val checkForUpdates = LocalCheckForUpdates.current
     val colors = PasarGuardTheme.colors
     val persianDigits = LocalPersianDigits.current
     val context = LocalContext.current
@@ -318,7 +295,6 @@ fun SettingsScreen(
     var showLogoutSheet by remember { mutableStateOf(false) }
     var showAllowInsecureWarning by remember { mutableStateOf(false) }
     var showPinDialog by remember { mutableStateOf(false) }
-    var showUpdateDialog by remember { mutableStateOf(false) }
     var customDnsInput by remember(settings.customDnsServer) { mutableStateOf(settings.customDnsServer) }
     var pendingExportJson by remember { mutableStateOf<String?>(null) }
 
@@ -794,12 +770,14 @@ fun SettingsScreen(
                     onClick = { importLauncher.launch(arrayOf("application/json", "*/*")) }
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-                SettingsActionRow(
-                    icon = Icons.Rounded.SystemUpdate,
-                    title = stringResource(R.string.settings_check_updates),
-                    subtitle = "v${BuildConfig.VERSION_NAME}",
-                    onClick = { showUpdateDialog = true }
-                )
+                checkForUpdates?.let {
+                    SettingsActionRow(
+                        icon = Icons.Rounded.SystemUpdate,
+                        title = stringResource(R.string.settings_check_updates),
+                        subtitle = "v${BuildConfig.VERSION_NAME}",
+                        onClick = it
+                    )
+                }
             }
 
             // Alerts & Notifications
@@ -927,65 +905,6 @@ fun SettingsScreen(
                 TextButton(onClick = { showPinDialog = false }) {
                     Text(stringResource(R.string.action_cancel))
                 }
-            }
-        )
-    }
-
-    // Remote Update Checker Dialog
-    if (showUpdateDialog) {
-        var feedUrl by remember(settings.updateCheckUrl) { mutableStateOf(settings.updateCheckUrl) }
-        AlertDialog(
-            onDismissRequest = {
-                showUpdateDialog = false
-                viewModel.clearUpdateResult()
-            },
-            title = { Text(stringResource(R.string.settings_check_updates)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    OutlinedTextField(
-                        value = feedUrl,
-                        onValueChange = { feedUrl = it },
-                        label = { Text(stringResource(R.string.settings_update_url_hint)) },
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    updateResult?.let { (info, err) ->
-                        when {
-                            err != null -> Text(err, color = colors.statusDanger, style = MaterialTheme.typography.bodySmall)
-                            info != null -> {
-                                Text(
-                                    text = stringResource(R.string.settings_update_available, info.latestVersion),
-                                    color = colors.statusConnected,
-                                    style = MaterialTheme.typography.titleSmall
-                                )
-                                if (info.changelog.isNotBlank()) {
-                                    Text(info.changelog, style = MaterialTheme.typography.bodySmall)
-                                }
-                                OutlinedButton(onClick = { Formatters.openExternalUrl(context, info.downloadUrl) }) {
-                                    Text(stringResource(R.string.settings_update_download))
-                                }
-                            }
-                            else -> Text(
-                                text = stringResource(R.string.settings_update_latest),
-                                color = colors.statusConnected,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = feedUrl.isNotBlank(),
-                    onClick = { viewModel.checkForUpdates(feedUrl) }
-                ) { Text(stringResource(R.string.settings_check_now)) }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showUpdateDialog = false
-                    viewModel.clearUpdateResult()
-                }) { Text(stringResource(R.string.action_close)) }
             }
         )
     }
