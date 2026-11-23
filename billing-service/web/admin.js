@@ -298,6 +298,17 @@ async function showOrder(orderId) {
     }
     content.replaceChildren(errorNotice, detailList(data.order), node("h3", "سابقهٔ بررسی"),
       data.decisions.length ? activity : node("p", "هنوز تصمیمی ثبت نشده است."));
+    if (data.order.has_receipt_image) {
+      const receipt = node("a", null, "receipt-preview");
+      receipt.href = "/admin/api/orders/" + encodeURIComponent(orderId) + "/receipt";
+      receipt.target = "_blank";
+      receipt.rel = "noopener";
+      const image = node("img");
+      image.src = receipt.href;
+      image.alt = "عکس فیش پرداخت";
+      receipt.append(image, node("span", "باز کردن تصویر کامل فیش"));
+      errorNotice.after(receipt);
+    }
     if (data.order.status === "PENDING_REVIEW") {
       const actions = node("div", null, "dialog-actions");
       async function review(decision, prompt) {

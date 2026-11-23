@@ -431,7 +431,7 @@
     <string name="checkout_tracking_number">Tracking / Reference number</string>
     <string name="checkout_upload_receipt">Attach Receipt Screenshot (Optional)</string>
     <string name="checkout_receipt_attached">Receipt compressed &amp; attached</string>
-    <string name="checkout_submit_receipt_cta">Submit tracking number</string>
+    <string name="checkout_submit_receipt_cta">Send payment receipt</string>
     <string name="checkout_pending_heading">Waiting for Confirmation</string>
     <string name="checkout_pending_desc">Order %1$s has been received. Status updates automatically — you may safely leave this screen and track it in Orders.</string>
     <string name="checkout_leave_and_track">Track in Orders History</string>
@@ -462,4 +462,8 @@
     <string name="purchase_activation_retry">Activation could not finish. Try again from this order.</string>
     <string name="purchase_unavailable">New subscriptions are currently unavailable. Try again later or track an existing purchase.</string>
     <string name="checkout_unavailable">This order or plan could not be loaded. Go back and try again.</string>
+    <string name="checkout_remove_receipt">Remove selected photo</string>
+    <string name="checkout_receipt_preparing">Preparing photo…</string>
+    <string name="checkout_receipt_image_saved">Receipt photo received by the payment panel.</string>
+    <string name="checkout_receipt_image_problem">The receipt could not be sent. Try another photo or send it again.</string>
 </resources>

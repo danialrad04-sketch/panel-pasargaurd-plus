@@ -30,10 +30,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
+import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.Retrofit
+import retrofit2.HttpException
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -47,7 +51,7 @@ class RemotePaymentRepository @Inject constructor(
         fun headers(): Map<String, String> =
             mapOf((if (guest) "X-Purchase-Token" else "X-Subscription-Token") to token)
     }
-    private val orders = MutableStateFlow<Pair<BillingAuth, List<PaymentOrder>>?>(null)
+    private val orders = MutableStateFlow<Map<BillingAuth, List<PaymentOrder>>>(emptyMap())
     private val api by lazy {
         check(BuildConfig.BILLING_BASE_URL.isNotBlank()) { "Billing service is not configured" }
         val url = BuildConfig.BILLING_BASE_URL.trimEnd('/').plus("/").toHttpUrl()
@@ -76,6 +80,21 @@ class RemotePaymentRepository @Inject constructor(
         throw cancelled
     } catch (error: Exception) {
         Result.failure(error)
+    }
+
+    private fun savedGuest(): BillingAuth? = tokens.existingPurchaseToken()?.let { BillingAuth(it, true) }
+
+    private fun accessibleOrders(owner: BillingAuth): List<BillingAuth> =
+        listOfNotNull(owner, if (owner.guest) null else savedGuest())
+
+    private suspend fun orderRequest(block: suspend (BillingAuth) -> PaymentOrder) = request { owner ->
+        try {
+            block(owner).also { remember(owner, it) }
+        } catch (error: HttpException) {
+            val guest = if (!owner.guest && error.code() == 404) savedGuest() else null
+            if (guest == null) throw error
+            block(guest).also { remember(guest, it) }
+        }
     }
 
     override suspend fun loadPlansCatalog() = request { owner ->
@@ -116,14 +135,19 @@ class RemotePaymentRepository @Inject constructor(
 
     override suspend fun submitCardReceipt(
         orderId: String, payerCardLast4: String, trackingNumber: String, receiptLocalPath: String?
-    ) = request { owner ->
+    ) = orderRequest { owner ->
         val plain = "text/plain".toMediaType()
+        val attachment = receiptLocalPath?.let {
+            MultipartBody.Part.createFormData(
+                "receipt_image", "receipt.jpg", File(it).asRequestBody("image/jpeg".toMediaType())
+            )
+        }
         api.uploadOrderReceipt(owner.headers(), orderId, payerCardLast4.toRequestBody(plain),
-            trackingNumber.trim().toRequestBody(plain), null).toDomain().also { remember(owner, it) }
+            trackingNumber.trim().toRequestBody(plain), attachment).toDomain()
     }
 
-    override suspend fun refreshOrderStatus(orderId: String) = request { owner ->
-        api.getOrderStatus(owner.headers(), orderId).toDomain().also { remember(owner, it) }
+    override suspend fun refreshOrderStatus(orderId: String) = orderRequest { owner ->
+        api.getOrderStatus(owner.headers(), orderId).toDomain()
     }
 
     override suspend fun getPurchasedSubscription(orderId: String) = request { owner ->
@@ -132,28 +156,36 @@ class RemotePaymentRepository @Inject constructor(
     }
 
     private fun remember(owner: BillingAuth, order: PaymentOrder) {
-        if (runCatching(::auth).getOrNull() != owner) return
+        val active = runCatching(::auth).getOrNull() ?: return
+        val allowed = accessibleOrders(active)
+        if (owner !in allowed) return
         orders.update { cache ->
-            val known = cache?.takeIf { it.first == owner }?.second.orEmpty()
+            val known = cache[owner].orEmpty()
             val prior = known.firstOrNull { it.id == order.id }
             val newest = if (prior?.status == OrderStatus.APPROVED &&
                 (order.status != OrderStatus.APPROVED ||
                     prior.activationStatus == "READY" && order.activationStatus != "READY")
             ) prior else order
-            owner to (known.filterNot { it.id == order.id } + newest).sortedByDescending { it.createdAtMs }
+            cache.filterKeys { it in allowed } + (owner to (known.filterNot { it.id == order.id } + newest))
         }
     }
 
-    private fun visibleOrders(): List<PaymentOrder> =
-        orders.value?.takeIf { it.first == runCatching(::auth).getOrNull() }?.second.orEmpty()
+    private fun visibleOrders(): List<PaymentOrder> {
+        val owner = runCatching(::auth).getOrNull() ?: return emptyList()
+        return accessibleOrders(owner).flatMap { orders.value[it].orEmpty() }.sortedByDescending { it.createdAtMs }
+    }
 
     override fun observeOrders(): Flow<List<PaymentOrder>> = combine(orders, flow {
         while (true) {
             val owner = runCatching(::auth).getOrNull()
             emit(Unit)
             if (owner != null) {
-                request { api.listOrders(it.headers()).orders.map { order -> order.toDomain() } }
-                    .onSuccess { remote -> remote.forEach { remember(owner, it) } }
+                accessibleOrders(owner).forEach { source ->
+                    request { active ->
+                        check(active == owner)
+                        api.listOrders(source.headers()).orders.map { order -> order.toDomain() }
+                    }.onSuccess { remote -> remote.forEach { remember(source, it) } }
+                }
             }
             delay(15_000)
         }
@@ -190,6 +222,6 @@ class RemotePaymentRepository @Inject constructor(
         payerCardLast4 = payerCardLast4, trackingNumber = trackingNumber,
         rejectionReasonFa = rejectionReasonFa, rejectionReasonEn = rejectionReasonEn,
         createdAtMs = createdAtMs, expiresAtMs = expiresAtMs, submittedAtMs = submittedAtMs, reviewedAtMs = reviewedAtMs,
-        newSubscription = newSubscription, activationStatus = activationStatus
+        newSubscription = newSubscription, activationStatus = activationStatus, hasReceiptImage = hasReceiptImage
     )
 }

@@ -431,7 +431,7 @@
     <string name="checkout_tracking_number">شماره پیگیری / ارجاع</string>
     <string name="checkout_upload_receipt">پیوست تصویر رسید (اختیاری)</string>
     <string name="checkout_receipt_attached">تصویر رسید فشرده و پیوست شد</string>
-    <string name="checkout_submit_receipt_cta">ثبت شماره پیگیری</string>
+    <string name="checkout_submit_receipt_cta">ارسال رسید واریز</string>
     <string name="checkout_pending_heading">در انتظار تأیید پرداخت</string>
     <string name="checkout_pending_desc">سفارش %1$s ثبت شد. وضعیت به‌طور خودکار بروز می‌شود؛ می‌توانید صفحه را ببندید و بعداً از بخش سفارش‌ها پیگیری کنید.</string>
     <string name="checkout_leave_and_track">پیگیری در تاریخچه سفارش‌ها</string>
@@ -462,4 +462,8 @@
     <string name="purchase_activation_retry">فعال‌سازی کامل نشد. از همین سفارش دوباره امتحان کنید.</string>
     <string name="purchase_unavailable">خرید اشتراک جدید فعلاً در دسترس نیست. بعداً امتحان کنید یا سفارش قبلی را پیگیری کنید.</string>
     <string name="checkout_unavailable">سفارش یا پلن بارگیری نشد. برگردید و دوباره امتحان کنید.</string>
+    <string name="checkout_remove_receipt">حذف عکس انتخاب‌شده</string>
+    <string name="checkout_receipt_preparing">در حال آماده‌سازی عکس…</string>
+    <string name="checkout_receipt_image_saved">عکس فیش به پنل پرداخت رسید.</string>
+    <string name="checkout_receipt_image_problem">ارسال رسید کامل نشد. دوباره تلاش کنید یا عکس دیگری انتخاب کنید.</string>
 </resources>

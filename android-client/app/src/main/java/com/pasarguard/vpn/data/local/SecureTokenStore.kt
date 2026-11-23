@@ -68,7 +68,7 @@ class SecureTokenStore @Inject constructor(
 
     @Synchronized
     fun purchaseToken(): String {
-        prefs.getString(KEY_PURCHASE_TOKEN, null)?.let { return it }
+        existingPurchaseToken()?.let { return it }
         val token = ByteArray(32).apply { SecureRandom().nextBytes(this) }
             .joinToString("") { "%02x".format(it.toInt() and 0xff) }
         check(prefs.edit().putString(KEY_PURCHASE_TOKEN, token).commit()) {
@@ -76,6 +76,8 @@ class SecureTokenStore @Inject constructor(
         }
         return token
     }
+
+    fun existingPurchaseToken(): String? = prefs.getString(KEY_PURCHASE_TOKEN, null)
 
     companion object {
         private const val PREFS_FILE_NAME = "pasarguard_secure_prefs"

@@ -141,7 +141,8 @@ data class PaymentOrder(
     val submittedAtMs: Long? = null,
     val reviewedAtMs: Long? = null,
     val newSubscription: Boolean = false,
-    val activationStatus: String? = null
+    val activationStatus: String? = null,
+    val hasReceiptImage: Boolean = false
 ) {
     fun remainingPaymentWindowMs(nowMs: Long = System.currentTimeMillis()): Long =
         max(0L, expiresAtMs - nowMs)

@@ -3,7 +3,10 @@ package com.pasarguard.vpn.ui.screens.billing
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -21,6 +24,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -68,6 +72,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
@@ -93,6 +98,7 @@ import com.pasarguard.vpn.domain.model.PaymentMethodType
 import com.pasarguard.vpn.domain.model.PaymentOrder
 import com.pasarguard.vpn.domain.repository.PaymentRepository
 import com.pasarguard.vpn.domain.repository.SettingsRepository
+import com.pasarguard.vpn.domain.repository.SubscriptionRepository
 import com.pasarguard.vpn.domain.usecase.SyncSubscriptionUseCase
 import com.pasarguard.vpn.domain.usecase.ValidateAndLoginUseCase
 import com.pasarguard.vpn.ui.components.DeepSpaceBackground
@@ -102,8 +108,10 @@ import com.pasarguard.vpn.ui.theme.LocalPersianDigits
 import com.pasarguard.vpn.ui.theme.PasarGuardTheme
 import com.pasarguard.vpn.ui.theme.Spacing
 import com.pasarguard.vpn.util.Formatters
+import com.pasarguard.vpn.util.ReceiptImageUtils
 import com.pasarguard.vpn.worker.NotificationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -112,6 +120,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
+import java.io.File
 import javax.inject.Inject
 
 enum class CheckoutStep {
@@ -135,6 +144,9 @@ data class CheckoutUiState(
     val payerCardLast4: String = "",
     val trackingNumber: String = "",
     val isSubmittingReceipt: Boolean = false,
+    val selectedReceiptPath: String? = null,
+    val isPreparingReceipt: Boolean = false,
+    val receiptImageError: Boolean = false,
     val isRefreshingSubscription: Boolean = false,
     val purchaseConnected: Boolean = false,
     val purchaseImportFailed: Boolean = false,
@@ -143,7 +155,9 @@ data class CheckoutUiState(
 
 @HiltViewModel
 class CheckoutViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val paymentRepository: PaymentRepository,
+    private val subscriptions: SubscriptionRepository,
     private val settingsRepository: SettingsRepository,
     private val syncSubscription: SyncSubscriptionUseCase,
     private val validateAndLogin: ValidateAndLoginUseCase,
@@ -159,6 +173,8 @@ class CheckoutViewModel @Inject constructor(
     private var initializedKey: String? = null
     private var approvedHandledForOrderId: String? = null
     private var attemptedPurchaseId: String? = null
+
+    fun hasActiveSubscription(): Boolean = subscriptions.getSavedCredentials() != null
 
     fun init(planId: String?, orderId: String?) {
         val key = "${planId.orEmpty()}|${orderId.orEmpty()}"
@@ -301,20 +317,43 @@ class CheckoutViewModel @Inject constructor(
     }
 
     fun updateTrackingNumber(raw: String) {
-        _uiState.update { it.copy(trackingNumber = raw.take(32), errorMessage = null) }
+        _uiState.update { it.copy(trackingNumber = raw.filter(Char::isDigit).take(64), errorMessage = null) }
+    }
+
+    fun chooseReceipt(uri: Uri) {
+        val state = _uiState.value
+        val order = state.order ?: return
+        if (state.isPreparingReceipt || state.isSubmittingReceipt || order.hasReceiptImage) return
+        _uiState.update { it.copy(isPreparingReceipt = true, receiptImageError = false, errorMessage = null) }
+        viewModelScope.launch {
+            val result = ReceiptImageUtils.compressReceiptUri(appContext, uri)
+            if (result.isSuccess) {
+                _uiState.value.selectedReceiptPath?.let { File(it).delete() }
+                _uiState.update { it.copy(selectedReceiptPath = result.getOrThrow().filePath, isPreparingReceipt = false) }
+            } else {
+                _uiState.update { it.copy(isPreparingReceipt = false, receiptImageError = true) }
+            }
+        }
+    }
+
+    fun removeReceipt() {
+        if (_uiState.value.isSubmittingReceipt || _uiState.value.isPreparingReceipt) return
+        _uiState.value.selectedReceiptPath?.let { File(it).delete() }
+        _uiState.update { it.copy(selectedReceiptPath = null, receiptImageError = false) }
     }
 
     fun submitReceipt() {
         val state = _uiState.value
         val order = state.order ?: return
-        if (state.isSubmittingReceipt) return
-        if (state.trackingNumber.trim().length < 4) {
+        if (state.isSubmittingReceipt || state.isPreparingReceipt) return
+        val tracking = state.trackingNumber.trim()
+        if (tracking.length in 1..3 || tracking.isEmpty() && state.selectedReceiptPath == null) {
             _uiState.update {
                 it.copy(
                     errorMessage = if (state.language == AppLanguage.PERSIAN) {
-                        "لطفاً شماره پیگیری تراکنش را وارد کنید."
+                        "شمارهٔ پیگیری معتبر یا عکس فیش پرداخت را وارد کنید."
                     } else {
-                        "Please enter the transfer tracking number."
+                        "Enter a valid tracking number or attach a payment receipt."
                     }
                 )
             }
@@ -327,23 +366,24 @@ class CheckoutViewModel @Inject constructor(
                 orderId = order.id,
                 payerCardLast4 = state.payerCardLast4,
                 trackingNumber = state.trackingNumber,
-                receiptLocalPath = null
+                receiptLocalPath = state.selectedReceiptPath
             ).onSuccess { updated ->
+                val imageSaved = state.selectedReceiptPath == null || updated.hasReceiptImage
+                if (imageSaved) state.selectedReceiptPath?.let { File(it).delete() }
                 _uiState.update {
                     it.copy(
                         isSubmittingReceipt = false,
+                        selectedReceiptPath = if (imageSaved) null else it.selectedReceiptPath,
+                        receiptImageError = !imageSaved,
                         order = updated,
                         step = if (updated.status == OrderStatus.APPROVED) CheckoutStep.SUCCESS else CheckoutStep.WAITING
                     )
                 }
                 if (updated.status == OrderStatus.APPROVED) onOrderApproved(updated)
                 if (needsPolling(updated)) startPollingOrder(updated.id)
-            }.onFailure { err ->
+            }.onFailure {
                 _uiState.update {
-                    it.copy(
-                        isSubmittingReceipt = false,
-                        errorMessage = err.localizedMessage ?: "Submission failed"
-                    )
+                    it.copy(isSubmittingReceipt = false, receiptImageError = true)
                 }
             }
         }
@@ -390,7 +430,8 @@ class CheckoutViewModel @Inject constructor(
                 }
             }
         }
-        if (order.newSubscription && order.activationStatus == "READY" && attemptedPurchaseId != order.id) {
+        if (order.newSubscription && !hasActiveSubscription() &&
+            order.activationStatus == "READY" && attemptedPurchaseId != order.id) {
             attemptedPurchaseId = order.id
             activatePurchase()
         }
@@ -414,6 +455,7 @@ class CheckoutViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        _uiState.value.selectedReceiptPath?.let { File(it).delete() }
         pollJob?.cancel()
         observeOrderJob?.cancel()
         super.onCleared()
@@ -434,8 +476,10 @@ fun CheckoutScreen(
     }
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    LaunchedEffect(state.purchaseConnected) {
-        if (state.purchaseConnected) onDoneHome()
+    LaunchedEffect(state.purchaseConnected, state.selectedReceiptPath, state.isPreparingReceipt, state.isSubmittingReceipt) {
+        if (state.purchaseConnected && state.selectedReceiptPath == null && !state.isPreparingReceipt && !state.isSubmittingReceipt) {
+            onDoneHome()
+        }
     }
     val colors = PasarGuardTheme.colors
     val context = LocalContext.current
@@ -443,6 +487,15 @@ fun CheckoutScreen(
     val persianDigits = LocalPersianDigits.current
     val isPersian = state.language == AppLanguage.PERSIAN
     val currency = stringResource(R.string.currency_toman)
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) viewModel.chooseReceipt(uri)
+    }
+    val receiptContent: @Composable () -> Unit = {
+        ReceiptAttachment(
+            state, { photoPicker.launch("image/*") }, viewModel::removeReceipt,
+            onSubmit = if (state.step == CheckoutStep.CARD_TO_CARD) null else viewModel::submitReceipt
+        )
+    }
 
 
 
@@ -519,6 +572,7 @@ fun CheckoutScreen(
                                 onCopyAmount = { copyText("Amount", order.finalPriceToman.toString()) },
                                 onCardLast4Change = viewModel::updatePayerCardLast4,
                                 onTrackingChange = viewModel::updateTrackingNumber,
+                                receiptContent = receiptContent,
                                 onSubmit = viewModel::submitReceipt,
                                 onExpired = viewModel::checkOrderStatusNow
                             )
@@ -537,7 +591,8 @@ fun CheckoutScreen(
                                 onContactSupport = {
                                     Formatters.openExternalUrl(context, BrandConfig.supportTelegramUrl)
                                 },
-                                onTrackInOrders = onOpenOrders
+                                onTrackInOrders = onOpenOrders,
+                                receiptContent = receiptContent
                             )
                         }
                     }
@@ -548,6 +603,8 @@ fun CheckoutScreen(
                             isRefreshingSub = state.isRefreshingSubscription,
                             isPersian = isPersian,
                             purchaseImportFailed = state.purchaseImportFailed,
+                            needsActivation = state.order?.newSubscription == true && !viewModel.hasActiveSubscription(),
+                            receiptContent = receiptContent,
                             onActivatePurchase = viewModel::activatePurchase,
                             onDoneHome = onDoneHome,
                             onViewOrders = onOpenOrders
@@ -757,6 +814,7 @@ private fun CardToCardStep(
     onCopyAmount: () -> Unit,
     onCardLast4Change: (String) -> Unit,
     onTrackingChange: (String) -> Unit,
+    receiptContent: @Composable () -> Unit,
     onSubmit: () -> Unit,
     onExpired: () -> Unit
 ) {
@@ -965,11 +1023,12 @@ private fun CardToCardStep(
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(Spacing.md))
+            receiptContent()
 
             Text(
                 text = if (state.language == AppLanguage.PERSIAN)
-                    "پس از واریز، برنامه منتظر پیامک بانک می‌ماند. برای بررسی دستی شماره پیگیری را ثبت کنید."
-                else "After transferring, wait here for bank confirmation. Submit the tracking number for manual review.",
+                    "پس از واریز، عکس فیش یا شمارهٔ پیگیری را برای بررسی ارسال کنید."
+                else "After transferring, submit a receipt photo or the tracking number for review.",
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.textSecondary
             )
@@ -987,11 +1046,64 @@ private fun CardToCardStep(
             text = stringResource(R.string.checkout_submit_receipt_cta),
             onClick = onSubmit,
             isLoading = state.isSubmittingReceipt,
-            enabled = remainingMs > 0L,
+            enabled = remainingMs > 0L && !state.isPreparingReceipt,
             leadingIcon = Icons.Rounded.CheckCircle,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(Spacing.md))
+    }
+}
+
+@Composable
+private fun ReceiptAttachment(
+    state: CheckoutUiState,
+    onPick: () -> Unit,
+    onRemove: () -> Unit,
+    onSubmit: (() -> Unit)?
+) {
+    val order = state.order ?: return
+    val colors = PasarGuardTheme.colors
+    if (order.hasReceiptImage) {
+        Text(stringResource(R.string.checkout_receipt_image_saved), color = colors.statusConnected)
+        return
+    }
+    val path = state.selectedReceiptPath
+    val preview = remember(path) { path?.let { ReceiptImageUtils.decodePreviewBitmap(it)?.asImageBitmap() } }
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        if (preview != null) {
+            Image(
+                bitmap = preview,
+                contentDescription = stringResource(R.string.checkout_upload_receipt),
+                modifier = Modifier.fillMaxWidth().heightIn(max = 156.dp)
+            )
+        }
+        if (path != null) {
+            Text(stringResource(R.string.checkout_receipt_attached), color = colors.textSecondary)
+            TextButton(onClick = onRemove, enabled = !state.isSubmittingReceipt && !state.isPreparingReceipt) {
+                Text(stringResource(R.string.checkout_remove_receipt))
+            }
+        }
+        OutlinedButton(
+            onClick = onPick,
+            enabled = !state.isPreparingReceipt && !state.isSubmittingReceipt,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Rounded.Image, contentDescription = null)
+            Spacer(Modifier.width(Spacing.xs))
+            Text(stringResource(if (state.isPreparingReceipt) R.string.checkout_receipt_preparing else R.string.checkout_upload_receipt))
+        }
+        if (state.receiptImageError) {
+            Text(stringResource(R.string.checkout_receipt_image_problem), color = colors.statusDanger)
+        }
+        if (onSubmit != null && path != null) {
+            GradientButton(
+                text = stringResource(R.string.checkout_submit_receipt_cta),
+                onClick = onSubmit,
+                isLoading = state.isSubmittingReceipt,
+                enabled = !state.isPreparingReceipt,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
@@ -1003,7 +1115,8 @@ private fun WaitingConfirmationStep(
     onRetryRejected: () -> Unit,
     onStartNewOrder: () -> Unit,
     onContactSupport: () -> Unit,
-    onTrackInOrders: () -> Unit
+    onTrackInOrders: () -> Unit,
+    receiptContent: @Composable () -> Unit
 ) {
     val colors = PasarGuardTheme.colors
     val infinite = rememberInfiniteTransition(label = "waiting_pulse")
@@ -1066,6 +1179,8 @@ private fun WaitingConfirmationStep(
                     Spacer(Modifier.width(Spacing.sm))
                     Text(stringResource(R.string.checkout_leave_and_track))
                 }
+                Spacer(Modifier.height(Spacing.md))
+                receiptContent()
             }
 
             OrderStatus.REJECTED -> {
@@ -1145,6 +1260,8 @@ private fun SuccessCelebrationStep(
     isRefreshingSub: Boolean,
     isPersian: Boolean,
     purchaseImportFailed: Boolean,
+    needsActivation: Boolean,
+    receiptContent: @Composable () -> Unit,
     onActivatePurchase: () -> Unit,
     onDoneHome: () -> Unit,
     onViewOrders: () -> Unit
@@ -1153,6 +1270,7 @@ private fun SuccessCelebrationStep(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -1189,13 +1307,13 @@ private fun SuccessCelebrationStep(
             color = colors.textSecondary,
             textAlign = TextAlign.Center
         )
-        if (isRefreshingSub || order?.newSubscription == true && !purchaseImportFailed) {
+        if (isRefreshingSub || needsActivation && !purchaseImportFailed) {
             Spacer(Modifier.height(Spacing.md))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = colors.heroEnd)
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = stringResource(if (order?.newSubscription == true) R.string.purchase_preparing else R.string.checkout_syncing_sub),
+                    text = stringResource(if (needsActivation) R.string.purchase_preparing else R.string.checkout_syncing_sub),
                     style = MaterialTheme.typography.labelMedium,
                     color = colors.heroEnd
                 )
@@ -1205,10 +1323,12 @@ private fun SuccessCelebrationStep(
             Text(stringResource(R.string.purchase_activation_retry), color = colors.statusDanger, textAlign = TextAlign.Center)
         }
         Spacer(Modifier.height(Spacing.xl))
+        receiptContent()
+        Spacer(Modifier.height(Spacing.md))
         GradientButton(
-            text = stringResource(if (order?.newSubscription == true) R.string.purchase_activate else R.string.renew_done),
-            onClick = if (order?.newSubscription == true) onActivatePurchase else onDoneHome,
-            enabled = order?.newSubscription != true || !isRefreshingSub,
+            text = stringResource(if (needsActivation) R.string.purchase_activate else R.string.renew_done),
+            onClick = if (needsActivation) onActivatePurchase else onDoneHome,
+            enabled = !needsActivation || !isRefreshingSub,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(Spacing.sm))

@@ -12,6 +12,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from io import BytesIO
 from itertools import pairwise
 from pathlib import Path
 from typing import Annotated
@@ -22,10 +23,22 @@ from zoneinfo import ZoneInfo
 
 import provisioning
 from cryptography.fernet import Fernet, InvalidToken
-from fastapi import APIRouter, Depends, FastAPI, Form, Header, HTTPException, Query, Request as IncomingRequest
+from fastapi import (
+    APIRouter,
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    Header,
+    HTTPException,
+    Query,
+    Request as IncomingRequest,
+    UploadFile,
+)
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from jdatetime import datetime as JalaliDateTime
+from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
@@ -50,6 +63,7 @@ ADMIN_HEADERS = {
 }
 ORDER_STATES = ("AWAITING_RECEIPT", "PENDING_REVIEW", "APPROVED", "REJECTED", "EXPIRED")
 PAGE_SIZE = 12
+MAX_RECEIPT_BYTES = 512 * 1024
 
 
 def setting(name):
@@ -128,6 +142,9 @@ def initialize():
         db.execute("CREATE INDEX IF NOT EXISTS guest_reservations_created ON guest_reservations(created)")
         db.execute("""CREATE TABLE IF NOT EXISTS provisioning_settings (
             id INTEGER PRIMARY KEY CHECK (id = 1), api_key BLOB NOT NULL, group_ids TEXT NOT NULL
+        )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS receipts (
+            order_id TEXT PRIMARY KEY REFERENCES orders(id), image BLOB NOT NULL, uploaded INTEGER NOT NULL
         )""")
 
 
@@ -338,7 +355,7 @@ def list_plans(actor=Depends(billing_actor)):
 
 class OrderRequest(BaseModel):
     plan_id: str = Field(max_length=100)
-    payment_method: str
+    payment_method: str = "CARD_TO_CARD"
     discount_code: str | None = None
 
 
@@ -541,26 +558,66 @@ def decide(db, order_id, status, audit):
     db.execute("INSERT INTO decisions VALUES (?,?,?)", (order_id, audit, timestamp))
 
 
+def receipt_jpeg(upload):
+    payload = upload.file.read(MAX_RECEIPT_BYTES + 1)
+    if len(payload) > MAX_RECEIPT_BYTES:
+        raise HTTPException(413, "RECEIPT_TOO_LARGE")
+    try:
+        with Image.open(BytesIO(payload), formats=("JPEG", "PNG", "WEBP")) as source:
+            if source.width * source.height > 16_000_000:
+                raise ValueError("Image dimensions exceed the limit")
+            image = ImageOps.exif_transpose(source).convert("RGB")
+            image.thumbnail((1600, 1600))
+            cleaned = BytesIO()
+            image.save(cleaned, format="JPEG", quality=84, optimize=True)
+    except (OSError, ValueError, Image.DecompressionBombError):
+        raise HTTPException(400, "INVALID_RECEIPT_IMAGE") from None
+    if cleaned.tell() > MAX_RECEIPT_BYTES:
+        raise HTTPException(413, "RECEIPT_TOO_LARGE")
+    return cleaned.getvalue()
+
+
+def receipt_order(db, order_id, owner):
+    row = db.execute("SELECT * FROM orders WHERE id=? AND owner=?", (order_id, owner)).fetchone()
+    if not row:
+        raise HTTPException(404)
+    if row["status"] == "AWAITING_RECEIPT" and row["expires"] <= now():
+        raise HTTPException(409)
+    return row
+
+
 @app.post("/v1/billing/orders/{order_id}/receipt")
 def submit_reference(order_id: str, tracking_number: str = Form(default="", max_length=64),
-                     payer_card_last4: str = Form(default="", max_length=4), actor=Depends(billing_actor)):
-    owner = actor.owner
+                     payer_card_last4: str = Form(default="", max_length=4),
+                     receipt_image: Annotated[UploadFile | None, File()] = None, actor=Depends(billing_actor)):
     reference = tracking_number.strip().translate(DIGITS)
     last4 = payer_card_last4.strip().translate(DIGITS)
-    if not re.fullmatch(r"[0-9]{4,64}", reference) or (last4 and not re.fullmatch(r"[0-9]{4}", last4)):
-        raise HTTPException(400)
-    with transaction() as db:
-        row = db.execute("SELECT * FROM orders WHERE id=? AND owner=?", (order_id, owner)).fetchone()
-        if not row:
-            raise HTTPException(404)
-        if row["status"] in ("APPROVED", "PENDING_REVIEW", "REJECTED"):
+    if ((not reference and receipt_image is None) or (reference and not re.fullmatch(r"[0-9]{4,64}", reference))
+            or (last4 and not re.fullmatch(r"[0-9]{4}", last4))):
+        raise HTTPException(400, "RECEIPT_DETAILS_REQUIRED")
+    with transaction(write=False) as db:
+        row = receipt_order(db, order_id, actor.owner)
+        if row["status"] == "REJECTED" or (row["status"] != "AWAITING_RECEIPT" and receipt_image is None):
             return present(row)
-        if row["expires"] <= now():
-            raise HTTPException(409)
+        if receipt_image is not None and json.loads(row["details"]).get("has_receipt_image"):
+            return present(row)
+    image = receipt_jpeg(receipt_image) if receipt_image is not None else None
+    with transaction() as db:
+        row = receipt_order(db, order_id, actor.owner)
+        if row["status"] == "REJECTED" or (row["status"] != "AWAITING_RECEIPT" and image is None):
+            return present(row)
         data = json.loads(row["details"])
-        data.update(tracking_number=reference, payer_card_last4=last4 or None, submitted_at_ms=now())
-        db.execute("UPDATE orders SET details=?, status='PENDING_REVIEW' WHERE id=?",
-                   (json.dumps(data), order_id))
+        current = now()
+        if image is not None and not data.get("has_receipt_image"):
+            db.execute("INSERT INTO receipts (order_id, image, uploaded) VALUES (?, ?, ?)", (order_id, image, current))
+            data["has_receipt_image"] = True
+        if reference and not data.get("tracking_number"):
+            data["tracking_number"] = reference
+        if last4 and not data.get("payer_card_last4"):
+            data["payer_card_last4"] = last4
+        data.setdefault("submitted_at_ms", current)
+        status = "PENDING_REVIEW" if row["status"] == "AWAITING_RECEIPT" else row["status"]
+        db.execute("UPDATE orders SET details=?, status=? WHERE id=?", (json.dumps(data), status, order_id))
         return present(db.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone())
 
 
@@ -671,6 +728,18 @@ def admin_order(order_id: str):
             "SELECT decision, timestamp FROM decisions WHERE order_id=? ORDER BY timestamp", (order_id,),
         )
         return {"order": present(row, admin=True), "decisions": [dict(item) for item in decisions]}
+
+
+@admin.get("/api/orders/{order_id}/receipt")
+def admin_receipt(order_id: str):
+    with transaction(write=False) as db:
+        row = db.execute("SELECT image FROM receipts WHERE order_id=?", (order_id,)).fetchone()
+        if not row:
+            raise HTTPException(404)
+        return Response(row["image"], media_type="image/jpeg", headers={
+            "Content-Disposition": 'inline; filename="payment-receipt.jpg"',
+            "X-Content-Type-Options": "nosniff", "Cross-Origin-Resource-Policy": "same-origin",
+        })
 
 
 @admin.get("/api/deposits")

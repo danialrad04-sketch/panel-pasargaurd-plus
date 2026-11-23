@@ -170,7 +170,7 @@ data class ValidateDiscountResponseDto(
 @Serializable
 data class CreateOrderRequestDto(
     @SerialName("plan_id") val planId: String,
-    @SerialName("payment_method") val paymentMethod: String = "CARD_TO_CARD",
+    @SerialName("payment_method") val paymentMethod: String,
     @SerialName("discount_code") val discountCode: String? = null
 )
 
@@ -197,7 +197,8 @@ data class OrderDto(
     @SerialName("submitted_at_ms") val submittedAtMs: Long? = null,
     @SerialName("reviewed_at_ms") val reviewedAtMs: Long? = null,
     @SerialName("new_subscription") val newSubscription: Boolean = false,
-    @SerialName("activation_status") val activationStatus: String? = null
+    @SerialName("activation_status") val activationStatus: String? = null,
+    @SerialName("has_receipt_image") val hasReceiptImage: Boolean = false
 )
 
 @Serializable

@@ -359,7 +359,7 @@ server {
     ssl_certificate $cert_dir/fullchain.pem;
     ssl_certificate_key $cert_dir/privkey.pem;
     add_header Strict-Transport-Security "max-age=31536000" always;
-    client_max_body_size 16k;
+    client_max_body_size 768k;
     location / {
         proxy_pass http://127.0.0.1:8087;
         proxy_set_header Host \$host;
@@ -386,6 +386,40 @@ HOOK
     fi
 }
 
+update_existing_receipt_limit() {
+    if [[ -n $managed_caddy ]]; then
+        local config candidate
+        config=$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/etc/caddy/Caddyfile"}}{{.Source}}{{end}}{{end}}' "$managed_caddy")
+        if [[ -f $config ]] && grep -Fq 'reverse_proxy billing:8080' "$config" &&
+            grep -Eq '^[[:space:]]*max_size 16KB[[:space:]]*$' "$config"; then
+            step "Enabling receipt uploads in the existing Caddy site"
+            cp -- "$config" "$temporary_dir/caddy-before"
+            sed 's/max_size 16KB/max_size 768KB/' "$config" > "$temporary_dir/caddy-after"
+            candidate=$(docker exec "$managed_caddy" mktemp)
+            docker cp "$temporary_dir/caddy-after" "$managed_caddy:$candidate"
+            docker exec "$managed_caddy" caddy validate --config "$candidate" --adapter caddyfile ||
+                die "The updated Caddy configuration did not validate"
+            # Keep the original inode so the running container's file mount sees the update.
+            cat "$temporary_dir/caddy-after" > "$config"
+            if ! docker exec "$managed_caddy" caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile; then
+                cat "$temporary_dir/caddy-before" > "$config"
+                die "Caddy could not enable receipt uploads"
+            fi
+        fi
+    elif [[ $nginx_active == true ]]; then
+        nginx_path="/etc/nginx/conf.d/pasarguard-billing-$billing_host.conf"
+        if [[ -f $nginx_path ]] && grep -Fxq '# Managed by the PasarGuard billing installer' "$nginx_path" &&
+            grep -Eq '^[[:space:]]*client_max_body_size 16k;' "$nginx_path"; then
+            step "Enabling receipt uploads in the existing Nginx site"
+            cp -- "$nginx_path" "$temporary_dir/previous-nginx.conf"
+            sed 's/client_max_body_size 16k;/client_max_body_size 768k;/' "$nginx_path" > "$temporary_dir/nginx-receipts"
+            nginx_changed=true
+            install -m 644 "$temporary_dir/nginx-receipts" "$nginx_path"
+            nginx -t && systemctl reload nginx || die "Nginx could not enable receipt uploads"
+        fi
+    fi
+}
+
 step "Building and starting the billing backend"
 if [[ $tls_mode == caddy ]]; then
     export BILLING_HOST="$billing_host" CADDY_ACME_CONTACT="${acme_email:+email $acme_email}"
@@ -398,6 +432,7 @@ elif [[ $tls_mode == existing ]]; then
         caddy_running=$(docker inspect --format '{{.State.Running}}' "$managed_caddy")
         if [[ $caddy_running != true ]]; then docker start "$managed_caddy" >/dev/null; fi
     fi
+    update_existing_receipt_limit
 else
     "${compose[@]}" up -d --build --wait --wait-timeout 90 ||
         die "Compose failed. Check its output and run this installer with --status"
