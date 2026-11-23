@@ -19,9 +19,10 @@ Usage: sudo bash billing-service/install.sh [--domain HOST] [--panel-url HTTPS_O
        [--email ADDRESS] [--tls auto|caddy|nginx|external]
        [--sms-format account|blu] [--show-credentials]
 
-On first install, the script prompts for destination card details. The 'account'
-SMS format also asks for the account identifier shown in bank SMS. Use 'blu'
-with a trusted forwarder dedicated to one Blu account.
+On first install, the script prompts for destination card details. It detects
+the Blu SMS format from the bank name 'blu' or 'بلو' unless explicitly overridden.
+The 'account' format also asks for the identifier shown in bank SMS. For Blu,
+use a trusted forwarder dedicated to one Blu account.
 The script generates the admin and webhook secrets.
 Automatic TLS requires the domain to point to this server and inbound ports
 80 and 443. External mode uses an existing HTTPS proxy to 127.0.0.1:8087.
@@ -176,7 +177,6 @@ print(env.get("SMS_FORMAT", "account"))
 else
     billing_host=${billing_host:-$(prompt "Billing domain" "pay.esfahanmarket.shop")}
     panel_url=${panel_url:-$(prompt "Existing PasarGuard origin" "https://got.esfahanmarket.shop:8443")}
-    sms_format=${sms_format:-account}
 fi
 validate_origins
 
@@ -215,6 +215,14 @@ if [[ ! -f $env_file ]]; then
     holder=$(prompt "Cardholder name" "")
     bank=$(prompt "Bank name" "")
     [[ $card =~ ^[0-9]{16}$ ]] || die "The destination card requires 16 digits"
+    if [[ -z $sms_format ]]; then
+        if [[ ${bank,,} =~ ^[[:space:]]*(blu|بلو)[[:space:]]*$ ]]; then
+            sms_format=blu
+            printf 'Blu SMS format selected. No SMS account identifier is needed.\n'
+        else
+            sms_format=account
+        fi
+    fi
     account=
     if [[ $sms_format == account ]]; then
         account=$(normalize_digits "$(prompt "Destination account identifier as it appears in bank SMS" "")")
