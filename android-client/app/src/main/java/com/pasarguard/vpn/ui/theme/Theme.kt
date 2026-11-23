@@ -14,6 +14,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -213,6 +214,7 @@ fun PasarGuardVpnTheme(
         ThemeMode.SYSTEM -> systemDark
     }
 
+    val context = LocalContext.current
     val fontFamily = remember(language) { resolveBrandFontFamily(language) }
     val typography = remember(fontFamily) { buildTypography(fontFamily) }
 
