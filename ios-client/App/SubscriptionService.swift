@@ -124,11 +124,17 @@ struct SubscriptionService {
         if let links = json as? [String] { return Array(links.lazy.filter(validLink).prefix(100)) }
         guard let text = String(data: data, encoding: .utf8) else { return [] }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let plain = Self.supportedLines(trimmed)
+        if !plain.isEmpty { return plain }
         var normalized = trimmed.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
         normalized += String(repeating: "=", count: (4 - normalized.count % 4) % 4)
         let decoded = Data(base64Encoded: normalized, options: [.ignoreUnknownCharacters])
             .flatMap { String(data: $0, encoding: .utf8) }
-        let lines = (decoded ?? trimmed).split(whereSeparator: \.isNewline)
+        return decoded.map(supportedLines) ?? []
+    }
+
+    private static func supportedLines(_ text: String) -> [String] {
+        let lines = text.split(whereSeparator: \.isNewline)
         return Array(lines.lazy.map { $0.trimmingCharacters(in: .whitespaces) }.filter(validLink).prefix(100))
     }
 

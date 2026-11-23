@@ -261,7 +261,7 @@ private struct ImportSubscriptionView: View {
                         .multilineTextAlignment(.leading)
                         .privacySensitive()
                 } footer: {
-                    Text("لینک اشتراک را از حساب پاسارگارد کپی و اینجا وارد کنید.")
+                    Text("لینک برای دریافت سرورها به دامنهٔ اشتراک فرستاده می‌شود و در Keychain این دستگاه ذخیره می‌شود.")
                 }
                 Section {
                     Button {
