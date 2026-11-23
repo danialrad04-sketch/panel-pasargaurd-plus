@@ -379,9 +379,7 @@
     <string name="sub_manage_devices">Devices (HWID)</string>
     <string name="sub_devices_subtitle">Devices currently using this subscription</string>
     <string name="sub_this_device">This device</string>
-    <string name="sub_request_reset">Reset Traffic</string>
     <string name="sub_request_new_link">New Sub Link</string>
-    <string name="sub_confirm_reset_desc">Request a traffic counter reset from the billing backend?</string>
     <string name="sub_confirm_new_link_desc">Request a fresh subscription token? Your old link will stop working after rotation.</string>
     <string name="sub_contact_support">Contact Support</string>
     <string name="sub_ticket_title">Send Support Ticket</string>

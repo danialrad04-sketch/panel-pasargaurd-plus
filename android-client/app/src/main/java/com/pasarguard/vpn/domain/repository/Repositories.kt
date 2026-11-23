@@ -115,7 +115,6 @@ interface PaymentRepository {
 interface AccountActionsRepository {
     suspend fun listConnectedDevices(): Result<List<com.pasarguard.vpn.domain.model.ConnectedDevice>>
     suspend fun removeDevice(deviceId: String): Result<com.pasarguard.vpn.domain.model.AccountActionResult>
-    suspend fun requestTrafficReset(): Result<com.pasarguard.vpn.domain.model.AccountActionResult>
     suspend fun requestNewSubscriptionLink(): Result<com.pasarguard.vpn.domain.model.AccountActionResult>
     suspend fun submitSupportTicket(
         request: com.pasarguard.vpn.domain.model.SupportTicketRequest

@@ -379,9 +379,7 @@
     <string name="sub_manage_devices">دستگاه‌ها (HWID)</string>
     <string name="sub_devices_subtitle">دستگاه‌های متصل به این اشتراک</string>
     <string name="sub_this_device">این دستگاه</string>
-    <string name="sub_request_reset">ریست ترافیک</string>
     <string name="sub_request_new_link">لینک اشتراک جدید</string>
-    <string name="sub_confirm_reset_desc">آیا درخواست ریست شمارنده مصرف ترافیک به سرور ارسال شود؟</string>
     <string name="sub_confirm_new_link_desc">آیا درخواست صدور لینک اشتراک جدید ثبت شود؟ پس از تعویض، لینک قبلی غیرفعال می‌شود.</string>
     <string name="sub_contact_support">ارتباط با پشتیبانی</string>
     <string name="sub_ticket_title">ارسال تیکت پشتیبانی</string>

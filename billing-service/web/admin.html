@@ -22,6 +22,7 @@
         <a href="#overview" data-tab="overview" aria-current="page"><i class="icon i-grid" aria-hidden="true"></i>نمای کلی</a>
         <a href="#orders" data-tab="orders"><i class="icon i-order" aria-hidden="true"></i>سفارش‌ها</a>
         <a href="#deposits" data-tab="deposits"><i class="icon i-deposit" aria-hidden="true"></i>واریزی‌ها</a>
+        <a href="#catalog" data-tab="catalog"><i class="icon i-card" aria-hidden="true"></i>پلن‌ها</a>
         <a href="#activity" data-tab="activity"><i class="icon i-activity" aria-hidden="true"></i>فعالیت‌ها</a>
         <a href="#settings" data-tab="settings"><i class="icon i-card" aria-hidden="true"></i>تنظیمات</a>
       </nav>
@@ -125,6 +126,12 @@
             <div id="deposits-pages" class="pagination"></div>
           </article>
         </section>
+        <section id="catalog" data-view hidden>
+          <div class="page-heading page-heading-row"><div><h1>پلن‌ها</h1><p>قیمت، حجم و نمایش پلن‌های خرید</p></div>
+            <button type="button" id="new-plan" class="button primary">افزودن پلن</button>
+          </div>
+          <article class="surface"><div id="catalog-table" class="table-area"></div></article>
+        </section>
         <section id="activity" data-view hidden>
           <div class="page-heading"><h1>فعالیت‌ها</h1><p>سابقهٔ ورود، بررسی سفارش و تغییر تنظیمات پرداخت</p></div>
           <article class="surface listing">
@@ -170,6 +177,40 @@
   <dialog id="order-dialog" aria-labelledby="detail-title">
     <div class="dialog-head"><div><h2 id="detail-title">جزئیات سفارش</h2><p id="detail-id" dir="ltr"></p></div><form method="dialog"><button class="button subtle" type="submit" aria-label="بستن جزئیات سفارش">بستن</button></form></div>
     <div id="detail-content"></div>
+  </dialog>
+  <dialog id="plan-dialog" aria-labelledby="plan-dialog-title">
+    <div class="dialog-head"><h2 id="plan-dialog-title">پلن</h2><button type="button" id="close-plan" class="button subtle">بستن</button></div>
+    <form id="plan-form" class="settings-form plan-editor">
+      <p id="plan-notice" role="status" class="notice" hidden></p>
+      <label class="field">شناسهٔ ثابت پلن<input name="id" dir="ltr" maxlength="80" pattern="[a-z0-9_][a-z0-9_\-]{0,79}" required></label>
+      <div class="field-pair">
+        <label class="field">نام فارسی<input name="title_fa" maxlength="100" required></label>
+        <label class="field">نام انگلیسی<input name="title_en" dir="ltr" maxlength="100" required></label>
+      </div>
+      <div class="field-pair">
+        <label class="field">نوع پلن<select name="category"><option value="RENEW">اشتراک یا تمدید</option><option value="UPGRADE">ارتقا</option><option value="EXTRA_TRAFFIC">حجم اضافه</option><option value="EXTRA_DAYS">زمان اضافه</option></select></label>
+        <label class="field">ترتیب نمایش<input name="sort_order" type="number" inputmode="numeric" min="0" max="100000" required></label>
+      </div>
+      <div class="field-pair">
+        <label class="field">قیمت (تومان)<input name="price_toman" type="number" inputmode="numeric" min="100" max="1000000000" required></label>
+        <label class="field">قیمت قبلی (تومان)<input name="old_price_toman" type="number" inputmode="numeric" min="100" max="1000000000"></label>
+      </div>
+      <div class="field-pair">
+        <label class="field">حجم (گیگابایت)<input name="data_limit_gb" type="number" min="0" max="100000" placeholder="نامحدود"></label>
+        <label class="field">مدت (روز)<input name="duration_days" type="number" min="0" max="3650" required></label>
+      </div>
+      <label class="field">تعداد دستگاه<input name="max_devices" type="number" min="1" max="1000" placeholder="پیش‌فرض پنل"></label>
+      <div class="field-pair">
+        <label class="field">برچسب فارسی<input name="tag_fa" maxlength="50"></label>
+        <label class="field">برچسب انگلیسی<input name="tag_en" dir="ltr" maxlength="50"></label>
+      </div>
+      <label class="field">ویژگی‌های فارسی (هر مورد یک خط)<textarea name="features_fa" rows="3" maxlength="967"></textarea></label>
+      <label class="field">ویژگی‌های انگلیسی (هر مورد یک خط)<textarea name="features_en" dir="ltr" rows="3" maxlength="967"></textarea></label>
+      <label class="check"><input name="is_popular" type="checkbox"> محبوب</label>
+      <label class="check"><input name="is_best_value" type="checkbox"> ارزش خرید</label>
+      <label class="check"><input name="visible" type="checkbox" checked> نمایش برای مشتری</label>
+      <button class="button primary" type="submit">ذخیرهٔ پلن</button>
+    </form>
   </dialog>
 </body>
 </html>

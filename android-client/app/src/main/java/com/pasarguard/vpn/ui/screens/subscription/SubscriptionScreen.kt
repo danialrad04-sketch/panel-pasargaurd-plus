@@ -38,7 +38,6 @@ import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material.icons.rounded.TrendingUp
@@ -204,14 +203,6 @@ class SubscriptionViewModel @Inject constructor(
         }
     }
 
-    fun requestTrafficReset(isPersian: Boolean) {
-        viewModelScope.launch {
-            accountActionsRepository.requestTrafficReset().onSuccess { res ->
-                feedbackFlow.value = if (isPersian) res.messageFa else res.messageEn
-            }
-        }
-    }
-
     fun requestNewLink(isPersian: Boolean) {
         viewModelScope.launch {
             accountActionsRepository.requestNewSubscriptionLink().onSuccess { res ->
@@ -254,7 +245,7 @@ fun SubscriptionScreen(
     var showQrSheet by remember { mutableStateOf(false) }
     var showDevicesSheet by remember { mutableStateOf(false) }
     var showSupportSheet by remember { mutableStateOf(false) }
-    var confirmActionType by remember { mutableStateOf<String?>(null) }
+    var confirmNewLink by remember { mutableStateOf(false) }
 
     // Live 1-minute countdown ticker for expiry card
     var nowEpochSec by remember { mutableStateOf(System.currentTimeMillis() / 1000L) }
@@ -770,15 +761,9 @@ fun SubscriptionScreen(
                         horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                     ) {
                         ActionTileButton(
-                            icon = Icons.Rounded.RestartAlt,
-                            label = stringResource(R.string.sub_request_reset),
-                            onClick = { confirmActionType = "reset" },
-                            modifier = Modifier.weight(1f)
-                        )
-                        ActionTileButton(
                             icon = Icons.Rounded.Key,
                             label = stringResource(R.string.sub_request_new_link),
-                            onClick = { confirmActionType = "newlink" },
+                            onClick = { confirmNewLink = true },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -1000,36 +985,21 @@ fun SubscriptionScreen(
         }
     }
 
-    // Confirm sensitive account actions (traffic reset / regenerate sub link)
-    if (confirmActionType != null) {
-        val isReset = confirmActionType == "reset"
+    if (confirmNewLink) {
         AlertDialog(
-            onDismissRequest = { confirmActionType = null },
-            title = {
-                Text(
-                    stringResource(
-                        if (isReset) R.string.sub_request_reset else R.string.sub_request_new_link
-                    )
-                )
-            },
-            text = {
-                Text(
-                    stringResource(
-                        if (isReset) R.string.sub_confirm_reset_desc else R.string.sub_confirm_new_link_desc
-                    )
-                )
-            },
+            onDismissRequest = { confirmNewLink = false },
+            title = { Text(stringResource(R.string.sub_request_new_link)) },
+            text = { Text(stringResource(R.string.sub_confirm_new_link_desc)) },
             confirmButton = {
                 TextButton(onClick = {
-                    if (isReset) viewModel.requestTrafficReset(isPersian)
-                    else viewModel.requestNewLink(isPersian)
-                    confirmActionType = null
+                    viewModel.requestNewLink(isPersian)
+                    confirmNewLink = false
                 }) {
                     Text(stringResource(R.string.action_confirm))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirmActionType = null }) {
+                TextButton(onClick = { confirmNewLink = false }) {
                     Text(stringResource(R.string.action_cancel))
                 }
             }

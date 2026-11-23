@@ -449,17 +449,6 @@ class FakePaymentRepository @Inject constructor(
         }
     }
 
-    override suspend fun requestTrafficReset(): Result<AccountActionResult> = withContext(Dispatchers.IO) {
-        delay(450L)
-        Result.success(
-            AccountActionResult(
-                success = true,
-                messageFa = "درخواست ریست ترافیک ثبت شد و به‌محض اتصال بک‌اند به‌طور خودکار اعمال می‌شود.",
-                messageEn = "Traffic reset request submitted (ready for live billing backend)."
-            )
-        )
-    }
-
     override suspend fun requestNewSubscriptionLink(): Result<AccountActionResult> = withContext(Dispatchers.IO) {
         delay(450L)
         Result.success(

@@ -300,7 +300,7 @@ dialog::backdrop { background: #102017a6; }
   .brand-mark { width: 35px; height: 35px; padding-block-end: 6px; }
   .sidebar-footer { display: none; }
   .navigation {
-    position: fixed; inset-inline: 0; inset-block-end: 0; z-index: 4; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .16rem;
+    position: fixed; inset-inline: 0; inset-block-end: 0; z-index: 4; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .16rem;
     padding: .25rem .35rem calc(.25rem + env(safe-area-inset-bottom)); background: var(--sidebar);
     border-block-start: 1px solid #365146;
   }
@@ -441,3 +441,6 @@ a.metric:hover { border-color: var(--focus); }
   .login-visual { display: none; }
   .login-panel { padding: 1.6rem clamp(1.2rem, 7vw, 3rem); }
 }
+
+.plan-editor { padding: 1rem 1.05rem 1.6rem; }
+.plan-editor textarea { resize: vertical; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: .5rem .65rem; }

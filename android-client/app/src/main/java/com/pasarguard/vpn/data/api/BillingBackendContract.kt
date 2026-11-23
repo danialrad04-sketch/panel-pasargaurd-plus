@@ -84,11 +84,6 @@ interface BillingBackendApi {
         @Path("deviceId") deviceId: String
     ): AccountActionResponseDto
 
-    @POST("v1/account/reset-traffic")
-    suspend fun requestTrafficReset(
-        @Header("X-Subscription-Token") subscriptionToken: String
-    ): AccountActionResponseDto
-
     @POST("v1/account/regenerate-link")
     suspend fun requestNewSubscriptionLink(
         @Header("X-Subscription-Token") subscriptionToken: String

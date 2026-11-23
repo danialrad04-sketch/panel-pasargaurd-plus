@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from io import BytesIO, StringIO
 from itertools import pairwise
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.error import HTTPError as UpstreamHTTPError, URLError
 from urllib.request import Request, build_opener
 from uuid import UUID, uuid4
@@ -164,6 +164,9 @@ def initialize():
         )""")
         db.execute("CREATE INDEX IF NOT EXISTS decisions_timestamp ON decisions(timestamp)")
         db.execute("CREATE INDEX IF NOT EXISTS admin_activity_timestamp ON admin_activity(timestamp)")
+        db.execute("""CREATE TABLE IF NOT EXISTS billing_plan_overrides (
+            id TEXT PRIMARY KEY, config TEXT NOT NULL
+        )""")
 
 
 def key_cipher():
@@ -333,15 +336,25 @@ def destination_card(db=None):
     }
 
 
-def catalog(db=None):
-    source = Path(setting("BILLING_PLANS"))
-    plans = json.loads(source.read_text(encoding="utf-8"))["plans"]
-    keys = ("id", "category", "titleFa", "titleEn", "durationDays", "priceToman", "dataLimitGb", "maxDevices")
-    items = []
-    for plan in plans:
+def configured_plans(db=None, *, include_hidden=False):
+    plans = json.loads(Path(setting("BILLING_PLANS")).read_text(encoding="utf-8"))["plans"]
+    items = {}
+    for index, plan in enumerate(plans):
         if type(plan["priceToman"]) is not int or plan["priceToman"] < 100:
             raise ValueError("Invalid plan price")
-        items.append({re.sub(r"[A-Z]", lambda m: "_" + m[0].lower(), k): plan.get(k) for k in keys})
+        item = {re.sub(r"[A-Z]", lambda m: "_" + m[0].lower(), key): value for key, value in plan.items()}
+        items[item["id"]] = dict(item, visible=True, sort_order=index * 10)
+    if db is not None:
+        items.update((row["id"], json.loads(row["config"])) for row in db.execute(
+            "SELECT id, config FROM billing_plan_overrides"
+        ))
+    return sorted((item for item in items.values() if include_hidden or item["visible"]),
+                  key=lambda item: (item["sort_order"], item["id"]))
+
+
+def catalog(db=None):
+    items = [{key: value for key, value in item.items() if key not in ("visible", "sort_order")}
+             for item in configured_plans(db)]
     card = destination_card(db)
     if db is not None and not card["number"]:
         raise HTTPException(503, "DESTINATION_CARD_NOT_CONFIGURED")
@@ -961,6 +974,51 @@ def admin_card():
             "SELECT previous_last4, current_last4, timestamp FROM card_changes ORDER BY id DESC LIMIT 20"
         )
         return {"card": destination_card(db), "history": [dict(item) for item in history]}
+
+
+class BillingPlanUpdate(BaseModel):
+    category: Literal["RENEW", "UPGRADE", "EXTRA_TRAFFIC", "EXTRA_DAYS"]
+    title_fa: str = Field(min_length=1, max_length=100)
+    title_en: str = Field(min_length=1, max_length=100)
+    duration_days: int = Field(ge=0, le=3650)
+    data_limit_gb: int | None = Field(default=None, ge=0, le=100_000)
+    price_toman: int = Field(ge=100, le=1_000_000_000)
+    old_price_toman: int | None = Field(default=None, ge=100, le=1_000_000_000)
+    tag_fa: str | None = Field(default=None, max_length=50)
+    tag_en: str | None = Field(default=None, max_length=50)
+    is_popular: bool = False
+    is_best_value: bool = False
+    max_devices: int | None = Field(default=None, ge=1, le=1000)
+    features_fa: list[Annotated[str, Field(min_length=1, max_length=120)]] = Field(default_factory=list, max_length=8)
+    features_en: list[Annotated[str, Field(min_length=1, max_length=120)]] = Field(default_factory=list, max_length=8)
+    visible: bool = True
+    sort_order: int = Field(default=0, ge=0, le=100_000)
+
+
+@admin.get("/api/catalog")
+def admin_catalog():
+    with transaction(write=False) as db:
+        return {"plans": configured_plans(db, include_hidden=True)}
+
+
+@admin.put("/api/catalog/{plan_id}")
+def save_admin_plan(plan_id: str, body: BillingPlanUpdate, request: IncomingRequest):
+    verify_admin_origin(request)
+    if not re.fullmatch(r"[a-z0-9_][a-z0-9_-]{0,79}", plan_id):
+        raise HTTPException(422, "INVALID_PLAN_ID")
+    item = dict(body.model_dump(), id=plan_id)
+    item["title_fa"] = body.title_fa.strip()
+    item["title_en"] = body.title_en.strip()
+    if (not item["title_fa"] or not item["title_en"]
+            or (body.old_price_toman and body.old_price_toman < body.price_toman)
+            or (body.duration_days == 0 and body.category != "EXTRA_TRAFFIC")
+            or (body.category == "EXTRA_TRAFFIC" and not body.data_limit_gb)):
+        raise HTTPException(422, "INVALID_PLAN_DETAILS")
+    with transaction() as db:
+        db.execute("""INSERT INTO billing_plan_overrides VALUES (?, ?) ON CONFLICT(id)
+                      DO UPDATE SET config=excluded.config""", (plan_id, json.dumps(item)))
+        log_admin_activity(db, "CATALOG_UPDATED", now())
+    return Response(status_code=204)
 
 
 class ProvisioningKey(BaseModel):

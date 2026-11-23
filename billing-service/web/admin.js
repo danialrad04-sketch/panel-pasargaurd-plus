@@ -6,7 +6,7 @@ const compact = new Intl.NumberFormat("fa-IR", { notation: "compact", maximumFra
 const fullDate = new Intl.DateTimeFormat("fa-IR", { timeZone: "Asia/Tehran", dateStyle: "medium", timeStyle: "short" });
 const dayLabel = new Intl.DateTimeFormat("fa-IR", { timeZone: "Asia/Tehran", month: "numeric", day: "numeric" });
 const today = new Intl.DateTimeFormat("fa-IR", { timeZone: "Asia/Tehran", dateStyle: "full" });
-const titles = { overview: "نمای کلی", orders: "سفارش‌ها", deposits: "واریزی‌ها", activity: "فعالیت‌ها", settings: "تنظیمات" };
+const titles = { overview: "نمای کلی", orders: "سفارش‌ها", deposits: "واریزی‌ها", activity: "فعالیت‌ها", catalog: "پلن‌ها", settings: "تنظیمات" };
 const statusLabels = {
   AWAITING_RECEIPT: "در انتظار واریز", PENDING_REVIEW: "در انتظار بررسی",
   APPROVED: "تأییدشده", REJECTED: "ردشده", EXPIRED: "منقضی",
@@ -15,7 +15,7 @@ const statusLabels = {
 const decisionLabels = { SMS_APPROVED: "تأیید خودکار با پیامک بانک", ADMIN_APPROVED: "تأیید دستی مدیر", ADMIN_REJECTED: "رد دستی مدیر" };
 const activityLabels = {
   ...decisionLabels, LOGIN: "ورود به پنل", LOGOUT: "خروج از پنل",
-  CARD_UPDATED: "تغییر کارت مقصد", PROVISIONING_UPDATED: "تغییر تنظیمات ساخت اشتراک",
+  CATALOG_UPDATED: "تغییر پلن فروش", CARD_UPDATED: "تغییر کارت مقصد", PROVISIONING_UPDATED: "تغییر تنظیمات ساخت اشتراک",
 };
 const date = (value) => value ? fullDate.format(value) : "—";
 const money = (value) => fa.format(value) + " تومان";
@@ -246,6 +246,32 @@ async function depositList(signal) {
   pages(get("deposits-pages"), data.total, data.page_size, depositPage, (page) => { depositPage = page; load(); });
 }
 
+async function catalogList(signal) {
+  const data = await request("/api/catalog", { signal });
+  if (signal.aborted) return;
+  table(get("catalog-table"), [["پلن"], ["قیمت"], ["حجم"], ["نمایش"], ["ویرایش"]], data.plans.map((plan) => [
+    plan.title_fa, money(plan.price_toman),
+    plan.data_limit_gb == null ? "نامحدود" : fa.format(plan.data_limit_gb) + " گیگابایت",
+    plan.visible ? "فعال" : "مخفی",
+    button("ویرایش", () => editPlan(plan), "text-button"),
+  ]), "هنوز پلنی ثبت نشده است.");
+}
+
+function editPlan(plan = {category: "RENEW", visible: true, sort_order: 100}) {
+  const form = get("plan-form");
+  form.reset();
+  for (const control of form.elements) {
+    const value = plan[control.name];
+    if (!control.name) continue;
+    if (control.type === "checkbox") control.checked = Boolean(value);
+    else control.value = Array.isArray(value) ? value.join("\n") : value ?? "";
+  }
+  form.elements.namedItem("id").readOnly = Boolean(plan.id);
+  get("plan-dialog-title").textContent = plan.id ? "ویرایش پلن" : "پلن جدید";
+  setNotice("", false, get("plan-notice"));
+  get("plan-dialog").showModal();
+}
+
 async function activityList(signal) {
   const query = new URLSearchParams({ page: activityPage, kind: get("activity-kind").value });
   const data = await request("/api/activity?" + query, { signal });
@@ -297,7 +323,7 @@ async function saveProvisionRequest(path, data) {
   return request(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
 }
 
-const loaders = { overview, orders: orderList, deposits: depositList, activity: activityList, settings };
+const loaders = { overview, orders: orderList, deposits: depositList, activity: activityList, catalog: catalogList, settings };
 
 async function load() {
   activeLoad?.abort();
@@ -587,6 +613,37 @@ get("provision-form").addEventListener("submit", async (event) => {
     setNotice("اتصال ثبت شد. سفارش‌های جدید پس از تأیید پرداخت فعال می‌شوند.");
   } catch (error) {
     setNotice(error.message, true);
+    submit.disabled = false;
+  }
+});
+
+get("new-plan").addEventListener("click", () => editPlan());
+get("close-plan").addEventListener("click", () => get("plan-dialog").close());
+get("plan-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const submit = form.querySelector("button[type=submit]");
+  if (submit.disabled) return;
+  const fields = new FormData(form);
+  const id = fields.get("id").trim();
+  fields.delete("id");
+  const data = Object.fromEntries(fields);
+  for (const name of ["price_toman", "old_price_toman", "duration_days", "data_limit_gb", "max_devices", "sort_order"]) {
+    data[name] = data[name] === "" ? null : Number(data[name]);
+  }
+  for (const name of ["visible", "is_popular", "is_best_value"]) data[name] = fields.has(name);
+  for (const name of ["features_fa", "features_en"]) data[name] = data[name].split("\n").map(line => line.trim()).filter(Boolean);
+  submit.disabled = true;
+  try {
+    await request("/api/catalog/" + encodeURIComponent(id), {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
+    });
+    get("plan-dialog").close();
+    await load();
+    setNotice("پلن ذخیره شد.");
+  } catch (error) {
+    setNotice(error.message, true, get("plan-notice"));
+  } finally {
     submit.disabled = false;
   }
 });
