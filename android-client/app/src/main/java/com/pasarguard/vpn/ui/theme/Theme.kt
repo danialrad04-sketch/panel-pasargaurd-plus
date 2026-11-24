@@ -1,6 +1,5 @@
 package com.pasarguard.vpn.ui.theme
 
-import android.content.Context
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +24,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pasarguard.vpn.BrandConfig
+import com.pasarguard.vpn.R
 import com.pasarguard.vpn.domain.model.AppLanguage
 import com.pasarguard.vpn.domain.model.CalendarSystem
 import com.pasarguard.vpn.domain.model.ThemePalette
@@ -139,22 +139,17 @@ private val LightColorScheme = lightColorScheme(
     outline = Color(0x240F172A)
 )
 
-private fun resolveBrandFontFamily(context: Context, language: AppLanguage): FontFamily {
-    val prefix = if (language == AppLanguage.PERSIAN) "vazirmatn" else "inter"
-    val regularId = context.resources.getIdentifier("${prefix}_regular", "font", context.packageName)
-    val mediumId = context.resources.getIdentifier("${prefix}_medium", "font", context.packageName)
-    val semiBoldId = context.resources.getIdentifier("${prefix}_semibold", "font", context.packageName)
-    val boldId = context.resources.getIdentifier("${prefix}_bold", "font", context.packageName)
-
-    if (regularId == 0) return FontFamily.SansSerif
-    val fonts = buildList {
-        add(Font(regularId, FontWeight.Normal))
-        if (mediumId != 0) add(Font(mediumId, FontWeight.Medium))
-        if (semiBoldId != 0) add(Font(semiBoldId, FontWeight.SemiBold))
-        if (boldId != 0) add(Font(boldId, FontWeight.Bold))
+private fun resolveBrandFontFamily(language: AppLanguage): FontFamily =
+    if (language == AppLanguage.PERSIAN) {
+        FontFamily(
+            Font(R.font.vazirmatn_regular, FontWeight.Normal),
+            Font(R.font.vazirmatn_medium, FontWeight.Medium),
+            Font(R.font.vazirmatn_semibold, FontWeight.SemiBold),
+            Font(R.font.vazirmatn_bold, FontWeight.Bold)
+        )
+    } else {
+        FontFamily(Font(R.font.inter_regular, FontWeight.Normal))
     }
-    return FontFamily(fonts)
-}
 
 private fun buildTypography(fontFamily: FontFamily): Typography = Typography(
     displaySmall = TextStyle(
@@ -225,7 +220,7 @@ fun PasarGuardVpnTheme(
     }
 
     val context = LocalContext.current
-    val fontFamily = remember(language) { resolveBrandFontFamily(context, language) }
+    val fontFamily = remember(language) { resolveBrandFontFamily(language) }
     val typography = remember(fontFamily) { buildTypography(fontFamily) }
 
     val useDynamic = dynamicColorEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -261,6 +256,8 @@ fun PasarGuardVpnTheme(
         baseExtended.copy(
             backgroundCanvas = palette.canvas,
             glassSurface = palette.surface,
+            glassBorderTop = palette.accent.copy(alpha = if (useDark) 0.26f else 0.22f),
+            glassBorderBottom = palette.accent.copy(alpha = if (useDark) 0.09f else 0.12f),
             heroStart = palette.gradientStart,
             heroEnd = palette.accent,
             heroFillEnd = palette.gradientEnd,

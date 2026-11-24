@@ -87,16 +87,16 @@ fun DeepSpaceBackground(
             .fillMaxSize()
             .background(colors.backgroundCanvas)
             .drawBehind {
-                val alphaTop = if (colors.isDark) 0.18f else 0.08f
-                val alphaBottom = if (colors.isDark) 0.14f else 0.06f
+                val alphaTop = if (colors.isDark) 0.15f else 0.07f
+                val alphaBottom = if (colors.isDark) 0.10f else 0.045f
                 drawCircle(
                     brush = Brush.radialGradient(
                         colors = listOf(animatedGlow.copy(alpha = alphaTop), Color.Transparent),
-                        center = Offset(size.width * 0.5f, size.height * 0.12f),
+                        center = Offset(size.width * 0.75f, size.height * 0.06f),
                         radius = size.width * 0.85f
                     ),
                     radius = size.width * 0.85f,
-                    center = Offset(size.width * 0.5f, size.height * 0.12f)
+                    center = Offset(size.width * 0.75f, size.height * 0.06f)
                 )
                 drawCircle(
                     brush = Brush.radialGradient(
@@ -131,7 +131,11 @@ fun GlassCard(
 
     val cardModifier = modifier
         .clip(shape)
-        .background(colors.glassSurface, shape)
+        .background(colors.glassSurface.copy(alpha = if (colors.isDark) 0.92f else 0.93f), shape)
+        .background(
+            Brush.verticalGradient(listOf(colors.heroEnd.copy(alpha = if (colors.isDark) 0.09f else 0.055f), Color.Transparent)),
+            shape
+        )
         .border(BorderStroke(1.dp, borderBrush), shape)
         .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
         .padding(contentPadding)
