@@ -465,16 +465,20 @@ private fun CardToCardStep(
         }
 
         // Destination Card & Exact Amount Card
-        GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+        Column(
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
+                .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(colors.heroStart, colors.heroFillEnd)))
+                .padding(Spacing.md)
+        ) {
             Text(
                 text = if (isPersian) order.destinationBankFa else order.destinationBankEn,
                 style = MaterialTheme.typography.labelMedium,
-                color = colors.heroEnd
+                color = Color.White
             )
             Text(
                 text = if (isPersian) order.destinationCardHolderFa else order.destinationCardHolderEn,
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                color = colors.textPrimary
+                color = Color.White
             )
             Spacer(Modifier.height(Spacing.sm))
 
@@ -483,24 +487,26 @@ private fun CardToCardStep(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
-                    .background(colors.heroStart.copy(alpha = 0.16f))
+                    .background(Color.White.copy(alpha = 0.10f))
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
                     text = Formatters.toPersianDigitsIfNeeded(formattedCard, persianDigits),
+                    modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
+                        textDirection = TextDirection.Ltr,
                         fontFamily = FontFamily.Monospace
                     ),
-                    color = colors.textPrimary
+                    color = Color.White
                 )
                 IconButton(onClick = onCopyCard) {
                     Icon(
                         imageVector = Icons.Rounded.ContentCopy,
                         contentDescription = stringResource(R.string.action_copy),
-                        tint = colors.heroEnd
+                        tint = Color.White
                     )
                 }
             }
@@ -512,7 +518,7 @@ private fun CardToCardStep(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
-                    .background(colors.statusConnected.copy(alpha = 0.14f))
+                    .background(Color.Black.copy(alpha = 0.18f))
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -521,19 +527,19 @@ private fun CardToCardStep(
                     Text(
                         text = stringResource(R.string.checkout_exact_amount),
                         style = MaterialTheme.typography.labelSmall,
-                        color = colors.textSecondary
+                        color = Color.White
                     )
                     Text(
                         text = "${Formatters.formatNumber(order.finalPriceToman, persianDigits)} $currency",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = colors.statusConnected
+                        color = Color.White
                     )
                 }
                 IconButton(onClick = onCopyAmount) {
                     Icon(
                         imageVector = Icons.Rounded.ContentCopy,
                         contentDescription = stringResource(R.string.action_copy),
-                        tint = colors.statusConnected
+                        tint = Color.White
                     )
                 }
             }
@@ -542,7 +548,7 @@ private fun CardToCardStep(
             Text(
                 text = stringResource(R.string.checkout_do_not_round_note),
                 style = MaterialTheme.typography.labelSmall,
-                color = colors.statusWarning
+                color = Color.White
             )
         }
 

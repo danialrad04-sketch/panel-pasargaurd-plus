@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">پاسارگارد VPN</string>
+    <string name="app_name">Donino Vpn</string>
 
     <!-- Navigation -->
     <string name="nav_home">خانه</string>
@@ -17,11 +17,11 @@
     <string name="onboarding_title_2">انتخاب هوشمند کمترین پینگ</string>
     <string name="onboarding_desc_2">تست خودکار تأخیر سرورها و اتصال به سریع‌ترین لوکیشن تنها با یک لمس.</string>
     <string name="onboarding_title_3">همگام‌سازی خودکار و تمدید آنی</string>
-    <string name="onboarding_desc_3">اشتراک پاسارگارد شما به‌صورت خودکار به‌روز می‌ماند و در هر لحظه قابل تمدید است.</string>
+    <string name="onboarding_desc_3">اشتراک دونینو شما به‌صورت خودکار به‌روز می‌ماند و در هر لحظه قابل تمدید است.</string>
 
     <!-- Login -->
     <string name="login_title">فعالسازی اشتراک</string>
-    <string name="login_subtitle">لینک اشتراک پاسارگارد خود را وارد کنید یا کد QR آن را اسکن نمایید.</string>
+    <string name="login_subtitle">لینک اشتراک دونینو خود را وارد کنید یا کد QR آن را اسکن نمایید.</string>
     <string name="login_input_label">لینک اشتراک یا توکن</string>
     <string name="login_input_placeholder">https://panel.example.com/sub/...</string>
     <string name="login_paste">جای‌گذاری</string>
@@ -31,7 +31,7 @@
     <string name="login_error_empty">لطفاً لینک اشتراک یا توکن را وارد کنید.</string>
     <string name="login_error_invalid">اعتبارسنجی اشتراک ناموفق بود. لینک و اتصال اینترنت را بررسی کنید.</string>
     <string name="qr_scanner_title">اسکن کد QR اشتراک</string>
-    <string name="qr_scanner_hint">دوربین را روی کد QR اشتراک پاسارگارد بگیرید</string>
+    <string name="qr_scanner_hint">دوربین را روی کد QR اشتراک دونینو بگیرید</string>
     <string name="qr_camera_permission">برای اسکن کد QR نیاز به دسترسی دوربین است.</string>
     <string name="grant_permission">اعطای دسترسی</string>
 
@@ -100,7 +100,7 @@
     <string name="renew_popular">محبوب‌ترین</string>
     <string name="renew_pay_cta">ادامه و پرداخت</string>
     <string name="renew_polling_title">در حال تأیید پرداخت…</string>
-    <string name="renew_polling_desc">در حال بررسی اشتراک پاسارگارد برای اعمال زمان و حجم جدید. لطفاً چند لحظه صبر کنید.</string>
+    <string name="renew_polling_desc">در حال بررسی اشتراک دونینو برای اعمال زمان و حجم جدید. لطفاً چند لحظه صبر کنید.</string>
     <string name="renew_success_title">اشتراک با موفقیت تمدید شد!</string>
     <string name="renew_success_desc">اطلاعات حساب و لیست سرورها به‌صورت خودکار بروزرسانی شد.</string>
     <string name="renew_done">بازگشت به خانه</string>
@@ -115,9 +115,9 @@
     <string name="settings_lang_en">English</string>
     <string name="settings_theme">پوسته (تم)</string>
     <string name="settings_palette">پالت رنگ</string>
-    <string name="settings_palette_ocean">اقیانوس</string>
-    <string name="settings_palette_jade">یشمی</string>
-    <string name="settings_palette_dusk">غروب مسی</string>
+    <string name="settings_palette_ocean">آمتیست</string>
+    <string name="settings_palette_jade">تالاب</string>
+    <string name="settings_palette_dusk">یاقوت</string>
     <string name="settings_theme_dark">تیره</string>
     <string name="settings_theme_light">روشن</string>
     <string name="settings_theme_system">سیستم</string>
@@ -128,7 +128,7 @@
     <string name="settings_core_xray">Xray</string>
     <string name="settings_core_singbox">sing-box</string>
     <string name="settings_sub_format_title">فرمت دریافت اشتراک</string>
-    <string name="settings_sub_format_desc">در صورت پشتیبانی پنل پاسارگارد، کانفیگ کامل Xray-JSON را ترجیح می‌دهد</string>
+    <string name="settings_sub_format_desc">در صورت پشتیبانی پنل دونینو، کانفیگ کامل Xray-JSON را ترجیح می‌دهد</string>
     <string name="settings_sub_format_xray_json">اولویت با Xray JSON</string>
     <string name="settings_sub_format_links_only">فقط لینک‌ها</string>
     <string name="settings_ipv6_title">فعال‌سازی مسیریابی IPv6</string>
@@ -276,7 +276,7 @@
     <string name="profiles_refresh_interval">بازه بروزرسانی خودکار</string>
     <string name="profiles_interval_manual">دستی</string>
     <string name="profiles_empty_title">پروفایلی ذخیره نشده</string>
-    <string name="profiles_empty_desc">برای افزودن اشتراک پاسارگارد دیگر دکمه + را بزنید.</string>
+    <string name="profiles_empty_desc">برای افزودن اشتراک دونینو دیگر دکمه + را بزنید.</string>
     <string name="profiles_add">افزودن پروفایل اشتراک</string>
     <string name="profiles_name_hint">نام پروفایل</string>
 
@@ -477,7 +477,7 @@
     <string name="update_allow_install">اجازهٔ نصب را در تنظیمات اندروید فعال کنید و سپس نصب را بزنید.</string>
     <string name="update_install">نصب</string>
     <string name="account_code">کد تأیید</string>
-    <string name="account_password">رمز پاسارگارد</string>
+    <string name="account_password">رمز دونینو</string>
     <string name="account_login">ورود</string>
     <string name="account_verify">تأیید و ورود</string>
     <string name="account_signup_reset">ساخت حساب یا بازیابی رمز</string>

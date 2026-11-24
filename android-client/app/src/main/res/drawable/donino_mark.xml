@@ -1,0 +1,11 @@
+<?xml version="1.0" ?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillType="evenOdd" android:fillColor="#7033DC" android:pathData="M18,21 L53,21 C83,21 95,43 87,63 C81,80 60,87 25,94 L36,56 Z M31,34 L47,56 L39,77 C59,72 71,68 74,56 C77,44 68,35 54,35 Z"/>
+    <path android:fillType="evenOdd" android:fillColor="#BA8DFF" android:pathData="M18,21L53,21 Q70,21 78,29 Q66,24 52,24L21,24Z"/>
+    <path android:fillType="evenOdd" android:fillColor="#09CCCC" android:pathData="M31,34L54,34Q77,35 75,54 Q75,40 55,38L34,38Z"/>
+    <path android:fillType="evenOdd" android:fillColor="#9E68FA" android:pathData="M25,94L39,77L47,56L35,70Z"/>
+    <path android:fillType="evenOdd" android:fillColor="#FD4967" android:pathData="M20,29L49,55L29,78L35,56Z"/>
+    <path android:fillType="evenOdd" android:fillColor="#FF98A8" android:pathData="M20,29L35,56L49,55Z"/>
+    <path android:fillType="evenOdd" android:fillColor="#BD1950" android:pathData="M35,56L29,78L40,62Z"/>
+    <path android:fillType="evenOdd" android:fillColor="#E32B55" android:pathData="M92,16 Q93,22 98,23 Q93,24 92,30 Q91,24 86,23 Q91,22 92,16Z"/>
+</vector>

@@ -303,7 +303,12 @@ fun HomeScreen(
                 Spacer(Modifier.height(Spacing.sm))
 
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.nav_connect), style = MaterialTheme.typography.headlineSmall,
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(R.drawable.donino_mark),
+                        contentDescription = null, modifier = Modifier.size(38.dp)
+                    )
+                    Spacer(Modifier.width(Spacing.sm))
+                    Text(BrandConfig.appName, style = MaterialTheme.typography.headlineSmall,
                         modifier = Modifier.weight(1f), color = colors.textPrimary)
                     IconButton(onClick = viewModel::refreshSubscription) {
                         Icon(Icons.Rounded.Refresh, contentDescription = stringResource(R.string.servers_refresh))
@@ -433,6 +438,15 @@ private fun HeroConnectSection(
         ConnectionStatus.ERROR -> R.string.status_error
         ConnectionStatus.DISCONNECTED -> R.string.status_disconnected
     })
+    androidx.compose.foundation.Image(
+        painter = androidx.compose.ui.res.painterResource(
+            if (status == ConnectionStatus.CONNECTED) R.drawable.atlas_connected else R.drawable.atlas_idle
+        ),
+        contentDescription = null,
+        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+        modifier = Modifier.fillMaxWidth().height(154.dp).clip(RoundedCornerShape(18.dp))
+    )
+    Spacer(Modifier.height(Spacing.sm))
     Text(statusText, style = MaterialTheme.typography.titleLarge,
         color = when (status) {
             ConnectionStatus.CONNECTED -> colors.statusConnected

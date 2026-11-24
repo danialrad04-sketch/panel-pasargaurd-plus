@@ -759,7 +759,7 @@ fun SettingsScreen(
                     onClick = {
                         viewModel.exportBackupJson { jsonPayload ->
                             pendingExportJson = jsonPayload
-                            exportLauncher.launch("pasarguard-vpn-settings.json")
+                            exportLauncher.launch("donino-vpn-settings.json")
                         }
                     }
                 )

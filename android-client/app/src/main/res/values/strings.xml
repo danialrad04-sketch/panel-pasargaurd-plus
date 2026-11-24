@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">PasarGuard VPN</string>
+    <string name="app_name">Donino Vpn</string>
 
     <!-- Navigation -->
     <string name="nav_home">Home</string>
@@ -17,11 +17,11 @@
     <string name="onboarding_title_2">Smart Auto-Best Ping</string>
     <string name="onboarding_desc_2">Automatically probes server latency and connects you to the fastest location with a single tap.</string>
     <string name="onboarding_title_3">Live Sync &amp; Instant Renewal</string>
-    <string name="onboarding_desc_3">Your PasarGuard subscription stays synced automatically with quota alerts and effortless in-app renewal.</string>
+    <string name="onboarding_desc_3">Your Donino Vpn subscription stays synced automatically with quota alerts and effortless in-app renewal.</string>
 
     <!-- Login -->
     <string name="login_title">Activate Subscription</string>
-    <string name="login_subtitle">Paste your PasarGuard subscription link or scan the QR code from your account.</string>
+    <string name="login_subtitle">Paste your Donino Vpn subscription link or scan the QR code from your account.</string>
     <string name="login_input_label">Subscription URL or Token</string>
     <string name="login_input_placeholder">https://panel.example.com/sub/...</string>
     <string name="login_paste">Paste</string>
@@ -31,7 +31,7 @@
     <string name="login_error_empty">Please enter a subscription link or token.</string>
     <string name="login_error_invalid">Could not verify subscription. Check your link and internet connection.</string>
     <string name="qr_scanner_title">Scan Subscription QR</string>
-    <string name="qr_scanner_hint">Point your camera at the PasarGuard QR code</string>
+    <string name="qr_scanner_hint">Point your camera at the Donino Vpn QR code</string>
     <string name="qr_camera_permission">Camera permission is needed to scan QR codes.</string>
     <string name="grant_permission">Grant Permission</string>
 
@@ -100,7 +100,7 @@
     <string name="renew_popular">Most Popular</string>
     <string name="renew_pay_cta">Continue to Payment</string>
     <string name="renew_polling_title">Confirming Payment…</string>
-    <string name="renew_polling_desc">Checking your PasarGuard subscription for updated traffic and expiry. This usually takes a few seconds.</string>
+    <string name="renew_polling_desc">Checking your Donino Vpn subscription for updated traffic and expiry. This usually takes a few seconds.</string>
     <string name="renew_success_title">Subscription Renewed!</string>
     <string name="renew_success_desc">Your account and server configs have been refreshed automatically.</string>
     <string name="renew_done">Back to Home</string>
@@ -115,9 +115,9 @@
     <string name="settings_lang_en">English</string>
     <string name="settings_theme">Theme</string>
     <string name="settings_palette">Color palette</string>
-    <string name="settings_palette_ocean">Ocean</string>
-    <string name="settings_palette_jade">Jade</string>
-    <string name="settings_palette_dusk">Copper dusk</string>
+    <string name="settings_palette_ocean">Amethyst</string>
+    <string name="settings_palette_jade">Lagoon</string>
+    <string name="settings_palette_dusk">Ruby</string>
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_system">System</string>
@@ -128,7 +128,7 @@
     <string name="settings_core_xray">Xray</string>
     <string name="settings_core_singbox">sing-box</string>
     <string name="settings_sub_format_title">Subscription Format</string>
-    <string name="settings_sub_format_desc">Prefer panel Xray-JSON config when exposed by PasarGuard</string>
+    <string name="settings_sub_format_desc">Prefer panel Xray-JSON config when exposed by Donino Vpn</string>
     <string name="settings_sub_format_xray_json">Prefer Xray JSON</string>
     <string name="settings_sub_format_links_only">Links Only</string>
     <string name="settings_ipv6_title">Enable IPv6 Routing</string>
@@ -195,7 +195,7 @@
     <string name="coach_tip_title">Pro Tip: Smarter Server Selection</string>
     <string name="coach_tip_body">Tap the tune icon in Servers to choose Multi-URL testing, stability scoring, or manual config import.</string>
     <string name="app_lock_title">App Lock (PIN)</string>
-    <string name="app_lock_subtitle">Enter your PIN to access PasarGuard VPN</string>
+    <string name="app_lock_subtitle">Enter your PIN to access Donino Vpn</string>
     <string name="app_lock_pin_hint">PIN (4–8 digits)</string>
     <string name="app_lock_wrong_pin">Incorrect PIN. Try again.</string>
     <string name="app_lock_unlock">Unlock</string>
@@ -276,7 +276,7 @@
     <string name="profiles_refresh_interval">Auto-Refresh Interval</string>
     <string name="profiles_interval_manual">Manual</string>
     <string name="profiles_empty_title">No Saved Profiles</string>
-    <string name="profiles_empty_desc">Tap + to add another PasarGuard subscription profile.</string>
+    <string name="profiles_empty_desc">Tap + to add another Donino Vpn subscription profile.</string>
     <string name="profiles_add">Add Subscription Profile</string>
     <string name="profiles_name_hint">Profile Name</string>
 
@@ -477,7 +477,7 @@
     <string name="update_allow_install">Allow package installation in Android settings, then select Install.</string>
     <string name="update_install">Install</string>
     <string name="account_code">Verification code</string>
-    <string name="account_password">PasarGuard password</string>
+    <string name="account_password">Donino Vpn password</string>
     <string name="account_login">Sign in</string>
     <string name="account_verify">Verify and sign in</string>
     <string name="account_signup_reset">Create an account or reset password</string>

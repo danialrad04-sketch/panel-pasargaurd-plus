@@ -174,20 +174,11 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .size(76.dp)
-                    .clip(CircleShape)
-                    .background(Brush.linearGradient(listOf(colors.heroStart, colors.heroEnd))),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Shield,
-                    contentDescription = BrandConfig.appName,
-                    tint = Color.White,
-                    modifier = Modifier.size(40.dp)
-                )
-            }
+            androidx.compose.foundation.Image(
+                painter = androidx.compose.ui.res.painterResource(R.drawable.donino_mark),
+                contentDescription = null,
+                modifier = Modifier.size(82.dp)
+            )
             Spacer(Modifier.height(Spacing.md))
 
             Text(

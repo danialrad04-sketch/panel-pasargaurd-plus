@@ -115,7 +115,13 @@ fun OnboardingScreen(
                                     .background(MaterialTheme.colorScheme.primaryContainer),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
+                                if (page == 0) {
+                                    androidx.compose.foundation.Image(
+                                        painter = androidx.compose.ui.res.painterResource(R.drawable.donino_mark),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(74.dp)
+                                    )
+                                } else Icon(
                                     imageVector = slide.icon,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer,

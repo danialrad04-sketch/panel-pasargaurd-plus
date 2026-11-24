@@ -37,8 +37,8 @@ android {
         minSdk = 24
         targetSdk = 35
         resourceConfigurations += listOf("en", "fa")
-        versionCode = resolveConfig("PASARGUARD_VERSION_CODE", "10").toInt().also { require(it in 1..2_100_000_000) }
-        versionName = resolveConfig("PASARGUARD_VERSION_NAME", "1.6.0").also {
+        versionCode = resolveConfig("PASARGUARD_VERSION_CODE", "11").toInt().also { require(it in 1..2_100_000_000) }
+        versionName = resolveConfig("PASARGUARD_VERSION_NAME", "1.7.0").also {
             require(Regex("[0-9]+(?:[.][0-9]+){1,3}").matches(it))
         }
 
@@ -51,7 +51,7 @@ android {
             "PASARGUARD_BILLING_URL must be an HTTPS origin"
         }
         buildConfigField("String", "BILLING_BASE_URL", "\"$billingUrl\"")
-        val appName = resolveConfig("PASARGUARD_APP_NAME", "PasarGuard VPN")
+        val appName = resolveConfig("PASARGUARD_APP_NAME", "Donino Vpn")
         val telegramUrl = resolveConfig("PASARGUARD_SUPPORT_TELEGRAM", "")
         val whatsappUrl = resolveConfig("PASARGUARD_SUPPORT_WHATSAPP", "")
         val paymentScheme = resolveConfig("PASARGUARD_PAYMENT_SCHEME", "pasarguardvpn")
