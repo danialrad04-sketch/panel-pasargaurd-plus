@@ -296,7 +296,7 @@ def expiration_ms(panel_expire):
 def subscription_renewals(db, order_id):
     return db.execute(
         """SELECT o.owner,o.status,o.expires,o.details,
-                  COALESCE(json_extract(o.details,'$.wallet_paid_toman'), o.amount) AS amount
+                  COALESCE(json_extract(o.details,'$.wallet_paid_toman'), json_extract(o.details,'$.reconciled_amount'), o.amount) AS amount
            FROM orders o WHERE json_extract(o.details,'$.renewal_target')=?""",
         (provisioning.panel_username(order_id),),
     ).fetchall()
@@ -306,7 +306,7 @@ def process_refund_job():
     current = now()
     with transaction() as db:
         job = db.execute(
-            """SELECT r.*, COALESCE(json_extract(o.details, '$.wallet_paid_toman'), o.amount) AS order_amount,
+            """SELECT r.*, COALESCE(json_extract(o.details, '$.wallet_paid_toman'), json_extract(o.details, '$.reconciled_amount'), o.amount) AS order_amount,
                o.details FROM customer_refunds r
                JOIN orders o ON o.id=r.order_id WHERE r.finished IS NULL AND r.next_run<=?
                ORDER BY r.next_run LIMIT 1""", (current,),
@@ -519,9 +519,11 @@ def present(row, *, admin=False):
     data.pop("purchased_plan", None)
     data.pop("renewal_changes", None)
     data.pop("renewal_target", None)
-    amount = data.pop("wallet_paid_toman", row["amount"])
+    reconciled = data.pop("reconciled_amount", row["amount"])
+    amount = data.pop("wallet_paid_toman", reconciled)
     if not admin:
         data.pop("subscriber", None)
+        data.pop("reconciliation_reason", None)
     status = row["status"]
     if status == "AWAITING_RECEIPT" and row["expires"] <= now():
         status = "EXPIRED"
@@ -973,7 +975,8 @@ def estimate_refund(order_id, records, timestamp):
         expire = provisioning.refund_account(order_id, provision_config()).get("expire")
         if expiration_ms(expire) <= now():
             raise HTTPException(409, "SUBSCRIPTION_EXPIRED")
-        total = refundable_amount(details.get("wallet_paid_toman", order["amount"]), details, timestamp, expire)
+        total = refundable_amount(details.get("wallet_paid_toman", details.get("reconciled_amount", order["amount"])),
+                                  details, timestamp, expire)
         for renewal in renewals:
             if renewal["status"] == "APPROVED":
                 total += refundable_amount(renewal["amount"], json.loads(renewal["details"]), timestamp, expire)
@@ -1171,11 +1174,11 @@ def admin_overview(days: int = 7):
     boundaries = [int((today - timedelta(days=i)).timestamp() * 1000) for i in range(days - 1, -2, -1)]
     with transaction(write=False) as db:
         approved = db.execute(
-            """SELECT COALESCE(json_extract(o.details, '$.wallet_paid_toman'), o.amount) AS amount,
+            """SELECT COALESCE(json_extract(o.details, '$.wallet_paid_toman'), json_extract(o.details, '$.reconciled_amount'), o.amount) AS amount,
                       d.timestamp, d.decision FROM decisions d
                JOIN orders o ON o.id=d.order_id
                WHERE d.timestamp>=? AND d.timestamp<=?
-               AND d.decision IN ('SMS_APPROVED', 'ADMIN_APPROVED', 'WALLET_PAID') AND o.status='APPROVED'""",
+               AND d.decision IN ('SMS_APPROVED', 'ADMIN_APPROVED', 'ADMIN_MATCHED', 'WALLET_PAID') AND o.status='APPROVED'""",
             (boundaries[0], current),
         ).fetchall()
         pending = db.execute("SELECT count(*) FROM orders WHERE status='PENDING_REVIEW'").fetchone()[0]
@@ -1261,7 +1264,7 @@ def export_orders(status: str = "", q: str = Query(default="", max_length=100), 
     writer.writerow(("order_id", "amount_toman", "status", "created_at_utc", "has_receipt_image"))
     with transaction(write=False) as db:
         rows = db.execute(
-            """SELECT id, COALESCE(json_extract(details, '$.wallet_paid_toman'), amount) AS amount,
+            """SELECT id, COALESCE(json_extract(details, '$.wallet_paid_toman'), json_extract(details, '$.reconciled_amount'), amount) AS amount,
                       shown_status, created, json_extract(details, '$.has_receipt_image') AS image """
             + query + " ORDER BY created DESC, id DESC LIMIT ?",
             (*values, EXPORT_MAX_ROWS + 1),
@@ -1353,10 +1356,50 @@ def admin_deposits(match: str = "", page: int = Query(default=1, ge=1, le=1_000_
     with transaction(write=False) as db:
         total = db.execute("SELECT count(*) " + query, params).fetchone()[0]
         rows = db.execute(
-            "SELECT amount, received, order_id " + query + " ORDER BY received DESC, digest LIMIT ? OFFSET ?",
+            "SELECT digest AS id, amount, received, order_id " + query + " ORDER BY received DESC, digest LIMIT ? OFFSET ?",
             (*params, PAGE_SIZE, (page - 1) * PAGE_SIZE),
         )
         return {"total": total, "page_size": PAGE_SIZE, "deposits": [dict(row) for row in rows]}
+
+
+class DepositMatch(BaseModel):
+    order_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    reason: str = Field(min_length=5, max_length=300)
+
+
+@admin.post("/api/deposits/{deposit_id}/match")
+def match_deposit(deposit_id: str, body: DepositMatch, request: IncomingRequest):
+    verify_admin_origin(request)
+    reason = body.reason.strip()
+    if len(reason) < 5:
+        raise HTTPException(422, "MATCH_REASON_REQUIRED")
+    with transaction() as db:
+        deposit = db.execute("SELECT * FROM deposits WHERE digest=?", (deposit_id,)).fetchone()
+        order = db.execute("SELECT * FROM orders WHERE id=?", (body.order_id,)).fetchone()
+        if not deposit or not order:
+            raise HTTPException(404)
+        if deposit["order_id"] == body.order_id:
+            return Response(status_code=204)
+        if deposit["order_id"] or order["status"] not in ("AWAITING_RECEIPT", "PENDING_REVIEW"):
+            raise HTTPException(409, "MATCH_UNAVAILABLE")
+        details = json.loads(order["details"])
+        if details.get("payment_method") != "CARD_TO_CARD" or deposit["received"] < order["created"]:
+            raise HTTPException(409, "MATCH_UNAVAILABLE")
+        if deposit["amount"] < details.get("base_price_toman", order["amount"]):
+            raise HTTPException(409, "DEPOSIT_BELOW_PLAN_PRICE")
+        if db.execute("SELECT 1 FROM orders WHERE amount=? AND status='APPROVED' AND id<>?",
+                      (deposit["amount"], body.order_id)).fetchone():
+            raise HTTPException(409, "DEPOSIT_ALREADY_ACCOUNTED")
+        if (target := details.get("renewal_target")) and db.execute(
+            "SELECT 1 FROM customer_refunds WHERE 'pg_' || substr(order_id,1,28)=?", (target,),
+        ).fetchone():
+            raise HTTPException(409, "MATCH_UNAVAILABLE")
+        details["reconciled_amount"] = deposit["amount"]
+        details["reconciliation_reason"] = reason
+        db.execute("UPDATE orders SET details=? WHERE id=?", (json.dumps(details), body.order_id))
+        db.execute("UPDATE deposits SET order_id=? WHERE digest=?", (body.order_id, deposit_id))
+        decide(db, body.order_id, "APPROVED", "ADMIN_MATCHED")
+    return Response(status_code=204)
 
 
 @admin.get("/api/card")
@@ -1558,14 +1601,20 @@ def github_android_release(repository, _bucket):
     return None
 
 
+def current_app_release(platform):
+    with transaction(write=False) as db:
+        row = db.execute("SELECT config FROM app_releases WHERE platform=?", (platform,)).fetchone()
+    if row:
+        return json.loads(row["config"])
+    if platform == "android" and (repository := os.getenv("ANDROID_RELEASE_REPOSITORY", "")):
+        return github_android_release(repository, now() // (5 * MINUTE_MS))
+    return None
+
+
 @app.get("/v1/app/config")
 def published_app_release(platform: Literal["android", "ios"], version_code: int = Query(ge=0),
                           package_name: str = Query(max_length=160), abi: str = Query(default="", max_length=30)):
-    with transaction(write=False) as db:
-        row = db.execute("SELECT config FROM app_releases WHERE platform=?", (platform,)).fetchone()
-    release = json.loads(row["config"]) if row else None
-    if not row and platform == "android" and (repository := os.getenv("ANDROID_RELEASE_REPOSITORY", "")):
-        release = github_android_release(repository, now() // (5 * MINUTE_MS))
+    release = current_app_release(platform)
     if (not release or not release["visible"] or release["package_name"] != package_name
             or release["latest_version_code"] <= version_code):
         return Response(status_code=204)
@@ -1581,6 +1630,18 @@ def published_app_release(platform: Literal["android", "ios"], version_code: int
         "latest_version": release["latest_version"], "latest_version_code": release["latest_version_code"],
         "download_url": url, "sha256": checksum, "changelog": release["changelog"],
     }
+
+
+@app.get("/download/android.apk")
+def download_current_android(abi: Literal["arm64-v8a", "armeabi-v7a", "x86_64", "universal"] = "arm64-v8a"):
+    release = current_app_release("android")
+    if not release or not release["visible"]:
+        raise HTTPException(404)
+    assets = {asset["abi"]: asset for asset in release["assets"]}
+    asset = assets.get(abi) or assets.get("universal")
+    if not asset:
+        raise HTTPException(404)
+    return RedirectResponse(asset["download_url"], status_code=307, headers={"Cache-Control": "no-store"})
 
 
 class BillingPlanUpdate(BaseModel):

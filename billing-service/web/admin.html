@@ -174,6 +174,7 @@
             </article>
             <article class="surface" id="setting-release" hidden>
               <div class="section-head"><div><h2>به‌روزرسانی اپ‌ها</h2><p>نسخهٔ قابل ارائه برای اندروید و آیفون</p></div></div>
+              <a class="button subtle" href="/download/android.apk" target="_blank" rel="noopener">لینک ثابت دانلود اندروید</a>
               <form class="settings-form" id="release-form">
                 <label class="field">پلتفرم<select id="release-platform"><option value="android">اندروید</option><option value="ios">آیفون</option></select></label>
                 <div class="field-pair">
@@ -217,6 +218,18 @@
     <div class="switcher"><label class="field">جست‌وجوی بخش<input id="section-query" type="search" autofocus></label><nav id="section-links" aria-label="انتخاب بخش"></nav><p id="no-section" hidden>بخشی پیدا نشد.</p></div>
   </dialog>
   <dialog id="source-dialog" aria-labelledby="source-title"><header class="dialog-head"><h2 id="source-title">تغییر منبع نسخهٔ اندروید</h2></header><form method="dialog" class="switcher"><p>تنظیم دستی نسخه حذف می‌شود و برنامه نسخهٔ منتشرشده در GitHub را پیشنهاد می‌دهد.</p><div class="dialog-actions"><button value="cancel" class="button subtle" autofocus>انصراف</button><button class="button primary" value="apply">استفاده از GitHub</button></div></form></dialog>
+  <dialog id="deposit-dialog" aria-labelledby="deposit-title">
+    <header class="dialog-head"><h2 id="deposit-title">تطبیق دستی واریز</h2><form method="dialog"><button class="button subtle">بستن</button></form></header>
+    <form id="deposit-match-form" class="switcher">
+      <p id="deposit-match-label"></p>
+      <label class="field">شناسهٔ سفارش<input name="order_id" dir="ltr" required pattern="[a-f0-9]{32}" maxlength="32" autocomplete="off"></label>
+      <button type="button" class="button subtle" id="deposit-order-preview">بررسی سفارش</button>
+      <div id="deposit-order-detail"></div>
+      <label class="field">دلیل تطبیق<textarea name="reason" required minlength="5" maxlength="300" rows="3"></textarea></label>
+      <p class="notice" id="deposit-match-notice" role="status" hidden></p>
+      <button class="button primary" id="confirm-deposit-match" disabled>ثبت تطبیق و تأیید پرداخت</button>
+    </form>
+  </dialog>
   <dialog id="order-dialog" aria-labelledby="detail-title">
     <div class="dialog-head"><div><h2 id="detail-title">جزئیات سفارش</h2><p id="detail-id" dir="ltr"></p></div><form method="dialog"><button class="button subtle" type="submit" aria-label="بستن جزئیات سفارش">بستن</button></form></div>
     <div id="detail-content"></div>

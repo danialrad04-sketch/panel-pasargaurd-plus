@@ -87,3 +87,39 @@ sudo bash billing-service/install.sh --update
 در «تنظیمات پرداخت ← به‌روزرسانی اپ‌ها» می‌توانید نسخه، شمارهٔ ساخت، شناسهٔ بسته و یادداشت انتشار را ثبت و پیشنهاد نسخه را فعال یا غیرفعال کنید. برای اندروید، معماری را انتخاب و فایل APK را بارگذاری کنید یا از فهرست فایل‌های بارگذاری‌شده انتخاب کنید. پنل آدرس عمومی و SHA-256 را وارد می‌کند. می‌توانید «کپی لینک عمومی» را بزنید و لینک را مستقیم به کاربران بدهید. برای پیشنهاد درون اپ، شمارهٔ ساخت و نسخه را مطابق همان APK وارد کنید، گزینهٔ نمایش را فعال کنید و «ذخیرهٔ نسخه» را بزنید. امکان وارد کردن آدرس HTTPS و هش به‌صورت دستی هم وجود دارد. برای iOS، لینک App Store یا TestFlight را وارد کنید. اپ‌ها در زمان فعال شدن، حداکثر هر شش ساعت بررسی می‌کنند و بررسی دستی هم در بخش اشتراک دارند.
 
 برای انتشار خودکار اندروید روی GitHub Releases، `ANDROID_RELEASE_REPOSITORY=danialrad04-sketch/panel-pasargaurd-plus` را در `.env` تنظیم کنید و هر نسخهٔ امضاشده را از workflow اندروید با گزینهٔ `publish_release` و شمارهٔ ساخت بالاتر منتشر کنید. workflow فایل APKهای هر معماری و هش آن‌ها را در Release قرار می‌دهد. اگر برای اندروید پیشنهادی در پنل ذخیره شده باشد، همان تنظیمات دستی اولویت دارد. دانلود GitHub Releases باید بدون ورود در دسترس باشد.
+
+### تطبیق دستی و لینک دانلود
+
+در «واریزی‌ها»، کنار واریز بدون سفارش «تطبیق دستی» را بزنید. شناسهٔ سفارش را وارد کنید، مبلغ و زمان‌ها را با گردش بانک بررسی کنید و دلیل را بنویسید. پس از ثبت، مبلغ واقعی واریز در سفارش و گزارش ثبت می‌شود و فعال‌سازی وارد همان صف خودکار می‌شود. واریز کمتر از قیمت پایه نیاز به رسیدگی جداگانه دارد.
+
+پیوند `/download/android.apk` روی دامنهٔ پرداخت به نسخهٔ قابل عرضهٔ اندروید هدایت می‌کند. پیش‌فرض ARM64 است. برای دستگاه‌های دیگر مقدار `abi` را در آدرس مشخص کنید. پیوند پس از قابل عرضه کردن نسخه در «تنظیمات ← انتشار برنامه» فعال است.
+
+### پشتیبان‌گیری پایگاه‌داده پیش از استقرار
+
+از ریشهٔ پروژه روی سرور، این دستور یک نسخهٔ سازگار SQLite می‌گیرد و بررسی سلامت نسخهٔ کپی‌شده را پیش از خروجی انجام می‌دهد:
+
+```bash
+umask 077
+backup="billing-$(date -u +%Y%m%dT%H%M%SZ).sqlite3"
+sudo docker compose -p billing-service -f billing-service/compose.yml exec -T billing python - > "$backup" <<'PY'
+import os
+import sqlite3
+import sys
+import tempfile
+from contextlib import closing
+from pathlib import Path
+
+with tempfile.TemporaryDirectory() as directory:
+    snapshot = Path(directory) / "billing.sqlite3"
+    with closing(sqlite3.connect(Path(os.environ["BILLING_DB"]).as_uri() + "?mode=ro", uri=True)) as source:
+        with closing(sqlite3.connect(snapshot)) as target:
+            source.backup(target)
+            if target.execute("PRAGMA quick_check").fetchall() != [("ok",)]:
+                raise RuntimeError("SQLite backup integrity check failed")
+    with snapshot.open("rb") as stream:
+        while chunk := stream.read(1024 * 1024):
+            sys.stdout.buffer.write(chunk)
+PY
+```
+
+فایل پشتیبان را همراه با نسخهٔ محافظت‌شدهٔ `.env` و فایل‌های بارگذاری‌شده در `/data/apk` نگه دارید. تصویر رسید داخل خود دیتابیس پشتیبان است. قبل از تکیه بر این فایل برای بازیابی، آن را روی یک سرویس آزمایشی جدا باز کنید.

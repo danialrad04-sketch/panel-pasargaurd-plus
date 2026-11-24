@@ -12,7 +12,7 @@ const statusLabels = {
   APPROVED: "تأییدشده", REJECTED: "ردشده", EXPIRED: "منقضی",
   matched: "دارای سفارش", unmatched: "بدون سفارش",
 };
-const decisionLabels = { ADMIN_EXPEDITED: "تسریع فعال‌سازی توسط مدیر", ADMIN_CANCEL: "لغو سفارش پرداخت‌نشده توسط مدیر", SMS_APPROVED: "تأیید خودکار با پیامک بانک", ADMIN_APPROVED: "تأیید دستی مدیر", ADMIN_REJECTED: "رد دستی مدیر" };
+const decisionLabels = { ADMIN_MATCHED: "تطبیق دستی واریز و تأیید پرداخت", ADMIN_EXPEDITED: "تسریع فعال‌سازی توسط مدیر", ADMIN_CANCEL: "لغو سفارش پرداخت‌نشده توسط مدیر", SMS_APPROVED: "تأیید خودکار با پیامک بانک", ADMIN_APPROVED: "تأیید دستی مدیر", ADMIN_REJECTED: "رد دستی مدیر" };
 const activityLabels = {
   ...decisionLabels, LOGIN: "ورود به پنل", LOGOUT: "خروج از پنل",
   RELEASE_UPDATED: "تغییر نسخهٔ برنامه", WALLET_PAID: "پرداخت از کیف پول", CUSTOMER_CANCELLED: "لغو اشتراک و ثبت اعتبار کیف پول", CATALOG_UPDATED: "تغییر پلن فروش", CARD_UPDATED: "تغییر کارت مقصد", PROVISIONING_UPDATED: "تغییر تنظیمات ساخت اشتراک",
@@ -77,6 +77,14 @@ async function request(path, options = {}) {
     if (raw && response.status === 422) {
       throw new Error("برای دریافت CSV با کمتر از ۱۰ هزار سفارش، فیلترهای دقیق‌تری انتخاب کنید.");
     }
+    const detail = (await response.json().catch(() => null))?.detail;
+    const messages = {
+      MATCH_UNAVAILABLE: "این واریز یا سفارش دیگر برای تطبیق در دسترس نیست.",
+      DEPOSIT_BELOW_PLAN_PRICE: "مبلغ واریزی کمتر از قیمت پلن است.",
+      DEPOSIT_ALREADY_ACCOUNTED: "سفارشی با مبلغ این واریز قبلاً تأیید شده است.",
+      MATCH_REASON_REQUIRED: "دلیل تطبیق را وارد کنید.",
+    };
+    if (typeof detail === "string" && Object.hasOwn(messages, detail)) throw new Error(messages[detail]);
     const errors = {
       403: "این درخواست از دامنهٔ فعلی پذیرفته نشد.",
       404: "این سفارش پیدا نشد.",
@@ -252,7 +260,8 @@ async function depositList(signal) {
   if (signal.aborted) return;
   table(get("deposits-table"), [["مبلغ"], ["زمان دریافت"], ["وضعیت تطبیق"], ["سفارش"]], data.deposits.map((deposit) => [
     money(deposit.amount), date(deposit.received), status(deposit.order_id ? "matched" : "unmatched"),
-    deposit.order_id ? button("مشاهده", () => showOrder(deposit.order_id), "text-button") : "—",
+    deposit.order_id ? button("مشاهده", () => showOrder(deposit.order_id), "text-button") :
+      button("تطبیق دستی", () => openDepositMatch(deposit), "text-button"),
   ]), "واریزی در این فهرست پیدا نشد.");
   pages(get("deposits-pages"), data.total, data.page_size, depositPage, (page) => { depositPage = page; load(); });
 }
@@ -584,6 +593,7 @@ function detailList(order) {
     ["پلن", order.plan_title_fa], ["مبلغ دقیق", money(order.final_price_toman)],
     ["شماره پیگیری", order.tracking_number], ["چهار رقم کارت پرداخت‌کننده", order.payer_card_last4],
     ["کارت مقصد هنگام ثبت", order.destination_card?.card_number ? last4(order.destination_card.card_number.slice(-4)) : "—"],
+    ["دلیل تطبیق دستی", order.reconciliation_reason],
     ["زمان ثبت رسید", order.submitted_at_ms ? date(order.submitted_at_ms) : "—"],
     ["زمان تصمیم", order.reviewed_at_ms ? date(order.reviewed_at_ms) : "—"],
     ["آماده‌شدن اشتراک", order.activation_ready_at_ms ? date(order.activation_ready_at_ms) : "—"],
@@ -931,4 +941,73 @@ get("clear-order-filters").addEventListener("click", () => {
 get("activation-link").addEventListener("click", () => {
   applyStatus("APPROVED");
   get("activation-filter").value = "pending";
+});
+
+
+const depositDialog = get("deposit-dialog");
+const matchForm = get("deposit-match-form");
+const matchId = matchForm.elements.namedItem("order_id");
+const matchNotice = get("deposit-match-notice");
+const matchConfirm = get("confirm-deposit-match");
+let selectedDeposit;
+let matchBusy = false;
+
+function openDepositMatch(deposit) {
+  if (matchBusy) return;
+  selectedDeposit = deposit;
+  matchForm.reset();
+  get("deposit-match-label").textContent = money(deposit.amount) + " · " + date(deposit.received);
+  resetDepositPreview();
+  depositDialog.showModal();
+}
+
+function resetDepositPreview() {
+  get("deposit-order-detail").replaceChildren();
+  matchConfirm.disabled = true;
+  setNotice("", false, matchNotice);
+}
+
+matchId.addEventListener("input", resetDepositPreview);
+get("deposit-order-preview").addEventListener("click", async () => {
+  matchId.value = matchId.value.trim().toLowerCase();
+  if (!matchId.reportValidity()) return;
+  resetDepositPreview();
+  const id = matchId.value;
+  const deposit = selectedDeposit;
+  try {
+    const {order} = await request("/api/orders/" + encodeURIComponent(id));
+    if (!depositDialog.open || selectedDeposit !== deposit || matchId.value !== id) return;
+    get("deposit-order-detail").replaceChildren(detailList(order));
+    if (order.payment_method === "CARD_TO_CARD" && ["AWAITING_RECEIPT", "PENDING_REVIEW", "EXPIRED"].includes(order.status)) {
+      matchConfirm.disabled = false;
+    } else {
+      setNotice("این سفارش برای تطبیق دستی در دسترس نیست.", true, matchNotice);
+    }
+  } catch (error) {
+    if (depositDialog.open && selectedDeposit === deposit) setNotice(error.message, true, matchNotice);
+  }
+});
+matchForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (matchBusy || matchConfirm.disabled) return;
+  matchBusy = true;
+  matchId.readOnly = true;
+  matchConfirm.disabled = true;
+  const id = matchId.value;
+  try {
+    await request("/api/deposits/" + encodeURIComponent(selectedDeposit.id) + "/match", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({order_id: id, reason: matchForm.elements.namedItem("reason").value}),
+    });
+    depositDialog.close();
+    await load();
+    setNotice("واریز تطبیق داده شد و پرداخت تأیید شد.");
+  } catch (error) {
+    setNotice(error.message, true, matchNotice);
+    matchConfirm.disabled = false;
+  } finally {
+    matchId.readOnly = false;
+    matchBusy = false;
+  }
 });
