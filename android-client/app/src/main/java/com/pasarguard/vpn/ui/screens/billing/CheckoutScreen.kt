@@ -1241,6 +1241,8 @@ private fun WaitingConfirmationStep(
             else -> Unit
         }
 
+        Spacer(Modifier.height(Spacing.md))
+        OrderProgressTimeline(order, isPersian)
         Spacer(Modifier.height(Spacing.sm))
         TextButton(onClick = onContactSupport) {
             Icon(Icons.Rounded.SupportAgent, contentDescription = null, modifier = Modifier.size(18.dp))

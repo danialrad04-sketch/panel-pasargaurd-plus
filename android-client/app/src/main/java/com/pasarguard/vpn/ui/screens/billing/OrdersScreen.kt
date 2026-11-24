@@ -547,7 +547,10 @@ internal fun OrderProgressTimeline(order: PaymentOrder, isPersian: Boolean) {
                 Text(
                     text = (if (isPersian) ev.titleFa else ev.titleEn) +
                         (ev.timestampMs?.let {
-                            " · " + Formatters.formatEpochDate(it / 1000L, locale, calendar, digits)
+                            val date = Formatters.formatEpochDate(it / 1000L, locale, calendar, digits)
+                            val time = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT, locale)
+                                .format(java.util.Date(it))
+                            " · $date $time"
                         } ?: ""),
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.textPrimary
