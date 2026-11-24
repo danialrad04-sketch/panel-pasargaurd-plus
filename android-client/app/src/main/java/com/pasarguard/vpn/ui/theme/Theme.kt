@@ -225,45 +225,56 @@ fun PasarGuardVpnTheme(
 
     val useDynamic = dynamicColorEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val palette = themePalette.tokens(useDark)
-    val colorScheme = when {
+    val baseScheme = if (useDark) DarkColorScheme else LightColorScheme
+    val dynamic = when {
         useDynamic && useDark -> dynamicDarkColorScheme(context)
-        useDynamic && !useDark -> dynamicLightColorScheme(context)
-        else -> (if (useDark) DarkColorScheme else LightColorScheme).copy(
-            primary = palette.accent,
-            onPrimary = palette.onAccent,
-            primaryContainer = palette.container,
-            onPrimaryContainer = palette.onContainer,
-            secondary = palette.accent,
-            onSecondary = palette.onAccent,
-            background = palette.canvas,
-            surface = palette.surface,
-            surfaceVariant = palette.container,
-            surfaceContainer = palette.surface,
-            surfaceContainerHigh = palette.container,
-            surfaceTint = palette.accent
-        )
+        useDynamic -> dynamicLightColorScheme(context)
+        else -> null
     }
-
+    val contrastText = Color(if (useDark) 0xFFF1F0EC else 0xFF222326)
+    val supportingText = Color(if (useDark) 0xFFC1C0BD else 0xFF595A5D)
+    val neutralContainer = Color(if (useDark) 0xFF2B2C2E else 0xFFEDEBE7)
+    val outline = Color(if (useDark) 0xFF55565A else 0xFFCAC8C3)
     val baseExtended = if (useDark) DarkExtendedColors else LightExtendedColors
-    val extendedColors = if (useDynamic) {
-        baseExtended.copy(
-            heroStart = if (useDark) colorScheme.primaryContainer else colorScheme.secondary,
-            heroEnd = colorScheme.primary,
-            heroFillEnd = if (useDark) colorScheme.secondaryContainer else colorScheme.primary,
-            backgroundCanvas = if (useDark) colorScheme.background else baseExtended.backgroundCanvas
-        )
-    } else {
-        baseExtended.copy(
-            backgroundCanvas = palette.canvas,
-            glassSurface = palette.surface,
-            glassBorderTop = palette.accent.copy(alpha = if (useDark) 0.26f else 0.22f),
-            glassBorderBottom = palette.accent.copy(alpha = if (useDark) 0.09f else 0.12f),
-            heroStart = palette.gradientStart,
-            heroEnd = palette.accent,
-            heroFillEnd = palette.gradientEnd,
-            textMuted = baseExtended.textSecondary
-        )
-    }
+    val colorScheme = baseScheme.copy(
+        primary = dynamic?.primary ?: palette.accent,
+        onPrimary = dynamic?.onPrimary ?: palette.onAccent,
+        primaryContainer = dynamic?.primaryContainer ?: palette.container,
+        onPrimaryContainer = dynamic?.onPrimaryContainer ?: palette.onContainer,
+        secondary = dynamic?.secondary ?: palette.accent,
+        onSecondary = dynamic?.onSecondary ?: palette.onAccent,
+        secondaryContainer = dynamic?.secondaryContainer ?: palette.container,
+        onSecondaryContainer = dynamic?.onSecondaryContainer ?: palette.onContainer,
+        background = palette.canvas,
+        onBackground = contrastText,
+        surface = palette.surface,
+        onSurface = contrastText,
+        surfaceVariant = neutralContainer,
+        onSurfaceVariant = supportingText,
+        surfaceContainerLow = palette.surface,
+        surfaceContainer = neutralContainer,
+        surfaceContainerHigh = neutralContainer,
+        surfaceContainerHighest = neutralContainer,
+        outline = outline,
+        outlineVariant = outline.copy(alpha = .68f),
+        surfaceTint = Color.Transparent,
+        error = baseExtended.statusDanger
+    )
+    val extendedColors = baseExtended.copy(
+        backgroundCanvas = colorScheme.background,
+        glassSurface = colorScheme.surface,
+        glassBorderTop = colorScheme.outlineVariant,
+        glassBorderBottom = colorScheme.outlineVariant,
+        heroStart = palette.gradientStart,
+        heroEnd = colorScheme.primary,
+        heroFillEnd = palette.gradientEnd,
+        textPrimary = contrastText,
+        textSecondary = supportingText,
+        textMuted = supportingText,
+        statusConnected = Color(if (useDark) 0xFF90D9B0 else 0xFF206243),
+        statusWarning = Color(if (useDark) 0xFFF0C078 else 0xFF80521A),
+        statusDanger = Color(if (useDark) 0xFFFFB4AB else 0xFF9F2636)
+    )
 
     val layoutDirection = if (language == AppLanguage.PERSIAN) LayoutDirection.Rtl else LayoutDirection.Ltr
     val effectivePersianDigits = language == AppLanguage.PERSIAN && persianDigitsEnabled
@@ -277,6 +288,11 @@ fun PasarGuardVpnTheme(
         MaterialTheme(
             colorScheme = colorScheme,
             typography = typography,
+            shapes = androidx.compose.material3.Shapes(
+                small = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                medium = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                large = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
+            ),
             content = content
         )
     }

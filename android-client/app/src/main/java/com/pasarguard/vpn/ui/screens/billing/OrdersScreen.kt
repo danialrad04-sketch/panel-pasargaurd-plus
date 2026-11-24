@@ -56,6 +56,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -425,7 +426,7 @@ private fun OrderDetailSheetContent(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = order.id,
-                        style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace),
+                        style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace, textDirection = TextDirection.Ltr),
                         color = colors.textSecondary
                     )
                     IconButton(onClick = onCopyOrderId, modifier = Modifier.size(28.dp)) {
@@ -461,7 +462,7 @@ private fun OrderDetailSheetContent(
                     Text(stringResource(R.string.checkout_tracking_number), style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
                     Text(
                         Formatters.toPersianDigitsIfNeeded(order.trackingNumber, persianDigits),
-                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, textDirection = TextDirection.Ltr),
                         color = colors.textPrimary
                     )
                 }

@@ -515,4 +515,17 @@
     <string name="order_status_stale">آخرین وضعیت دریافت‌شده نمایش داده می‌شود.</string>
     <string name="orders_copy_id">کپی شناسهٔ سفارش</string>
     <string name="checkout_card_amount_reservation">مبلغ دقیق کارت‌به‌کارت پس از ثبت سفارش نمایش داده می‌شود.</string>
+    <string name="nav_connect">اتصال</string>
+    <string name="connection_connect">اتصال به VPN</string>
+    <string name="connection_disconnect">قطع اتصال</string>
+    <string name="connection_cancel">لغو اتصال</string>
+    <string name="connection_retry">تلاش مجدد</string>
+    <string name="connection_permission_denied">مجوز VPN داده نشد. برای تلاش دوباره، دکمهٔ اتصال را بزنید.</string>
+    <string name="connection_automatic">انتخاب خودکار سرور</string>
+    <string name="server_latency_unknown">پینگ نامشخص</string>
+    <string name="server_country_unknown">موقعیت نامشخص</string>
+    <string name="server_recent_title">اتصال‌های اخیر</string>
+    <string name="checkout_stage_number">مرحلهٔ %1$s از %2$s</string>
+    <string name="checkout_view_subscription">مشاهدهٔ اشتراک</string>
+    <string name="settings_appearance_language">ظاهر و زبان</string>
 </resources>

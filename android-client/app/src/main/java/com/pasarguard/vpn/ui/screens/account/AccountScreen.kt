@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -192,7 +193,7 @@ fun AccountScreen(
             } else {
                 item {
                     GlassCard(Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
-                        Text(viewModel.email.orEmpty(), style = MaterialTheme.typography.titleMedium)
+                        Text(viewModel.email.orEmpty(), style = MaterialTheme.typography.titleMedium.copy(textDirection = TextDirection.Ltr))
                         val balance = viewModel.wallet?.balance
                         Text(
                             balance?.let {

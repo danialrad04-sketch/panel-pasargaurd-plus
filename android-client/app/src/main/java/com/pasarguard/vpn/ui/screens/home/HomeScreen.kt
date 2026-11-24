@@ -8,7 +8,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -29,7 +30,7 @@ import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Campaign
-import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.NetworkCheck
 import androidx.compose.material.icons.rounded.Refresh
@@ -76,10 +77,11 @@ import com.pasarguard.vpn.domain.usecase.SelectBestServerUseCase
 import com.pasarguard.vpn.domain.usecase.SyncSubscriptionUseCase
 import com.pasarguard.vpn.ui.components.CoachTipBanner
 import com.pasarguard.vpn.ui.components.ConnectHeroButton
+import com.pasarguard.vpn.ui.components.ServerLocationMark
+import com.pasarguard.vpn.ui.components.serverCountryLabel
 import com.pasarguard.vpn.ui.components.DeepSpaceBackground
 import com.pasarguard.vpn.ui.components.GlassCard
 import com.pasarguard.vpn.ui.components.ProgressRingCard
-import com.pasarguard.vpn.ui.components.PulsingDot
 import com.pasarguard.vpn.ui.theme.LocalCalendarSystem
 import com.pasarguard.vpn.ui.theme.LocalPersianDigits
 import com.pasarguard.vpn.ui.theme.PasarGuardTheme
@@ -181,7 +183,8 @@ class HomeViewModel @Inject constructor(
 
     fun toggleConnection() {
         val current = vpnController.sessionState.value.status
-        if (current == ConnectionStatus.CONNECTED || current == ConnectionStatus.CONNECTING) {
+        if (current == ConnectionStatus.CONNECTED || current == ConnectionStatus.CONNECTING ||
+            current == ConnectionStatus.DISCONNECTING) {
             viewModelScope.launch { vpnController.disconnect() }
         } else {
             connectNow()
@@ -226,15 +229,18 @@ fun HomeScreen(
     val calendarSystem = LocalCalendarSystem.current
     val isPersian = state.settings.language == AppLanguage.PERSIAN
 
+    var permissionDenied by remember { mutableStateOf(false) }
     val vpnPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
+        permissionDenied = result.resultCode != Activity.RESULT_OK
+        if (!permissionDenied) {
             viewModel.connectNow()
         }
     }
 
     val handleConnectTap = {
+        permissionDenied = false
         val current = state.session.status
         if (current == ConnectionStatus.CONNECTED || current == ConnectionStatus.CONNECTING) {
             viewModel.toggleConnection()
@@ -269,12 +275,6 @@ fun HomeScreen(
         }
     }
 
-    val glowColor = when (state.session.status) {
-        ConnectionStatus.CONNECTED -> colors.statusConnected
-        ConnectionStatus.ERROR -> colors.statusDanger
-        else -> colors.heroEnd
-    }
-
     val sub = state.subscription
     val daysLeft = sub?.remainingDays()
     val showRenewWarning = sub != null && (
@@ -287,81 +287,40 @@ fun HomeScreen(
         it.isNotBlank() && it.hashCode().toString() != state.settings.dismissedAnnouncementHash
     }
 
-    DeepSpaceBackground(accentGlowColor = glowColor) {
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-        ) {
-            val isWide = maxWidth >= 720.dp
+    DeepSpaceBackground {
+        Box(Modifier.fillMaxSize().statusBarsPadding(), contentAlignment = Alignment.TopCenter) {
 
             Column(
                 modifier = Modifier
+                    .widthIn(max = 760.dp)
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = Spacing.md)
-                    .padding(bottom = 112.dp),
+                    .padding(bottom = Spacing.lg),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Spacer(Modifier.height(Spacing.sm))
 
-                // Top Dynamic Status Capsule
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(colors.glassSurface)
-                            .border(1.dp, colors.glassBorderTop, RoundedCornerShape(999.dp))
-                            .padding(horizontal = 14.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val statusColor = when (state.session.status) {
-                            ConnectionStatus.CONNECTED -> colors.statusConnected
-                            ConnectionStatus.CONNECTING, ConnectionStatus.DISCONNECTING -> colors.heroEnd
-                            ConnectionStatus.ERROR -> colors.statusDanger
-                            ConnectionStatus.DISCONNECTED -> colors.textMuted
-                        }
-                        PulsingDot(
-                            color = statusColor,
-                            isPulsing = state.session.status == ConnectionStatus.CONNECTED ||
-                                state.session.status == ConnectionStatus.CONNECTING
-                        )
-                        Spacer(Modifier.width(Spacing.sm))
-                        Text(
-                            text = buildString {
-                                append(
-                                    stringResource(
-                                        when (state.session.status) {
-                                            ConnectionStatus.CONNECTED -> R.string.status_connected
-                                            ConnectionStatus.CONNECTING -> R.string.status_connecting
-                                            ConnectionStatus.DISCONNECTING -> R.string.status_disconnecting
-                                            ConnectionStatus.ERROR -> R.string.status_error
-                                            ConnectionStatus.DISCONNECTED -> R.string.status_disconnected
-                                        }
-                                    )
-                                )
-                                if (state.session.status == ConnectionStatus.CONNECTED ||
-                                    state.session.status == ConnectionStatus.CONNECTING
-                                ) {
-                                    append(" • ")
-                                    append(state.session.activeEngine.label)
-                                }
-                            },
-                            style = MaterialTheme.typography.labelLarge,
-                            color = colors.textPrimary
-                        )
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.nav_connect), style = MaterialTheme.typography.headlineSmall,
+                        modifier = Modifier.weight(1f), color = colors.textPrimary)
+                    IconButton(onClick = viewModel::refreshSubscription) {
+                        Icon(Icons.Rounded.Refresh, contentDescription = stringResource(R.string.servers_refresh))
                     }
-
-                    IconButton(onClick = { viewModel.refreshSubscription() }) {
-                        Icon(
-                            imageVector = Icons.Rounded.Refresh,
-                            contentDescription = stringResource(R.string.servers_refresh),
-                            tint = colors.textPrimary
-                        )
+                }
+                GlassCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(Spacing.lg)) {
+                    HeroConnectSection(
+                        status = state.session.status,
+                        errorMessage = if (permissionDenied) stringResource(R.string.connection_permission_denied)
+                            else state.session.errorMessage,
+                        onConnectTap = handleConnectTap
+                    )
+                }
+                Spacer(Modifier.height(Spacing.sm))
+                SelectedServerCard(state, persianDigits, onOpenServers)
+                if (sub != null) {
+                    TextButton(onClick = onOpenRenewal, modifier = Modifier.align(Alignment.Start)) {
+                        Text(stringResource(R.string.sub_renew_cta))
                     }
                 }
 
@@ -448,59 +407,12 @@ fun HomeScreen(
 
                 Spacer(Modifier.height(Spacing.lg))
 
-                // Adaptive Layout: 2-pane on wide tablets, single column on phones
-                if (isWide) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            HeroConnectSection(
-                                status = state.session.status,
-                                errorMessage = state.session.errorMessage,
-                                onConnectTap = handleConnectTap
-                            )
-                        }
-                        Column(
-                            modifier = Modifier.weight(1.2f),
-                            verticalArrangement = Arrangement.spacedBy(Spacing.md)
-                        ) {
-                            HomeDashboardBody(
-                                state = state,
-                                elapsedMs = elapsedMs,
-                                persianDigits = persianDigits,
-                                calendarSystem = calendarSystem,
-                                isPersian = isPersian,
-                                onOpenServers = onOpenServers,
-                                onOpenDiagnostics = onOpenDiagnostics,
-                                onOpenProfiles = onOpenProfiles,
-                                onOpenStatistics = onOpenStatistics
-                            )
-                        }
-                    }
-                } else {
-                    HeroConnectSection(
-                        status = state.session.status,
-                        errorMessage = state.session.errorMessage,
-                        onConnectTap = handleConnectTap
-                    )
-                    Spacer(Modifier.height(Spacing.lg))
-                    HomeDashboardBody(
-                        state = state,
-                        elapsedMs = elapsedMs,
-                        persianDigits = persianDigits,
-                        calendarSystem = calendarSystem,
-                        isPersian = isPersian,
-                        onOpenServers = onOpenServers,
-                        onOpenDiagnostics = onOpenDiagnostics,
-                        onOpenProfiles = onOpenProfiles,
-                        onOpenStatistics = onOpenStatistics
-                    )
-                }
+                HomeDashboardBody(
+                    state = state, elapsedMs = elapsedMs, persianDigits = persianDigits,
+                    calendarSystem = calendarSystem, isPersian = isPersian,
+                    onOpenDiagnostics = onOpenDiagnostics, onOpenProfiles = onOpenProfiles,
+                    onOpenStatistics = onOpenStatistics
+                )
             }
         }
     }
@@ -513,16 +425,21 @@ private fun HeroConnectSection(
     onConnectTap: () -> Unit
 ) {
     val colors = PasarGuardTheme.colors
-    ConnectHeroButton(status = status, onClick = onConnectTap)
-    Spacer(Modifier.height(Spacing.sm))
-    Text(
-        text = stringResource(
-            if (status == ConnectionStatus.CONNECTED) R.string.tap_to_disconnect
-            else R.string.tap_to_connect
-        ),
-        style = MaterialTheme.typography.bodyMedium,
-        color = colors.textSecondary
-    )
+    val statusText = stringResource(when (status) {
+        ConnectionStatus.CONNECTED -> R.string.status_connected
+        ConnectionStatus.CONNECTING -> R.string.status_connecting
+        ConnectionStatus.DISCONNECTING -> R.string.status_disconnecting
+        ConnectionStatus.ERROR -> R.string.status_error
+        ConnectionStatus.DISCONNECTED -> R.string.status_disconnected
+    })
+    Text(statusText, style = MaterialTheme.typography.titleLarge,
+        color = when (status) {
+            ConnectionStatus.CONNECTED -> colors.statusConnected
+            ConnectionStatus.ERROR -> colors.statusDanger
+            else -> colors.textPrimary
+        })
+    Spacer(Modifier.height(Spacing.md))
+    ConnectHeroButton(status = status, onClick = onConnectTap, modifier = Modifier.fillMaxWidth())
     if (errorMessage != null) {
         Spacer(Modifier.height(Spacing.xs))
         Text(
@@ -535,21 +452,8 @@ private fun HeroConnectSection(
 }
 
 @Composable
-private fun HomeDashboardBody(
-    state: HomeUiState,
-    elapsedMs: Long,
-    persianDigits: Boolean,
-    calendarSystem: com.pasarguard.vpn.domain.model.CalendarSystem,
-    isPersian: Boolean,
-    onOpenServers: () -> Unit,
-    onOpenDiagnostics: () -> Unit,
-    onOpenProfiles: () -> Unit,
-    onOpenStatistics: () -> Unit
-) {
+private fun SelectedServerCard(state: HomeUiState, persianDigits: Boolean, onOpenServers: () -> Unit) {
     val colors = PasarGuardTheme.colors
-    val sub = state.subscription
-
-    // Active Server Selector Pill
     val activeServer = state.session.activeServer
         ?: state.servers.firstOrNull { it.id == state.settings.selectedServerId }
     GlassCard(
@@ -563,15 +467,14 @@ private fun HomeDashboardBody(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Text(
-                    text = activeServer?.flagEmoji ?: "⚡",
-                    style = MaterialTheme.typography.headlineMedium
-                )
+                ServerLocationMark(activeServer?.countryCode)
                 Spacer(Modifier.width(Spacing.md))
                 Column {
                     Text(
                         text = if (state.settings.selectedServerId == null) {
-                            stringResource(R.string.home_auto_best)
+                            activeServer?.name ?: stringResource(
+                                if (state.servers.isEmpty()) R.string.home_no_servers else R.string.connection_automatic
+                            )
                         } else {
                             activeServer?.name ?: stringResource(R.string.home_select_server)
                         },
@@ -584,9 +487,9 @@ private fun HomeDashboardBody(
                         text = activeServer?.let {
                             val pingLabel = if ((it.pingMs ?: -1) > 0) {
                                 " • ${Formatters.toPersianDigitsIfNeeded("${it.pingMs} ms", persianDigits)}"
-                            } else ""
+                            } else " · ${stringResource(R.string.server_latency_unknown)}"
                             val jsonTag = if (!it.rawXrayConfigJson.isNullOrBlank()) " • Xray JSON" else ""
-                            "${it.protocol.label}$jsonTag$pingLabel"
+                            "${serverCountryLabel(it.countryCode)} · ${it.protocol.label}$jsonTag$pingLabel"
                         } ?: stringResource(R.string.home_no_servers),
                         style = MaterialTheme.typography.bodyMedium,
                         color = colors.textSecondary
@@ -594,73 +497,27 @@ private fun HomeDashboardBody(
                 }
             }
             Icon(
-                imageVector = Icons.Rounded.ChevronRight,
+                imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
                 contentDescription = stringResource(R.string.home_select_server),
                 tint = colors.textSecondary
             )
         }
     }
+}
 
-    Spacer(Modifier.height(Spacing.md))
-
-    // Live Telemetry Strip
-    GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 22.dp) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            TelemetryCell(
-                icon = Icons.Rounded.ArrowDownward,
-                tint = colors.statusConnected,
-                label = stringResource(R.string.home_download),
-                value = Formatters.formatSpeed(state.session.downloadBytesPerSec, persianDigits),
-                modifier = Modifier.weight(1f)
-            )
-            TelemetryCell(
-                icon = Icons.Rounded.ArrowUpward,
-                tint = colors.heroEnd,
-                label = stringResource(R.string.home_upload),
-                value = Formatters.formatSpeed(state.session.uploadBytesPerSec, persianDigits),
-                modifier = Modifier.weight(1f)
-            )
-            TelemetryCell(
-                icon = Icons.Rounded.Timer,
-                tint = colors.accentViolet,
-                label = stringResource(R.string.home_session),
-                value = Formatters.formatDuration(elapsedMs, persianDigits),
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-
-    Spacer(Modifier.height(Spacing.md))
-
-    // Pro Quick Tools Bento Row (Diagnostics, Profiles, Statistics)
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
-    ) {
-        QuickToolChip(
-            icon = Icons.Rounded.NetworkCheck,
-            label = stringResource(R.string.diagnostics_short),
-            onClick = onOpenDiagnostics,
-            modifier = Modifier.weight(1f)
-        )
-        QuickToolChip(
-            icon = Icons.Rounded.AccountCircle,
-            label = stringResource(R.string.profiles_short),
-            onClick = onOpenProfiles,
-            modifier = Modifier.weight(1f)
-        )
-        QuickToolChip(
-            icon = Icons.Rounded.BarChart,
-            label = stringResource(R.string.stats_short),
-            onClick = onOpenStatistics,
-            modifier = Modifier.weight(1f)
-        )
-    }
-
-    Spacer(Modifier.height(Spacing.md))
+@Composable
+private fun HomeDashboardBody(
+    state: HomeUiState,
+    elapsedMs: Long,
+    persianDigits: Boolean,
+    calendarSystem: com.pasarguard.vpn.domain.model.CalendarSystem,
+    isPersian: Boolean,
+    onOpenDiagnostics: () -> Unit,
+    onOpenProfiles: () -> Unit,
+    onOpenStatistics: () -> Unit
+) {
+    val colors = PasarGuardTheme.colors
+    val sub = state.subscription
 
     // Bento Dual Progress Rings
     Row(
@@ -722,6 +579,66 @@ private fun HomeDashboardBody(
             modifier = Modifier.weight(1f)
         )
     }
+    Spacer(Modifier.height(Spacing.md))
+
+    // Live Telemetry Strip
+    GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 22.dp) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            TelemetryCell(
+                icon = Icons.Rounded.ArrowDownward,
+                tint = colors.statusConnected,
+                label = stringResource(R.string.home_download),
+                value = Formatters.formatSpeed(state.session.downloadBytesPerSec, persianDigits),
+                modifier = Modifier.weight(1f)
+            )
+            TelemetryCell(
+                icon = Icons.Rounded.ArrowUpward,
+                tint = colors.heroEnd,
+                label = stringResource(R.string.home_upload),
+                value = Formatters.formatSpeed(state.session.uploadBytesPerSec, persianDigits),
+                modifier = Modifier.weight(1f)
+            )
+            TelemetryCell(
+                icon = Icons.Rounded.Timer,
+                tint = colors.accentViolet,
+                label = stringResource(R.string.home_session),
+                value = Formatters.formatDuration(elapsedMs, persianDigits),
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+
+    Spacer(Modifier.height(Spacing.md))
+
+    // Pro Quick Tools Bento Row (Diagnostics, Profiles, Statistics)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+    ) {
+        QuickToolChip(
+            icon = Icons.Rounded.NetworkCheck,
+            label = stringResource(R.string.diagnostics_short),
+            onClick = onOpenDiagnostics,
+            modifier = Modifier.weight(1f)
+        )
+        QuickToolChip(
+            icon = Icons.Rounded.AccountCircle,
+            label = stringResource(R.string.profiles_short),
+            onClick = onOpenProfiles,
+            modifier = Modifier.weight(1f)
+        )
+        QuickToolChip(
+            icon = Icons.Rounded.BarChart,
+            label = stringResource(R.string.stats_short),
+            onClick = onOpenStatistics,
+            modifier = Modifier.weight(1f)
+        )
+    }
+
+    Spacer(Modifier.height(Spacing.md))
 }
 
 @Composable

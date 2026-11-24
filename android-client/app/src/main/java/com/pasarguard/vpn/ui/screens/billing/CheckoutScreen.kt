@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -29,6 +30,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,6 +52,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -78,6 +81,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -104,6 +108,7 @@ fun CheckoutScreen(
     onBack: () -> Unit,
     onOpenOrders: () -> Unit,
     onDoneHome: () -> Unit,
+    onViewSubscription: () -> Unit,
     viewModel: CheckoutViewModel = hiltViewModel()
 ) {
     LaunchedEffect(planId, orderId) {
@@ -125,7 +130,7 @@ fun CheckoutScreen(
     val persianDigits = LocalPersianDigits.current
     val isPersian = state.language == AppLanguage.PERSIAN
     val currency = stringResource(R.string.currency_toman)
-    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) viewModel.chooseReceipt(uri)
         pickingPhoto = false
     }
@@ -133,7 +138,7 @@ fun CheckoutScreen(
         ReceiptAttachment(
             state, {
                 pickingPhoto = true
-                photoPicker.launch("image/*")
+                photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
             }, viewModel::removeReceipt,
             onSubmit = if (state.step == CheckoutStep.CARD_TO_CARD) null else viewModel::submitReceipt
         )
@@ -151,6 +156,8 @@ fun CheckoutScreen(
     DeepSpaceBackground {
         Column(
             modifier = Modifier
+                .align(Alignment.TopCenter)
+                .widthIn(max = 640.dp)
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
@@ -182,13 +189,22 @@ fun CheckoutScreen(
                 )
             }
 
+            if (!state.isLoading && (state.plan != null || state.order != null)) {
+                CheckoutStageProgress(state.step, persianDigits)
+            }
+
             if (state.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = colors.heroEnd)
                 }
             } else {
                 if (state.step == CheckoutStep.SUMMARY && state.plan == null && state.errorMessage != null) {
-                    Text(stringResource(R.string.checkout_unavailable), color = colors.statusDanger)
+                    GlassCard(Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.checkout_unavailable), color = colors.statusDanger)
+                        TextButton(onClick = { viewModel.retryLoad(planId, orderId) }) {
+                            Text(stringResource(R.string.action_retry))
+                        }
+                    }
                 } else when (state.step) {
                     CheckoutStep.SUMMARY -> SummaryAndMethodStep(
                         state = state,
@@ -241,16 +257,36 @@ fun CheckoutScreen(
                             isRefreshingSub = state.isRefreshingSubscription,
                             isPersian = isPersian,
                             purchaseImportFailed = state.purchaseImportFailed,
-                            needsActivation = state.order?.newSubscription == true && !viewModel.hasActiveSubscription(),
+                            needsActivation = state.order?.newSubscription == true && !state.purchaseConnected,
                             receiptContent = receiptContent,
                             onActivatePurchase = viewModel::activatePurchase,
-                            onDoneHome = onDoneHome,
+                            onDoneHome = if (state.order?.newSubscription == false) onViewSubscription else onDoneHome,
                             onViewOrders = onOpenOrders
                         )
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun CheckoutStageProgress(step: CheckoutStep, persianDigits: Boolean) {
+    val index = when (step) {
+        CheckoutStep.SUMMARY -> 1
+        CheckoutStep.CARD_TO_CARD -> 2
+        CheckoutStep.WAITING -> 3
+        CheckoutStep.SUCCESS -> 4
+    }
+    Column(Modifier.fillMaxWidth().padding(vertical = Spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        Text(
+            stringResource(R.string.checkout_stage_number, Formatters.formatNumber(index.toLong(), persianDigits),
+                Formatters.formatNumber(4L, persianDigits)),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        LinearProgressIndicator(progress = { index / 4f }, modifier = Modifier.fillMaxWidth())
     }
 }
 
@@ -419,8 +455,10 @@ private fun CardToCardStep(
                     text = timerText,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = FontFamily.Monospace,
+                        textDirection = TextDirection.Ltr
                     ),
+                    modifier = Modifier.weight(1f),
                     color = timerColor
                 )
             }
@@ -884,6 +922,7 @@ private fun SuccessCelebrationStep(
             text = stringResource(when {
                 awaitingApplication -> R.string.renew_applying
                 needsActivation -> R.string.purchase_activate
+                order?.newSubscription == false -> R.string.checkout_view_subscription
                 else -> R.string.renew_done
             }),
             onClick = if (needsActivation) onActivatePurchase else onDoneHome,

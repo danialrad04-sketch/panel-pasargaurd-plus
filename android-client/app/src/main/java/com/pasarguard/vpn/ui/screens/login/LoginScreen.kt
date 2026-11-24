@@ -204,12 +204,14 @@ fun LoginScreen(
             )
 
             Spacer(Modifier.height(Spacing.md))
-            GradientButton(
-                text = stringResource(R.string.purchase_new_subscription),
-                onClick = onBuySubscription,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !state.isLoading
-            )
+            if (BuildConfig.BILLING_BASE_URL.isNotBlank()) {
+                GradientButton(
+                    text = stringResource(R.string.purchase_new_subscription),
+                    onClick = onBuySubscription,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !state.isLoading
+                )
+            }
             OutlinedButton(onClick = onTrackPurchase, enabled = !state.isLoading, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.purchase_track))
             }

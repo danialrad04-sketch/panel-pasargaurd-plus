@@ -2,6 +2,7 @@ package com.pasarguard.vpn.ui.screens.billing
 
 import android.content.Context
 import android.net.Uri
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pasarguard.vpn.data.api.CustomerApi
@@ -13,7 +14,6 @@ import com.pasarguard.vpn.domain.model.PaymentMethodType
 import com.pasarguard.vpn.domain.model.PaymentOrder
 import com.pasarguard.vpn.domain.repository.PaymentRepository
 import com.pasarguard.vpn.domain.repository.SettingsRepository
-import com.pasarguard.vpn.domain.repository.SubscriptionRepository
 import com.pasarguard.vpn.domain.usecase.SyncSubscriptionUseCase
 import com.pasarguard.vpn.domain.usecase.ValidateAndLoginUseCase
 import com.pasarguard.vpn.util.ReceiptImageUtils
@@ -62,8 +62,8 @@ data class CheckoutUiState(
 @HiltViewModel
 class CheckoutViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
+    private val savedState: SavedStateHandle,
     private val paymentRepository: PaymentRepository,
-    private val subscriptions: SubscriptionRepository,
     private val settingsRepository: SettingsRepository,
     private val syncSubscription: SyncSubscriptionUseCase,
     private val validateAndLogin: ValidateAndLoginUseCase,
@@ -74,14 +74,13 @@ class CheckoutViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(CheckoutUiState())
     val uiState: StateFlow<CheckoutUiState> = _uiState.asStateFlow()
 
-    private var idempotencyKey: String = UUID.randomUUID().toString()
+    private val idempotencyKey: String = savedState.get<String>("checkoutRequestId")
+        ?: UUID.randomUUID().toString().also { savedState["checkoutRequestId"] = it }
     private var pollJob: Job? = null
     private var observeOrderJob: Job? = null
     private var initializedKey: String? = null
     private var approvedHandledForOrderId: String? = null
-    private var attemptedPurchaseId: String? = null
 
-    fun hasActiveSubscription(): Boolean = subscriptions.getSavedCredentials() != null
 
     fun init(planId: String?, orderId: String?) {
         val key = "${planId.orEmpty()}|${orderId.orEmpty()}"
@@ -92,8 +91,9 @@ class CheckoutViewModel @Inject constructor(
             val lang = settingsRepository.getSnapshot().language
             _uiState.update { it.copy(isLoading = true, language = lang, errorMessage = null) }
 
-            if (!orderId.isNullOrBlank()) {
-                val existing = paymentRepository.getOrderById(orderId)
+            val restoreOrderId = orderId?.takeIf(String::isNotBlank) ?: savedState.get<String>("checkoutOrderId")
+            if (restoreOrderId != null) {
+                val existing = paymentRepository.getOrderById(restoreOrderId)
                 if (existing != null) {
                     attachOrder(existing)
                     return@launch
@@ -103,15 +103,14 @@ class CheckoutViewModel @Inject constructor(
             }
 
             val catalog = paymentRepository.loadPlansCatalog().getOrNull()
-            val selectedPlan = catalog?.plans?.firstOrNull { it.id == planId }
-                ?: catalog?.plans?.firstOrNull()
+            val selectedPlan = if (planId.isNullOrBlank()) catalog?.plans?.firstOrNull()
+                else catalog?.plans?.firstOrNull { it.id == planId }
 
             if (selectedPlan == null) {
                 _uiState.update { it.copy(isLoading = false, errorMessage = "Plan not found") }
                 return@launch
             }
 
-            idempotencyKey = UUID.randomUUID().toString()
             _uiState.update {
                 it.copy(
                     isLoading = false,
@@ -122,7 +121,13 @@ class CheckoutViewModel @Inject constructor(
         }
     }
 
+    fun retryLoad(planId: String?, orderId: String?) {
+        initializedKey = null
+        init(planId, orderId)
+    }
+
     private fun attachOrder(order: PaymentOrder) {
+        savedState["checkoutOrderId"] = order.id
         val step = when (order.status) {
             OrderStatus.AWAITING_RECEIPT -> CheckoutStep.CARD_TO_CARD
             OrderStatus.PENDING_REVIEW, OrderStatus.REJECTED, OrderStatus.EXPIRED -> CheckoutStep.WAITING
@@ -331,11 +336,7 @@ class CheckoutViewModel @Inject constructor(
                 }
             }
         }
-        if (order.newSubscription && !hasActiveSubscription() &&
-            order.activationStatus == "READY" && attemptedPurchaseId != order.id) {
-            attemptedPurchaseId = order.id
-            activatePurchase()
-        }
+
     }
 
     fun activatePurchase() {

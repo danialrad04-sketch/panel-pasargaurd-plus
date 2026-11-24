@@ -122,6 +122,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.pasarguard.vpn.ui.components.ServerLocationMark
+import com.pasarguard.vpn.ui.components.serverCountryCode
+import com.pasarguard.vpn.ui.components.serverCountryLabel
 import javax.inject.Inject
 import kotlin.math.roundToInt
 
@@ -134,7 +137,9 @@ data class ServersUiState(
     val filter: ServerFilter = ServerFilter.ALL,
     val settings: AppSettings = AppSettings(),
     val pingProgress: PingProgressState = PingProgressState(),
-    val isRefreshing: Boolean = false
+    val isRefreshing: Boolean = false,
+    val recentlyUsedIds: List<String> = emptyList(),
+    val hasMeasuredServers: Boolean = false
 )
 
 @HiltViewModel
@@ -159,7 +164,8 @@ class ServersViewModel @Inject constructor(
         query,
         filter,
         serverRepository.pingProgress,
-        isRefreshing
+        isRefreshing,
+        serverRepository.observeSessionStats()
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         val servers = values[0] as List<VpnServer>
@@ -168,6 +174,10 @@ class ServersViewModel @Inject constructor(
         val f = values[3] as ServerFilter
         val progress = values[4] as PingProgressState
         val refreshing = values[5] as Boolean
+        @Suppress("UNCHECKED_CAST")
+        val sessions = values[6] as List<com.pasarguard.vpn.domain.model.SessionStatRecord>
+        val recent = sessions.sortedByDescending { it.startedAtMs }.map { it.serverId }.distinct().take(4)
+
 
         val filtered = servers.filter { srv ->
             val matchesQuery = q.isBlank() ||
@@ -219,7 +229,9 @@ class ServersViewModel @Inject constructor(
             filter = f,
             settings = settings,
             pingProgress = progress,
-            isRefreshing = refreshing
+            isRefreshing = refreshing,
+            recentlyUsedIds = recent,
+            hasMeasuredServers = servers.any { (it.pingMs ?: 0) > 0 }
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ServersUiState())
 
@@ -560,11 +572,11 @@ fun ServersScreen(
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 112.dp),
+                    contentPadding = PaddingValues(bottom = Spacing.lg),
                     verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                 ) {
                     // Pinned Auto smart card
-                    item(key = "auto_best") {
+                    if (state.hasMeasuredServers && !state.pingProgress.isRunning && state.query.isBlank()) item(key = "auto_best") {
                         val isAutoSelected = state.selectedServerId == null
                         GlassCard(
                             modifier = Modifier
@@ -629,15 +641,27 @@ fun ServersScreen(
                             )
                         }
                     } else {
-                        items(items = state.servers, key = { it.id }) { server ->
-                            ServerListCard(
-                                server = server,
-                                isSelected = state.selectedServerId == server.id,
-                                persianDigits = persianDigits,
-                                onSelect = { viewModel.selectServer(server, onServerChosen) },
-                                onInspect = { inspectedServerId = server.id },
-                                onToggleFavorite = { viewModel.toggleFavorite(server.id) }
-                            )
+                        val byId = state.servers.associateBy { it.id }
+                        val regularView = state.query.isBlank() && state.filter == ServerFilter.ALL
+                        val recent = if (regularView) state.recentlyUsedIds.mapNotNull(byId::get) else emptyList()
+                        val pinned = if (regularView) state.servers.filter { it.isFavorite } else emptyList()
+                        val list = state.servers.groupBy { serverCountryCode(it.countryCode) }
+                        for ((section, sectionServers) in listOf(R.string.server_recent_title to recent, R.string.servers_filter_favorites to pinned)) {
+                            if (sectionServers.isEmpty()) continue
+                            item(key = "section-$section") { ServerSectionLabel(stringResource(section)) }
+                            items(items = sectionServers, key = { "$section-${it.id}" }) { server ->
+                                ServerListCard(server, state.selectedServerId == server.id, persianDigits,
+                                    onInspect = { inspectedServerId = server.id },
+                                    onToggleFavorite = { viewModel.toggleFavorite(server.id) })
+                            }
+                        }
+                        for ((country, servers) in list) {
+                            item(key = "country-$country") { ServerSectionLabel(serverCountryLabel(country)) }
+                            items(items = servers, key = { "country-${it.id}" }) { server ->
+                                ServerListCard(server, state.selectedServerId == server.id, persianDigits,
+                                    onInspect = { inspectedServerId = server.id },
+                                    onToggleFavorite = { viewModel.toggleFavorite(server.id) })
+                            }
                         }
                     }
                 }
@@ -745,11 +769,17 @@ fun ServersScreen(
 }
 
 @Composable
+private fun ServerSectionLabel(title: String) {
+    Text(title, style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.xs))
+}
+
+@Composable
 private fun ServerListCard(
     server: VpnServer,
     isSelected: Boolean,
     persianDigits: Boolean,
-    onSelect: () -> Unit,
     onInspect: () -> Unit,
     onToggleFavorite: () -> Unit
 ) {
@@ -774,13 +804,13 @@ private fun ServerListCard(
             ),
         cornerRadius = 20.dp,
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-        onClick = onSelect
+        onClick = onInspect
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = server.flagEmoji, style = MaterialTheme.typography.headlineMedium)
+            ServerLocationMark(server.countryCode)
             Spacer(Modifier.width(Spacing.sm))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -809,7 +839,7 @@ private fun ServerListCard(
                     }
                     Text(
                         text = when {
-                            server.pingMs == null -> "—"
+                            server.pingMs == null -> stringResource(R.string.server_latency_unknown)
                             server.pingMs < 0 -> stringResource(R.string.servers_ping_timeout)
                             else -> Formatters.toPersianDigitsIfNeeded(
                                 stringResource(R.string.servers_ping_ms, server.pingMs),
@@ -827,13 +857,6 @@ private fun ServerListCard(
                         )
                     }
                 }
-            }
-            IconButton(onClick = onInspect) {
-                Icon(
-                    imageVector = Icons.Rounded.Info,
-                    contentDescription = stringResource(R.string.server_detail_title),
-                    tint = colors.textSecondary
-                )
             }
             IconButton(onClick = onToggleFavorite) {
                 Icon(
@@ -880,7 +903,7 @@ private fun ServerDetailBottomSheet(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    Text(server.flagEmoji, style = MaterialTheme.typography.headlineMedium)
+                    ServerLocationMark(server.countryCode)
                     Spacer(Modifier.width(Spacing.sm))
                     Column {
                         Text(
@@ -935,7 +958,7 @@ private fun ServerDetailBottomSheet(
                 HorizontalDivider(color = colors.glassBorderTop)
                 Spacer(Modifier.height(Spacing.sm))
                 Text(
-                    text = "${server.address}:${server.port}  •  ${server.groupName}",
+                    text = "\u2066${server.address}:${server.port}\u2069  ·  ${server.groupName}",
                     style = MaterialTheme.typography.labelSmall,
                     color = colors.textSecondary
                 )

@@ -515,4 +515,17 @@
     <string name="order_status_stale">Showing the last known status.</string>
     <string name="orders_copy_id">Copy order ID</string>
     <string name="checkout_card_amount_reservation">The exact card transfer amount is shown after placing the order.</string>
+    <string name="nav_connect">Connection</string>
+    <string name="connection_connect">Connect</string>
+    <string name="connection_disconnect">Disconnect</string>
+    <string name="connection_cancel">Cancel connection</string>
+    <string name="connection_retry">Try again</string>
+    <string name="connection_permission_denied">VPN permission is off. Tap Connect to try again.</string>
+    <string name="connection_automatic">Automatic server</string>
+    <string name="server_latency_unknown">Latency unknown</string>
+    <string name="server_country_unknown">Location unknown</string>
+    <string name="server_recent_title">Recently connected</string>
+    <string name="checkout_stage_number">Step %1$s of %2$s</string>
+    <string name="checkout_view_subscription">View subscription</string>
+    <string name="settings_appearance_language">Appearance and language</string>
 </resources>

@@ -338,7 +338,7 @@ fun SettingsScreen(
                 .statusBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = Spacing.md)
-                .padding(bottom = 112.dp),
+                .padding(bottom = Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
             Spacer(Modifier.height(Spacing.sm))
@@ -350,7 +350,7 @@ fun SettingsScreen(
             )
 
             // Appearance, Persian & Calendar
-            SectionLabel(stringResource(R.string.settings_section_general))
+            SectionLabel(stringResource(R.string.settings_appearance_language))
             GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.Language, contentDescription = null, tint = colors.heroEnd)
@@ -358,7 +358,7 @@ fun SettingsScreen(
                     Text(stringResource(R.string.settings_language), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
                 }
                 Spacer(Modifier.height(Spacing.sm))
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     FilterChip(
                         selected = settings.language == AppLanguage.PERSIAN,
                         onClick = { viewModel.setLanguage(AppLanguage.PERSIAN) },
@@ -389,7 +389,7 @@ fun SettingsScreen(
                     Text(stringResource(R.string.settings_calendar), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
                 }
                 Spacer(Modifier.height(Spacing.xs))
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     FilterChip(
                         selected = settings.calendarSystem == CalendarSystem.JALALI,
                         onClick = { viewModel.setCalendarSystem(CalendarSystem.JALALI) },
@@ -410,7 +410,7 @@ fun SettingsScreen(
                     Text(stringResource(R.string.settings_theme), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
                 }
                 Spacer(Modifier.height(Spacing.xs))
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     listOf(
                         ThemeMode.DARK to R.string.settings_theme_dark,
                         ThemeMode.LIGHT to R.string.settings_theme_light,
@@ -426,7 +426,7 @@ fun SettingsScreen(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
                 Text(stringResource(R.string.settings_palette), style = MaterialTheme.typography.titleMedium)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                FlowFlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     listOf(
                         ThemePalette.OCEAN to R.string.settings_palette_ocean,
                         ThemePalette.JADE to R.string.settings_palette_jade,

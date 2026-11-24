@@ -223,7 +223,7 @@ fun SubscriptionScreen(
                     .statusBarsPadding()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = Spacing.md)
-                    .padding(bottom = 118.dp)
+                    .padding(bottom = Spacing.lg)
             ) {
                 Spacer(Modifier.height(Spacing.sm))
 
