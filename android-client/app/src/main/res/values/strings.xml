@@ -115,7 +115,7 @@
     <string name="settings_lang_en">English</string>
     <string name="settings_theme">Theme</string>
     <string name="settings_palette">Color palette</string>
-    <string name="settings_palette_ocean">Slate blue</string>
+    <string name="settings_palette_ocean">Teal</string>
     <string name="settings_palette_jade">Pine</string>
     <string name="settings_palette_dusk">Muted violet</string>
     <string name="settings_theme_dark">Dark</string>
@@ -528,4 +528,13 @@
     <string name="checkout_stage_number">Step %1$s of %2$s</string>
     <string name="checkout_view_subscription">View subscription</string>
     <string name="settings_appearance_language">Appearance and language</string>
+    <string name="home_live_throughput">Live download and upload during the last minute</string>
+    <string name="servers_saved_tab">Saved</string>
+    <string name="servers_filters">Filter and sort</string>
+    <string name="servers_tab_empty">No servers in this view</string>
+    <string name="servers_tab_empty_desc">Change the tab or clear your search and filters.</string>
+    <string name="servers_group_closed">%1$s · %2$s  +</string>
+    <string name="servers_group_open">%1$s · %2$s  −</string>
+    <string name="settings_search_groups">Find a settings section</string>
+    <string name="settings_advanced">Advanced options</string>
 </resources>

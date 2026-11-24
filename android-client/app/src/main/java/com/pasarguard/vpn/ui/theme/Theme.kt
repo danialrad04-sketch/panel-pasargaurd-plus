@@ -153,10 +153,11 @@ private fun resolveBrandFontFamily(language: AppLanguage): FontFamily =
 
 private fun buildTypography(fontFamily: FontFamily): Typography = Typography(
     displaySmall = TextStyle(
+        fontFeatureSettings = "tnum",
         fontFamily = fontFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 32.sp,
-        lineHeight = 40.sp
+        fontSize = 40.sp,
+        lineHeight = 44.sp
     ),
     headlineMedium = TextStyle(
         fontFamily = fontFamily,
@@ -179,14 +180,14 @@ private fun buildTypography(fontFamily: FontFamily): Typography = Typography(
     bodyLarge = TextStyle(
         fontFamily = fontFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 15.sp,
-        lineHeight = 22.sp
+        fontSize = 16.sp,
+        lineHeight = 24.sp
     ),
     bodyMedium = TextStyle(
         fontFamily = fontFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
-        lineHeight = 20.sp
+        fontSize = 14.sp,
+        lineHeight = 22.sp
     ),
     labelLarge = TextStyle(
         fontFamily = fontFamily,
@@ -204,7 +205,7 @@ private fun buildTypography(fontFamily: FontFamily): Typography = Typography(
 
 @Composable
 fun PasarGuardVpnTheme(
-    themeMode: ThemeMode = ThemeMode.DARK,
+    themeMode: ThemeMode = ThemeMode.LIGHT,
     themePalette: ThemePalette = ThemePalette.OCEAN,
     language: AppLanguage = AppLanguage.PERSIAN,
     dynamicColorEnabled: Boolean = false,
@@ -231,10 +232,10 @@ fun PasarGuardVpnTheme(
         useDynamic -> dynamicLightColorScheme(context)
         else -> null
     }
-    val contrastText = Color(if (useDark) 0xFFEFF3F7 else 0xFF19232E)
-    val supportingText = Color(if (useDark) 0xFFB1BCC8 else 0xFF506071)
-    val neutralContainer = Color(if (useDark) 0xFF27313B else 0xFFE6EBF1)
-    val outline = Color(if (useDark) 0xFF495866 else 0xFFC6D0DC)
+    val contrastText = Color(if (useDark) 0xFFEAF3F0 else 0xFF0D1B17)
+    val supportingText = Color(if (useDark) 0xFFA2B5AF else 0xFF475A54)
+    val neutralContainer = Color(if (useDark) 0xFF16211E else 0xFFEDF3F1)
+    val outline = Color(if (useDark) 0xFF526963 else 0xFF718780)
     val baseExtended = if (useDark) DarkExtendedColors else LightExtendedColors
     val colorScheme = baseScheme.copy(
         primary = dynamic?.primary ?: palette.accent,
@@ -245,6 +246,7 @@ fun PasarGuardVpnTheme(
         onSecondary = dynamic?.onSecondary ?: palette.onAccent,
         secondaryContainer = dynamic?.secondaryContainer ?: palette.container,
         onSecondaryContainer = dynamic?.onSecondaryContainer ?: palette.onContainer,
+        tertiary = Color(if (useDark) 0xFF9A8CFF else 0xFF5845CC),
         background = palette.canvas,
         onBackground = contrastText,
         surface = palette.surface,
@@ -271,9 +273,9 @@ fun PasarGuardVpnTheme(
         textPrimary = contrastText,
         textSecondary = supportingText,
         textMuted = supportingText,
-        statusConnected = Color(if (useDark) 0xFF90D9B0 else 0xFF206243),
-        statusWarning = Color(if (useDark) 0xFFF0C078 else 0xFF80521A),
-        statusDanger = Color(if (useDark) 0xFFFFB4AB else 0xFF9F2636)
+        statusConnected = Color(if (useDark) 0xFF3DDC97 else 0xFF08784C),
+        statusWarning = Color(if (useDark) 0xFFFFC24A else 0xFF80521A),
+        statusDanger = Color(if (useDark) 0xFFFF6B70 else 0xFFB32636)
     )
 
     val layoutDirection = if (language == AppLanguage.PERSIAN) LayoutDirection.Rtl else LayoutDirection.Ltr

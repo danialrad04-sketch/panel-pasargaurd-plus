@@ -467,7 +467,7 @@ data class AppSettings(
     val language: AppLanguage = AppLanguage.PERSIAN,
     val persianDigitsEnabled: Boolean = true,
     val calendarSystem: CalendarSystem = CalendarSystem.JALALI,
-    val themeMode: ThemeMode = ThemeMode.DARK,
+    val themeMode: ThemeMode = ThemeMode.LIGHT,
     val themePalette: ThemePalette = ThemePalette.OCEAN,
     val dynamicColorEnabled: Boolean = false,
 

@@ -47,7 +47,7 @@ private data class SettingsBackupPayload(
     val language: String = "fa",
     val persianDigitsEnabled: Boolean = true,
     val calendarSystem: String = CalendarSystem.JALALI.name,
-    val themeMode: String = ThemeMode.DARK.name,
+    val themeMode: String = ThemeMode.LIGHT.name,
     val themePalette: String = ThemePalette.OCEAN.name,
     val dynamicColorEnabled: Boolean = false,
     val corePreference: String = CorePreference.AUTO.name,

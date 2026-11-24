@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -373,6 +374,18 @@ fun ServersScreen(
     val persianDigits = LocalPersianDigits.current
     val context = LocalContext.current
 
+    var showFilters by rememberSaveable { mutableStateOf(false) }
+    var serverTab by rememberSaveable { mutableStateOf("all") }
+    var collapsedCountries by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
+    val visibleServers = when (serverTab) {
+        "saved" -> state.servers.filter { it.isFavorite }
+        "recent" -> {
+            val byId = state.servers.associateBy { it.id }
+            state.recentlyUsedIds.mapNotNull(byId::get)
+        }
+        else -> state.servers
+    }
+
     var showPingSettingsSheet by remember { mutableStateOf(false) }
     var showImportSheet by remember { mutableStateOf(false) }
     var inspectedServerId by remember { mutableStateOf<String?>(null) }
@@ -517,58 +530,23 @@ fun ServersScreen(
 
                 Spacer(Modifier.height(Spacing.xs))
 
-                // Protocol filter chips
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
-                ) {
-                    val chips = listOf(
-                        ServerFilter.ALL to stringResource(R.string.servers_filter_all),
-                        ServerFilter.FAVORITES to stringResource(R.string.servers_filter_favorites),
-                        ServerFilter.VLESS to "VLESS",
-                        ServerFilter.VMESS to "VMess",
-                        ServerFilter.TROJAN to "Trojan",
-                        ServerFilter.SHADOWSOCKS to "SS"
-                    )
-                    chips.forEach { (f, label) ->
-                        FilterChip(
-                            selected = state.filter == f,
-                            onClick = { viewModel.onFilterChange(f) },
-                            label = { Text(label) }
-                        )
-                    }
-                }
-
-                // Sort + Hide Dead chips
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
-                ) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf(
-                        ServerSortMode.PING to R.string.servers_sort_ping,
-                        ServerSortMode.STABILITY to R.string.servers_sort_stability,
-                        ServerSortMode.FAVORITES to R.string.servers_filter_favorites,
-                        ServerSortMode.COUNTRY to R.string.servers_sort_country,
-                        ServerSortMode.NAME to R.string.servers_sort_name
-                    ).forEach { (mode, resId) ->
+                        "all" to R.string.servers_filter_all,
+                        "saved" to R.string.servers_saved_tab,
+                        "recent" to R.string.server_recent_title
+                    ).forEach { (key, label) ->
                         FilterChip(
-                            selected = state.settings.serverSortMode == mode,
-                            onClick = { viewModel.setSortMode(mode) },
-                            label = { Text(stringResource(resId)) }
+                            selected = serverTab == key,
+                            onClick = { serverTab = key },
+                            label = { Text(stringResource(label)) },
+                            modifier = Modifier.weight(1f)
                         )
                     }
-                    FilterChip(
-                        selected = state.settings.hideDeadServers,
-                        onClick = { viewModel.toggleHideDead(!state.settings.hideDeadServers) },
-                        label = { Text(stringResource(R.string.servers_hide_dead)) }
-                    )
                 }
-
-                Spacer(Modifier.height(Spacing.xs))
+                TextButton(onClick = { showFilters = true }) {
+                    Text(stringResource(R.string.servers_filters))
+                }
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -576,7 +554,7 @@ fun ServersScreen(
                     verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                 ) {
                     // Pinned Auto smart card
-                    if (state.hasMeasuredServers && !state.pingProgress.isRunning && state.query.isBlank()) item(key = "auto_best") {
+                    if (serverTab == "all" && state.hasMeasuredServers && !state.pingProgress.isRunning && state.query.isBlank()) item(key = "auto_best") {
                         val isAutoSelected = state.selectedServerId == null
                         GlassCard(
                             modifier = Modifier
@@ -631,39 +609,107 @@ fun ServersScreen(
 
                     if (state.isRefreshing && state.servers.isEmpty()) {
                         items(4) { ShimmerPlaceholder(height = 76.dp) }
-                    } else if (state.servers.isEmpty()) {
+                    } else if (visibleServers.isEmpty()) {
                         item(key = "empty") {
                             EmptyStateView(
-                                title = stringResource(R.string.servers_empty_title),
-                                description = stringResource(R.string.servers_empty_desc),
+                                title = stringResource(if (serverTab == "all") R.string.servers_empty_title else R.string.servers_tab_empty),
+                                description = stringResource(if (serverTab == "all") R.string.servers_empty_desc else R.string.servers_tab_empty_desc),
                                 actionLabel = stringResource(R.string.servers_refresh),
                                 onAction = { viewModel.refreshFromPanel() }
                             )
                         }
                     } else {
-                        val byId = state.servers.associateBy { it.id }
-                        val regularView = state.query.isBlank() && state.filter == ServerFilter.ALL
-                        val recent = if (regularView) state.recentlyUsedIds.mapNotNull(byId::get) else emptyList()
-                        val pinned = if (regularView) state.servers.filter { it.isFavorite } else emptyList()
-                        val list = state.servers.groupBy { serverCountryCode(it.countryCode) }
-                        for ((section, sectionServers) in listOf(R.string.server_recent_title to recent, R.string.servers_filter_favorites to pinned)) {
-                            if (sectionServers.isEmpty()) continue
-                            item(key = "section-$section") { ServerSectionLabel(stringResource(section)) }
-                            items(items = sectionServers, key = { "$section-${it.id}" }) { server ->
+                        if (serverTab != "all") {
+                            items(visibleServers, key = { it.id }) { server ->
                                 ServerListCard(server, state.selectedServerId == server.id, persianDigits,
                                     onInspect = { inspectedServerId = server.id },
                                     onToggleFavorite = { viewModel.toggleFavorite(server.id) })
                             }
-                        }
-                        for ((country, servers) in list) {
-                            item(key = "country-$country") { ServerSectionLabel(serverCountryLabel(country)) }
-                            items(items = servers, key = { "country-${it.id}" }) { server ->
-                                ServerListCard(server, state.selectedServerId == server.id, persianDigits,
-                                    onInspect = { inspectedServerId = server.id },
-                                    onToggleFavorite = { viewModel.toggleFavorite(server.id) })
+                        } else {
+                            for ((country, servers) in visibleServers.groupBy { serverCountryCode(it.countryCode) }) {
+                                val countryKey = country.orEmpty()
+                                val collapsed = countryKey in collapsedCountries
+                                item(key = "country-$countryKey") {
+                                    TextButton(onClick = {
+                                        collapsedCountries = ArrayList(
+                                            if (collapsed) collapsedCountries - countryKey
+                                            else collapsedCountries + countryKey
+                                        )
+                                    }) {
+                                        val count = Formatters.toPersianDigitsIfNeeded(servers.size.toString(), persianDigits)
+                                        Text(stringResource(
+                                            if (collapsed) R.string.servers_group_closed else R.string.servers_group_open,
+                                            serverCountryLabel(country), count
+                                        ))
+                                    }
+                                }
+                                if (!collapsed) {
+                                    items(servers, key = { it.id }) { server ->
+                                        ServerListCard(server, state.selectedServerId == server.id, persianDigits,
+                                            onInspect = { inspectedServerId = server.id },
+                                            onToggleFavorite = { viewModel.toggleFavorite(server.id) })
+                                    }
+                                }
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    if (showFilters) {
+        ModalBottomSheet(onDismissRequest = { showFilters = false }) {
+            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp)) {
+                Text(stringResource(R.string.servers_filters), style = MaterialTheme.typography.titleLarge)
+                // Protocol filter chips
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
+                ) {
+                    val chips = listOf(
+                        ServerFilter.ALL to stringResource(R.string.servers_filter_all),
+
+                        ServerFilter.VLESS to "VLESS",
+                        ServerFilter.VMESS to "VMess",
+                        ServerFilter.TROJAN to "Trojan",
+                        ServerFilter.SHADOWSOCKS to "SS"
+                    )
+                    chips.forEach { (f, label) ->
+                        FilterChip(
+                            selected = state.filter == f,
+                            onClick = { viewModel.onFilterChange(f) },
+                            label = { Text(label) }
+                        )
+                    }
+                }
+
+                // Sort + Hide Dead chips
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
+                ) {
+                    listOf(
+                        ServerSortMode.PING to R.string.servers_sort_ping,
+                        ServerSortMode.STABILITY to R.string.servers_sort_stability,
+                        ServerSortMode.FAVORITES to R.string.servers_filter_favorites,
+                        ServerSortMode.COUNTRY to R.string.servers_sort_country,
+                        ServerSortMode.NAME to R.string.servers_sort_name
+                    ).forEach { (mode, resId) ->
+                        FilterChip(
+                            selected = state.settings.serverSortMode == mode,
+                            onClick = { viewModel.setSortMode(mode) },
+                            label = { Text(stringResource(resId)) }
+                        )
+                    }
+                    FilterChip(
+                        selected = state.settings.hideDeadServers,
+                        onClick = { viewModel.toggleHideDead(!state.settings.hideDeadServers) },
+                        label = { Text(stringResource(R.string.servers_hide_dead)) }
+                    )
+                }
+                TextButton(onClick = { showFilters = false }) {
+                    Text(stringResource(R.string.action_close))
                 }
             }
         }

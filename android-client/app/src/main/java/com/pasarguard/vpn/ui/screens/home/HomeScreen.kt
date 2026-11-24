@@ -11,6 +11,14 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import android.app.Activity
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.ui.semantics.stateDescription
+import com.pasarguard.vpn.ui.components.LiveThroughputChart
+import com.pasarguard.vpn.ui.components.rememberThroughput
 import android.net.VpnService
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -61,6 +69,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -321,13 +331,16 @@ fun HomeScreen(
                     status = state.session.status,
                     errorMessage = if (permissionDenied) stringResource(R.string.connection_permission_denied)
                         else state.session.errorMessage,
+                    elapsedMs = elapsedMs,
+                    persianDigits = persianDigits,
+                    onOpenServers = onOpenServers,
                     onConnectTap = handleConnectTap
                 )
                 Spacer(Modifier.height(Spacing.md))
                 SelectedServerCard(state, persianDigits, onOpenServers)
                 if (state.session.status == ConnectionStatus.CONNECTED) {
                     Spacer(Modifier.height(Spacing.sm))
-                    ConnectionTelemetry(state, elapsedMs, persianDigits)
+                    ConnectionTelemetry(state, elapsedMs, persianDigits, onOpenStatistics)
                 }
                 Spacer(Modifier.height(Spacing.md))
 
@@ -426,10 +439,14 @@ fun HomeScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HeroConnectSection(
     status: ConnectionStatus,
     errorMessage: String?,
+    elapsedMs: Long,
+    persianDigits: Boolean,
+    onOpenServers: () -> Unit,
     onConnectTap: () -> Unit
 ) {
     val colors = PasarGuardTheme.colors
@@ -460,27 +477,45 @@ private fun HeroConnectSection(
                     else -> scheme.onSurface
                 })
             Spacer(Modifier.height(Spacing.md))
+            val orbColor = when {
+                connected -> colors.statusConnected
+                pending -> colors.statusWarning
+                status == ConnectionStatus.ERROR -> colors.statusDanger
+                else -> scheme.primary
+            }
+            val iconColor = if (orbColor.luminance() > .42f) Color(0xFF071C16) else Color.White
             Surface(
-                modifier = Modifier.size(100.dp).clip(CircleShape)
-                    .clickable(enabled = status != ConnectionStatus.DISCONNECTING, role = Role.Button,
-                        onClick = onConnectTap)
-                    .semantics { contentDescription = action },
+                modifier = Modifier.sizeIn(maxWidth = 188.dp).fillMaxWidth().heightIn(min = 188.dp)
+                    .clip(CircleShape)
+                    .combinedClickable(enabled = status != ConnectionStatus.DISCONNECTING, role = Role.Button,
+                        onClick = onConnectTap, onLongClick = onOpenServers)
+                    .semantics {
+                        contentDescription = action
+                        stateDescription = statusText
+                    },
                 shape = CircleShape,
-                color = if (connected) scheme.surfaceVariant else scheme.primaryContainer,
-                border = androidx.compose.foundation.BorderStroke(1.dp,
-                    if (connected) colors.statusConnected else scheme.outline)
+                color = orbColor
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    val tint = if (connected) colors.statusConnected else scheme.onPrimaryContainer
+                    val tint = iconColor
                     if (pending) {
                         CircularProgressIndicator(Modifier.size(36.dp), color = tint, strokeWidth = 2.dp)
                     } else {
-                        Icon(Icons.Rounded.PowerSettingsNew, null, tint = tint, modifier = Modifier.size(36.dp))
+                        val icon = when {
+                            connected -> Icons.Rounded.Shield
+                            status == ConnectionStatus.ERROR -> Icons.Rounded.WarningAmber
+                            else -> Icons.Rounded.PowerSettingsNew
+                        }
+                        Icon(icon, null, tint = tint, modifier = Modifier.size(54.dp))
                     }
                 }
             }
             Spacer(Modifier.height(Spacing.sm))
             Text(action, style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
+            if (connected) {
+                Text(Formatters.formatDuration(elapsedMs, persianDigits),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"))
+            }
             if (errorMessage != null) {
                 Spacer(Modifier.height(Spacing.sm))
                 Text(errorMessage, style = MaterialTheme.typography.bodySmall, color = colors.statusDanger)
@@ -601,9 +636,16 @@ private fun HomeDashboardBody(
     Spacer(Modifier.height(Spacing.md))
 }
 @Composable
-private fun ConnectionTelemetry(state: HomeUiState, elapsedMs: Long, persianDigits: Boolean) {
+private fun ConnectionTelemetry(
+    state: HomeUiState,
+    elapsedMs: Long,
+    persianDigits: Boolean,
+    onOpenStatistics: () -> Unit
+) {
     val colors = PasarGuardTheme.colors
-    GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 22.dp) {
+    val samples = rememberThroughput(state.session.connectedSinceEpochMs,
+        state.session.downloadBytesPerSec, state.session.uploadBytesPerSec)
+    GlassCard(modifier = Modifier.fillMaxWidth(), onClick = onOpenStatistics) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
@@ -617,7 +659,7 @@ private fun ConnectionTelemetry(state: HomeUiState, elapsedMs: Long, persianDigi
             )
             TelemetryCell(
                 icon = Icons.Rounded.ArrowUpward,
-                tint = colors.heroEnd,
+                tint = MaterialTheme.colorScheme.tertiary,
                 label = stringResource(R.string.home_upload),
                 value = Formatters.formatSpeed(state.session.uploadBytesPerSec, persianDigits),
                 modifier = Modifier.weight(1f)
@@ -630,6 +672,8 @@ private fun ConnectionTelemetry(state: HomeUiState, elapsedMs: Long, persianDigi
                 modifier = Modifier.weight(1f)
             )
         }
+        Spacer(Modifier.height(Spacing.sm))
+        LiveThroughputChart(samples, stringResource(R.string.home_live_throughput))
     }
 }
 

@@ -73,6 +73,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -293,6 +294,8 @@ fun SettingsScreen(
     val persianDigits = LocalPersianDigits.current
     val context = LocalContext.current
 
+    var settingsQuery by rememberSaveable { mutableStateOf("") }
+    var advancedOpen by rememberSaveable { mutableStateOf(false) }
     var showLogoutSheet by remember { mutableStateOf(false) }
     var showAllowInsecureWarning by remember { mutableStateOf(false) }
     var showPinDialog by remember { mutableStateOf(false) }
@@ -349,532 +352,562 @@ fun SettingsScreen(
                 color = colors.textPrimary
             )
 
+            OutlinedTextField(
+                value = settingsQuery,
+                onValueChange = { settingsQuery = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text(stringResource(R.string.settings_search_groups)) }
+            )
+            fun matchesSettingsGroup(labels: List<Int>): Boolean = settingsQuery.isBlank() ||
+                labels.any { context.getString(it).contains(settingsQuery.trim(), ignoreCase = true) }
+
             // Appearance, Persian & Calendar
-            SectionLabel(stringResource(R.string.settings_appearance_language))
-            GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Language, contentDescription = null, tint = colors.heroEnd)
-                    Spacer(Modifier.width(Spacing.sm))
-                    Text(stringResource(R.string.settings_language), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
-                }
-                Spacer(Modifier.height(Spacing.sm))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    FilterChip(
-                        selected = settings.language == AppLanguage.PERSIAN,
-                        onClick = { viewModel.setLanguage(AppLanguage.PERSIAN) },
-                        label = { Text(stringResource(R.string.settings_lang_fa)) }
-                    )
-                    FilterChip(
-                        selected = settings.language == AppLanguage.ENGLISH,
-                        onClick = { viewModel.setLanguage(AppLanguage.ENGLISH) },
-                        label = { Text(stringResource(R.string.settings_lang_en)) }
-                    )
-                }
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-
-                SettingsToggleRow(
-                    icon = Icons.Rounded.Language,
-                    title = stringResource(R.string.settings_persian_digits),
-                    subtitle = null,
-                    checked = settings.persianDigitsEnabled,
-                    onCheckedChange = viewModel::setPersianDigits
-                )
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.CalendarMonth, contentDescription = null, tint = colors.heroEnd)
-                    Spacer(Modifier.width(Spacing.sm))
-                    Text(stringResource(R.string.settings_calendar), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
-                }
-                Spacer(Modifier.height(Spacing.xs))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    FilterChip(
-                        selected = settings.calendarSystem == CalendarSystem.JALALI,
-                        onClick = { viewModel.setCalendarSystem(CalendarSystem.JALALI) },
-                        label = { Text(stringResource(R.string.settings_calendar_jalali)) }
-                    )
-                    FilterChip(
-                        selected = settings.calendarSystem == CalendarSystem.GREGORIAN,
-                        onClick = { viewModel.setCalendarSystem(CalendarSystem.GREGORIAN) },
-                        label = { Text(stringResource(R.string.settings_calendar_gregorian)) }
-                    )
-                }
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.DarkMode, contentDescription = null, tint = colors.heroEnd)
-                    Spacer(Modifier.width(Spacing.sm))
-                    Text(stringResource(R.string.settings_theme), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
-                }
-                Spacer(Modifier.height(Spacing.xs))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    listOf(
-                        ThemeMode.DARK to R.string.settings_theme_dark,
-                        ThemeMode.LIGHT to R.string.settings_theme_light,
-                        ThemeMode.SYSTEM to R.string.settings_theme_system
-                    ).forEach { (mode, resId) ->
+            if (matchesSettingsGroup(listOf(R.string.settings_appearance_language, R.string.settings_language, R.string.settings_lang_fa, R.string.settings_lang_en, R.string.settings_persian_digits, R.string.settings_calendar, R.string.settings_calendar_jalali, R.string.settings_calendar_gregorian, R.string.settings_theme, R.string.settings_palette, R.string.settings_dynamic_color, R.string.settings_dynamic_color_desc))) {
+                SectionLabel(stringResource(R.string.settings_appearance_language))
+                GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Language, contentDescription = null, tint = colors.heroEnd)
+                        Spacer(Modifier.width(Spacing.sm))
+                        Text(stringResource(R.string.settings_language), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
+                    }
+                    Spacer(Modifier.height(Spacing.sm))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         FilterChip(
-                            selected = settings.themeMode == mode,
-                            onClick = { viewModel.setThemeMode(mode) },
-                            label = { Text(stringResource(resId)) }
+                            selected = settings.language == AppLanguage.PERSIAN,
+                            onClick = { viewModel.setLanguage(AppLanguage.PERSIAN) },
+                            label = { Text(stringResource(R.string.settings_lang_fa)) }
+                        )
+                        FilterChip(
+                            selected = settings.language == AppLanguage.ENGLISH,
+                            onClick = { viewModel.setLanguage(AppLanguage.ENGLISH) },
+                            label = { Text(stringResource(R.string.settings_lang_en)) }
+                        )
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+
+                    SettingsToggleRow(
+                        icon = Icons.Rounded.Language,
+                        title = stringResource(R.string.settings_persian_digits),
+                        subtitle = null,
+                        checked = settings.persianDigitsEnabled,
+                        onCheckedChange = viewModel::setPersianDigits
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.CalendarMonth, contentDescription = null, tint = colors.heroEnd)
+                        Spacer(Modifier.width(Spacing.sm))
+                        Text(stringResource(R.string.settings_calendar), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
+                    }
+                    Spacer(Modifier.height(Spacing.xs))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        FilterChip(
+                            selected = settings.calendarSystem == CalendarSystem.JALALI,
+                            onClick = { viewModel.setCalendarSystem(CalendarSystem.JALALI) },
+                            label = { Text(stringResource(R.string.settings_calendar_jalali)) }
+                        )
+                        FilterChip(
+                            selected = settings.calendarSystem == CalendarSystem.GREGORIAN,
+                            onClick = { viewModel.setCalendarSystem(CalendarSystem.GREGORIAN) },
+                            label = { Text(stringResource(R.string.settings_calendar_gregorian)) }
+                        )
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.DarkMode, contentDescription = null, tint = colors.heroEnd)
+                        Spacer(Modifier.width(Spacing.sm))
+                        Text(stringResource(R.string.settings_theme), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
+                    }
+                    Spacer(Modifier.height(Spacing.xs))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        listOf(
+                            ThemeMode.DARK to R.string.settings_theme_dark,
+                            ThemeMode.LIGHT to R.string.settings_theme_light,
+                            ThemeMode.SYSTEM to R.string.settings_theme_system
+                        ).forEach { (mode, resId) ->
+                            FilterChip(
+                                selected = settings.themeMode == mode,
+                                onClick = { viewModel.setThemeMode(mode) },
+                                label = { Text(stringResource(resId)) }
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                    Text(stringResource(R.string.settings_palette), style = MaterialTheme.typography.titleMedium)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        listOf(
+                            ThemePalette.OCEAN to R.string.settings_palette_ocean,
+                            ThemePalette.JADE to R.string.settings_palette_jade,
+                            ThemePalette.DUSK to R.string.settings_palette_dusk
+                        ).forEach { (palette, label) ->
+                            val swatch = palette.tokens(colors.isDark).accent
+                            FilterChip(
+                                selected = !settings.dynamicColorEnabled && settings.themePalette == palette,
+                                onClick = { viewModel.setThemePalette(palette) },
+                                label = { Text(stringResource(label)) },
+                                leadingIcon = {
+                                    Box(Modifier.size(12.dp).background(swatch, CircleShape))
+                                }
+                            )
+                        }
+                    }
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                        SettingsToggleRow(
+                            icon = Icons.Rounded.Palette,
+                            title = stringResource(R.string.settings_dynamic_color),
+                            subtitle = stringResource(R.string.settings_dynamic_color_desc),
+                            checked = settings.dynamicColorEnabled,
+                            onCheckedChange = viewModel::setDynamicColor
                         )
                     }
                 }
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-                Text(stringResource(R.string.settings_palette), style = MaterialTheme.typography.titleMedium)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    listOf(
-                        ThemePalette.OCEAN to R.string.settings_palette_ocean,
-                        ThemePalette.JADE to R.string.settings_palette_jade,
-                        ThemePalette.DUSK to R.string.settings_palette_dusk
-                    ).forEach { (palette, label) ->
-                        val swatch = palette.tokens(colors.isDark).accent
-                        FilterChip(
-                            selected = !settings.dynamicColorEnabled && settings.themePalette == palette,
-                            onClick = { viewModel.setThemePalette(palette) },
-                            label = { Text(stringResource(label)) },
-                            leadingIcon = {
-                                Box(Modifier.size(12.dp).background(swatch, CircleShape))
+            }
+
+            if (matchesSettingsGroup(listOf(R.string.settings_section_vpn, R.string.settings_core_title, R.string.settings_core_desc, R.string.settings_sub_format_title, R.string.settings_sub_format_desc, R.string.settings_dns_title, R.string.settings_remote_dns_proxy, R.string.settings_mtu_title, R.string.settings_ipv6_title, R.string.settings_ipv6_desc, R.string.settings_fragment_title, R.string.settings_fragment_desc, R.string.settings_mux_title, R.string.settings_mux_desc, R.string.settings_sniffing_title, R.string.settings_allow_insecure_title, R.string.settings_allow_insecure_desc))) {
+                SectionLabel(stringResource(R.string.settings_section_vpn))
+                GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Memory, contentDescription = null, tint = colors.heroEnd)
+                        Spacer(Modifier.width(Spacing.sm))
+                        Column {
+                            Text(stringResource(R.string.settings_core_title), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
+                            Text(stringResource(R.string.settings_core_desc), style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
+                        }
+                    }
+                    Spacer(Modifier.height(Spacing.xs))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        listOf(
+                            CorePreference.AUTO to R.string.settings_core_auto,
+                            CorePreference.XRAY to R.string.settings_core_xray,
+                            CorePreference.SING_BOX to R.string.settings_core_singbox
+                        ).forEach { (pref, resId) ->
+                            FilterChip(
+                                selected = settings.corePreference == pref,
+                                onClick = { viewModel.setCorePreference(pref) },
+                                label = { Text(stringResource(resId)) }
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Dns, contentDescription = null, tint = colors.heroEnd)
+                        Spacer(Modifier.width(Spacing.sm))
+                        Column {
+                            Text(stringResource(R.string.settings_sub_format_title), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
+                            Text(stringResource(R.string.settings_sub_format_desc), style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
+                        }
+                    }
+                    Spacer(Modifier.height(Spacing.xs))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        listOf(
+                            SubscriptionFormatStrategy.PREFER_XRAY_JSON to R.string.settings_sub_format_xray_json,
+                            SubscriptionFormatStrategy.LINKS_ONLY to R.string.settings_sub_format_links_only
+                        ).forEach { (strategy, resId) ->
+                            FilterChip(
+                                selected = settings.subscriptionFormatStrategy == strategy,
+                                onClick = { viewModel.setSubscriptionFormatStrategy(strategy) },
+                                label = { Text(stringResource(resId)) }
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+
+                    SettingsActionRow(
+                        icon = Icons.Rounded.AltRoute,
+                        title = stringResource(R.string.routing_title),
+                        subtitle = settings.routingMode.name,
+                        onClick = onOpenRoutingRules
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+
+                    // DNS Presets
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Dns, contentDescription = null, tint = colors.heroEnd)
+                        Spacer(Modifier.width(Spacing.sm))
+                        Text(stringResource(R.string.settings_dns_title), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
+                    }
+                    Spacer(Modifier.height(Spacing.xs))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                        DnsPreset.entries.forEach { preset ->
+                            FilterChip(
+                                selected = settings.dnsPreset == preset,
+                                onClick = { viewModel.setDnsPreset(preset) },
+                                label = { Text(preset.label) }
+                            )
+                        }
+                    }
+                    if (settings.dnsPreset == DnsPreset.CUSTOM) {
+                        Spacer(Modifier.height(Spacing.xs))
+                        OutlinedTextField(
+                            value = customDnsInput,
+                            onValueChange = {
+                                customDnsInput = it
+                                viewModel.setCustomDnsServer(it)
+                            },
+                            placeholder = { Text("https://1.1.1.1/dns-query") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    SettingsToggleRow(
+                        icon = Icons.Rounded.Public,
+                        title = stringResource(R.string.settings_remote_dns_proxy),
+                        subtitle = null,
+                        checked = settings.remoteDnsThroughProxy,
+                        onCheckedChange = viewModel::setRemoteDnsThroughProxy
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+
+                    TextButton(onClick = { advancedOpen = !advancedOpen }) {
+                        Text(stringResource(R.string.settings_advanced))
+                    }
+                    if (advancedOpen || settingsQuery.isNotBlank()) {
+                        // MTU & Advanced Xray Options
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.Tune, contentDescription = null, tint = colors.heroEnd)
+                            Spacer(Modifier.width(Spacing.sm))
+                            Text(stringResource(R.string.settings_mtu_title), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
+                        }
+                        Spacer(Modifier.height(Spacing.xs))
+                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                            listOf(1280, 1400, 1500).forEach { mtuVal ->
+                                FilterChip(
+                                    selected = settings.mtu == mtuVal,
+                                    onClick = { viewModel.setMtu(mtuVal) },
+                                    label = { Text(Formatters.toPersianDigitsIfNeeded("$mtuVal", persianDigits)) }
+                                )
+                            }
+                        }
+
+                        SettingsToggleRow(
+                            icon = Icons.Rounded.Public,
+                            title = stringResource(R.string.settings_ipv6_title),
+                            subtitle = stringResource(R.string.settings_ipv6_desc),
+                            checked = settings.enableIpv6,
+                            onCheckedChange = viewModel::setEnableIpv6
+                        )
+                        SettingsToggleRow(
+                            icon = Icons.Rounded.Tune,
+                            title = stringResource(R.string.settings_fragment_title),
+                            subtitle = stringResource(R.string.settings_fragment_desc),
+                            checked = settings.enableFragment,
+                            onCheckedChange = viewModel::setEnableFragment
+                        )
+                        SettingsToggleRow(
+                            icon = Icons.Rounded.Tune,
+                            title = stringResource(R.string.settings_mux_title),
+                            subtitle = stringResource(R.string.settings_mux_desc),
+                            checked = settings.enableMux,
+                            onCheckedChange = viewModel::setEnableMux
+                        )
+                        SettingsToggleRow(
+                            icon = Icons.Rounded.Tune,
+                            title = stringResource(R.string.settings_sniffing_title),
+                            subtitle = null,
+                            checked = settings.enableSniffing,
+                            onCheckedChange = viewModel::setEnableSniffing
+                        )
+                        SettingsToggleRow(
+                            icon = Icons.Rounded.Security,
+                            title = stringResource(R.string.settings_allow_insecure_title),
+                            subtitle = stringResource(R.string.settings_allow_insecure_desc),
+                            checked = settings.allowInsecureGlobal,
+                            onCheckedChange = { want ->
+                                if (want) showAllowInsecureWarning = true
+                                else viewModel.setAllowInsecureGlobal(false)
                             }
                         )
                     }
+
                 }
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-                    SettingsToggleRow(
-                        icon = Icons.Rounded.Palette,
-                        title = stringResource(R.string.settings_dynamic_color),
-                        subtitle = stringResource(R.string.settings_dynamic_color_desc),
-                        checked = settings.dynamicColorEnabled,
-                        onCheckedChange = viewModel::setDynamicColor
-                    )
-                }
-            }
+                if (matchesSettingsGroup(listOf(R.string.settings_section_automation, R.string.settings_split_tunnel, R.string.settings_split_tunnel_desc, R.string.settings_auto_connect, R.string.settings_auto_connect_desc, R.string.settings_auto_reconnect, R.string.settings_auto_reconnect_desc, R.string.settings_auto_failover, R.string.settings_auto_failover_desc, R.string.settings_auto_test_open, R.string.settings_network_rule, R.string.settings_block_on_drop, R.string.settings_kill_switch, R.string.settings_kill_switch_desc))) {
+                    SectionLabel(stringResource(R.string.settings_section_automation))
+                    GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+                        SettingsActionRow(
+                            icon = Icons.Rounded.Apps,
+                            title = stringResource(R.string.settings_split_tunnel),
+                            subtitle = stringResource(R.string.settings_split_tunnel_desc),
+                            onClick = onOpenSplitTunneling
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                        SettingsToggleRow(
+                            icon = Icons.Rounded.Power,
+                            title = stringResource(R.string.settings_auto_connect),
+                            subtitle = stringResource(R.string.settings_auto_connect_desc),
+                            checked = settings.autoConnect,
+                            onCheckedChange = viewModel::setAutoConnect
+                        )
+                        SettingsToggleRow(
+                            icon = Icons.Rounded.Power,
+                            title = stringResource(R.string.settings_auto_reconnect),
+                            subtitle = stringResource(R.string.settings_auto_reconnect_desc),
+                            checked = settings.autoReconnect,
+                            onCheckedChange = viewModel::setAutoReconnect
+                        )
+                        SettingsToggleRow(
+                            icon = Icons.Rounded.Power,
+                            title = stringResource(R.string.settings_auto_failover),
+                            subtitle = stringResource(R.string.settings_auto_failover_desc),
+                            checked = settings.autoFailover,
+                            onCheckedChange = viewModel::setAutoFailover
+                        )
+                        SettingsToggleRow(
+                            icon = Icons.Rounded.NetworkCheck,
+                            title = stringResource(R.string.settings_auto_test_open),
+                            subtitle = null,
+                            checked = settings.autoTestOnAppOpen,
+                            onCheckedChange = viewModel::setAutoTestOnAppOpen
+                        )
 
-            // Core, Routing, DNS & Advanced Xray
-            SectionLabel(stringResource(R.string.settings_section_vpn))
-            GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Memory, contentDescription = null, tint = colors.heroEnd)
-                    Spacer(Modifier.width(Spacing.sm))
-                    Column {
-                        Text(stringResource(R.string.settings_core_title), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
-                        Text(stringResource(R.string.settings_core_desc), style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
-                    }
-                }
-                Spacer(Modifier.height(Spacing.xs))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    listOf(
-                        CorePreference.AUTO to R.string.settings_core_auto,
-                        CorePreference.XRAY to R.string.settings_core_xray,
-                        CorePreference.SING_BOX to R.string.settings_core_singbox
-                    ).forEach { (pref, resId) ->
-                        FilterChip(
-                            selected = settings.corePreference == pref,
-                            onClick = { viewModel.setCorePreference(pref) },
-                            label = { Text(stringResource(resId)) }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                        Text(stringResource(R.string.settings_network_rule), style = MaterialTheme.typography.titleSmall, color = colors.textPrimary)
+                        Spacer(Modifier.height(Spacing.xs))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                            listOf(
+                                NetworkAutoConnectRule.NONE to R.string.split_mode_disabled,
+                                NetworkAutoConnectRule.UNTRUSTED_WIFI to R.string.settings_net_wifi,
+                                NetworkAutoConnectRule.MOBILE_DATA to R.string.settings_net_mobile,
+                                NetworkAutoConnectRule.ALWAYS to R.string.settings_net_always
+                            ).forEach { (rule, resId) ->
+                                FilterChip(
+                                    selected = settings.networkAutoConnectRule == rule,
+                                    onClick = { viewModel.setNetworkAutoConnectRule(rule) },
+                                    label = { Text(stringResource(resId)) }
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                        SettingsToggleRow(
+                            icon = Icons.Rounded.Security,
+                            title = stringResource(R.string.settings_block_on_drop),
+                            subtitle = null,
+                            checked = settings.blockTrafficOnDrop,
+                            onCheckedChange = viewModel::setBlockTrafficOnDrop
+                        )
+                        SettingsActionRow(
+                            icon = Icons.Rounded.Security,
+                            title = stringResource(R.string.settings_kill_switch),
+                            subtitle = stringResource(R.string.settings_kill_switch_desc),
+                            onClick = {
+                                viewModel.setKillSwitch(true)
+                                Formatters.openSystemVpnSettings(context)
+                            }
                         )
                     }
+
                 }
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Dns, contentDescription = null, tint = colors.heroEnd)
-                    Spacer(Modifier.width(Spacing.sm))
-                    Column {
-                        Text(stringResource(R.string.settings_sub_format_title), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
-                        Text(stringResource(R.string.settings_sub_format_desc), style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
-                    }
-                }
-                Spacer(Modifier.height(Spacing.xs))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    listOf(
-                        SubscriptionFormatStrategy.PREFER_XRAY_JSON to R.string.settings_sub_format_xray_json,
-                        SubscriptionFormatStrategy.LINKS_ONLY to R.string.settings_sub_format_links_only
-                    ).forEach { (strategy, resId) ->
-                        FilterChip(
-                            selected = settings.subscriptionFormatStrategy == strategy,
-                            onClick = { viewModel.setSubscriptionFormatStrategy(strategy) },
-                            label = { Text(stringResource(resId)) }
+                if (matchesSettingsGroup(listOf(R.string.settings_section_privacy, R.string.settings_hide_recents, R.string.settings_hide_recents_desc, R.string.settings_disguise_notif, R.string.settings_disguise_notif_desc))) {
+                    SectionLabel(stringResource(R.string.settings_section_privacy))
+                    GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+                        SettingsToggleRow(
+                            icon = Icons.Rounded.Lock,
+                            title = stringResource(R.string.app_lock_title),
+                            subtitle = stringResource(R.string.app_lock_setting_desc),
+                            checked = settings.appLockEnabled,
+                            onCheckedChange = { enable ->
+                                if (enable) showPinDialog = true
+                                else viewModel.setAppLock(false, "")
+                            }
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                        SettingsToggleRow(
+                            icon = Icons.Rounded.VisibilityOff,
+                            title = stringResource(R.string.settings_hide_recents),
+                            subtitle = stringResource(R.string.settings_hide_recents_desc),
+                            checked = settings.hideInRecents,
+                            onCheckedChange = viewModel::setHideInRecents
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                        SettingsToggleRow(
+                            icon = Icons.Rounded.NotificationsActive,
+                            title = stringResource(R.string.settings_disguise_notif),
+                            subtitle = stringResource(R.string.settings_disguise_notif_desc),
+                            checked = settings.disguiseNotification,
+                            onCheckedChange = viewModel::setDisguiseNotification
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                        SettingsActionRow(
+                            icon = Icons.Rounded.Terminal,
+                            title = stringResource(R.string.logs_title),
+                            subtitle = stringResource(R.string.logs_subtitle),
+                            onClick = onOpenLogs
                         )
                     }
+
                 }
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-
-                SettingsActionRow(
-                    icon = Icons.Rounded.AltRoute,
-                    title = stringResource(R.string.routing_title),
-                    subtitle = settings.routingMode.name,
-                    onClick = onOpenRoutingRules
-                )
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-
-                // DNS Presets
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Dns, contentDescription = null, tint = colors.heroEnd)
-                    Spacer(Modifier.width(Spacing.sm))
-                    Text(stringResource(R.string.settings_dns_title), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
-                }
-                Spacer(Modifier.height(Spacing.xs))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    DnsPreset.entries.forEach { preset ->
-                        FilterChip(
-                            selected = settings.dnsPreset == preset,
-                            onClick = { viewModel.setDnsPreset(preset) },
-                            label = { Text(preset.label) }
+                if (matchesSettingsGroup(listOf(R.string.settings_section_tools, R.string.settings_export_backup, R.string.settings_export_backup_desc, R.string.settings_import_backup, R.string.settings_check_updates))) {
+                    SectionLabel(stringResource(R.string.settings_section_tools))
+                    GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+                        SettingsActionRow(
+                            icon = Icons.Rounded.AccountCircle,
+                            title = stringResource(R.string.profiles_title),
+                            subtitle = null,
+                            onClick = onOpenProfiles
                         )
-                    }
-                }
-                if (settings.dnsPreset == DnsPreset.CUSTOM) {
-                    Spacer(Modifier.height(Spacing.xs))
-                    OutlinedTextField(
-                        value = customDnsInput,
-                        onValueChange = {
-                            customDnsInput = it
-                            viewModel.setCustomDnsServer(it)
-                        },
-                        placeholder = { Text("https://1.1.1.1/dns-query") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                SettingsToggleRow(
-                    icon = Icons.Rounded.Public,
-                    title = stringResource(R.string.settings_remote_dns_proxy),
-                    subtitle = null,
-                    checked = settings.remoteDnsThroughProxy,
-                    onCheckedChange = viewModel::setRemoteDnsThroughProxy
-                )
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-
-                // MTU & Advanced Xray Options
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Tune, contentDescription = null, tint = colors.heroEnd)
-                    Spacer(Modifier.width(Spacing.sm))
-                    Text(stringResource(R.string.settings_mtu_title), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
-                }
-                Spacer(Modifier.height(Spacing.xs))
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    listOf(1280, 1400, 1500).forEach { mtuVal ->
-                        FilterChip(
-                            selected = settings.mtu == mtuVal,
-                            onClick = { viewModel.setMtu(mtuVal) },
-                            label = { Text(Formatters.toPersianDigitsIfNeeded("$mtuVal", persianDigits)) }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                        SettingsActionRow(
+                            icon = Icons.Rounded.NetworkCheck,
+                            title = stringResource(R.string.diagnostics_title),
+                            subtitle = null,
+                            onClick = onOpenDiagnostics
                         )
-                    }
-                }
-
-                SettingsToggleRow(
-                    icon = Icons.Rounded.Public,
-                    title = stringResource(R.string.settings_ipv6_title),
-                    subtitle = stringResource(R.string.settings_ipv6_desc),
-                    checked = settings.enableIpv6,
-                    onCheckedChange = viewModel::setEnableIpv6
-                )
-                SettingsToggleRow(
-                    icon = Icons.Rounded.Tune,
-                    title = stringResource(R.string.settings_fragment_title),
-                    subtitle = stringResource(R.string.settings_fragment_desc),
-                    checked = settings.enableFragment,
-                    onCheckedChange = viewModel::setEnableFragment
-                )
-                SettingsToggleRow(
-                    icon = Icons.Rounded.Tune,
-                    title = stringResource(R.string.settings_mux_title),
-                    subtitle = stringResource(R.string.settings_mux_desc),
-                    checked = settings.enableMux,
-                    onCheckedChange = viewModel::setEnableMux
-                )
-                SettingsToggleRow(
-                    icon = Icons.Rounded.Tune,
-                    title = stringResource(R.string.settings_sniffing_title),
-                    subtitle = null,
-                    checked = settings.enableSniffing,
-                    onCheckedChange = viewModel::setEnableSniffing
-                )
-                SettingsToggleRow(
-                    icon = Icons.Rounded.Security,
-                    title = stringResource(R.string.settings_allow_insecure_title),
-                    subtitle = stringResource(R.string.settings_allow_insecure_desc),
-                    checked = settings.allowInsecureGlobal,
-                    onCheckedChange = { want ->
-                        if (want) showAllowInsecureWarning = true
-                        else viewModel.setAllowInsecureGlobal(false)
-                    }
-                )
-            }
-
-            // Automation, Split Tunneling & Kill Switch
-            SectionLabel(stringResource(R.string.settings_section_automation))
-            GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
-                SettingsActionRow(
-                    icon = Icons.Rounded.Apps,
-                    title = stringResource(R.string.settings_split_tunnel),
-                    subtitle = stringResource(R.string.settings_split_tunnel_desc),
-                    onClick = onOpenSplitTunneling
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-                SettingsToggleRow(
-                    icon = Icons.Rounded.Power,
-                    title = stringResource(R.string.settings_auto_connect),
-                    subtitle = stringResource(R.string.settings_auto_connect_desc),
-                    checked = settings.autoConnect,
-                    onCheckedChange = viewModel::setAutoConnect
-                )
-                SettingsToggleRow(
-                    icon = Icons.Rounded.Power,
-                    title = stringResource(R.string.settings_auto_reconnect),
-                    subtitle = stringResource(R.string.settings_auto_reconnect_desc),
-                    checked = settings.autoReconnect,
-                    onCheckedChange = viewModel::setAutoReconnect
-                )
-                SettingsToggleRow(
-                    icon = Icons.Rounded.Power,
-                    title = stringResource(R.string.settings_auto_failover),
-                    subtitle = stringResource(R.string.settings_auto_failover_desc),
-                    checked = settings.autoFailover,
-                    onCheckedChange = viewModel::setAutoFailover
-                )
-                SettingsToggleRow(
-                    icon = Icons.Rounded.NetworkCheck,
-                    title = stringResource(R.string.settings_auto_test_open),
-                    subtitle = null,
-                    checked = settings.autoTestOnAppOpen,
-                    onCheckedChange = viewModel::setAutoTestOnAppOpen
-                )
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-                Text(stringResource(R.string.settings_network_rule), style = MaterialTheme.typography.titleSmall, color = colors.textPrimary)
-                Spacer(Modifier.height(Spacing.xs))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    listOf(
-                        NetworkAutoConnectRule.NONE to R.string.split_mode_disabled,
-                        NetworkAutoConnectRule.UNTRUSTED_WIFI to R.string.settings_net_wifi,
-                        NetworkAutoConnectRule.MOBILE_DATA to R.string.settings_net_mobile,
-                        NetworkAutoConnectRule.ALWAYS to R.string.settings_net_always
-                    ).forEach { (rule, resId) ->
-                        FilterChip(
-                            selected = settings.networkAutoConnectRule == rule,
-                            onClick = { viewModel.setNetworkAutoConnectRule(rule) },
-                            label = { Text(stringResource(resId)) }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                        SettingsActionRow(
+                            icon = Icons.Rounded.BarChart,
+                            title = stringResource(R.string.stats_title),
+                            subtitle = null,
+                            onClick = onOpenStatistics
                         )
-                    }
-                }
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-                SettingsToggleRow(
-                    icon = Icons.Rounded.Security,
-                    title = stringResource(R.string.settings_block_on_drop),
-                    subtitle = null,
-                    checked = settings.blockTrafficOnDrop,
-                    onCheckedChange = viewModel::setBlockTrafficOnDrop
-                )
-                SettingsActionRow(
-                    icon = Icons.Rounded.Security,
-                    title = stringResource(R.string.settings_kill_switch),
-                    subtitle = stringResource(R.string.settings_kill_switch_desc),
-                    onClick = {
-                        viewModel.setKillSwitch(true)
-                        Formatters.openSystemVpnSettings(context)
-                    }
-                )
-            }
-
-            // Privacy & Security
-            SectionLabel(stringResource(R.string.settings_section_privacy))
-            GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
-                SettingsToggleRow(
-                    icon = Icons.Rounded.Lock,
-                    title = stringResource(R.string.app_lock_title),
-                    subtitle = stringResource(R.string.app_lock_setting_desc),
-                    checked = settings.appLockEnabled,
-                    onCheckedChange = { enable ->
-                        if (enable) showPinDialog = true
-                        else viewModel.setAppLock(false, "")
-                    }
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-                SettingsToggleRow(
-                    icon = Icons.Rounded.VisibilityOff,
-                    title = stringResource(R.string.settings_hide_recents),
-                    subtitle = stringResource(R.string.settings_hide_recents_desc),
-                    checked = settings.hideInRecents,
-                    onCheckedChange = viewModel::setHideInRecents
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-                SettingsToggleRow(
-                    icon = Icons.Rounded.NotificationsActive,
-                    title = stringResource(R.string.settings_disguise_notif),
-                    subtitle = stringResource(R.string.settings_disguise_notif_desc),
-                    checked = settings.disguiseNotification,
-                    onCheckedChange = viewModel::setDisguiseNotification
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-                SettingsActionRow(
-                    icon = Icons.Rounded.Terminal,
-                    title = stringResource(R.string.logs_title),
-                    subtitle = stringResource(R.string.logs_subtitle),
-                    onClick = onOpenLogs
-                )
-            }
-
-            // Pro Tools & Backup
-            SectionLabel(stringResource(R.string.settings_section_tools))
-            GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
-                SettingsActionRow(
-                    icon = Icons.Rounded.AccountCircle,
-                    title = stringResource(R.string.profiles_title),
-                    subtitle = null,
-                    onClick = onOpenProfiles
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-                SettingsActionRow(
-                    icon = Icons.Rounded.NetworkCheck,
-                    title = stringResource(R.string.diagnostics_title),
-                    subtitle = null,
-                    onClick = onOpenDiagnostics
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-                SettingsActionRow(
-                    icon = Icons.Rounded.BarChart,
-                    title = stringResource(R.string.stats_title),
-                    subtitle = null,
-                    onClick = onOpenStatistics
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-                SettingsActionRow(
-                    icon = Icons.Rounded.Backup,
-                    title = stringResource(R.string.settings_export_backup),
-                    subtitle = stringResource(R.string.settings_export_backup_desc),
-                    onClick = {
-                        viewModel.exportBackupJson { jsonPayload ->
-                            pendingExportJson = jsonPayload
-                            exportLauncher.launch("donino-vpn-settings.json")
+                        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                        SettingsActionRow(
+                            icon = Icons.Rounded.Backup,
+                            title = stringResource(R.string.settings_export_backup),
+                            subtitle = stringResource(R.string.settings_export_backup_desc),
+                            onClick = {
+                                viewModel.exportBackupJson { jsonPayload ->
+                                    pendingExportJson = jsonPayload
+                                    exportLauncher.launch("donino-vpn-settings.json")
+                                }
+                            }
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                        SettingsActionRow(
+                            icon = Icons.Rounded.Restore,
+                            title = stringResource(R.string.settings_import_backup),
+                            subtitle = null,
+                            onClick = { importLauncher.launch(arrayOf("application/json", "*/*")) }
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                        checkForUpdates?.let {
+                            SettingsActionRow(
+                                icon = Icons.Rounded.SystemUpdate,
+                                title = stringResource(R.string.settings_check_updates),
+                                subtitle = "v${BuildConfig.VERSION_NAME}",
+                                onClick = it
+                            )
                         }
                     }
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-                SettingsActionRow(
-                    icon = Icons.Rounded.Restore,
-                    title = stringResource(R.string.settings_import_backup),
-                    subtitle = null,
-                    onClick = { importLauncher.launch(arrayOf("application/json", "*/*")) }
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-                checkForUpdates?.let {
-                    SettingsActionRow(
-                        icon = Icons.Rounded.SystemUpdate,
-                        title = stringResource(R.string.settings_check_updates),
-                        subtitle = "v${BuildConfig.VERSION_NAME}",
-                        onClick = it
-                    )
-                }
-            }
 
-            // Alerts & Notifications
-            SectionLabel(stringResource(R.string.settings_section_notifications))
-            GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
-                SettingsToggleRow(
-                    icon = Icons.Rounded.NotificationsActive,
-                    title = stringResource(R.string.settings_expiry_alert),
-                    subtitle = null,
-                    checked = settings.expiryWarningEnabled,
-                    onCheckedChange = viewModel::setExpiryAlert
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-                SettingsToggleRow(
-                    icon = Icons.Rounded.NotificationsActive,
-                    title = stringResource(R.string.settings_low_traffic_alert),
-                    subtitle = null,
-                    checked = settings.lowTrafficWarningEnabled,
-                    onCheckedChange = viewModel::setLowTrafficAlert
-                )
-            }
+                }
 
-            // Support & Version
-            SectionLabel(stringResource(R.string.settings_section_support))
-            GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
-                if (BrandConfig.supportTelegramUrl.isNotBlank()) {
-                    SettingsActionRow(
-                        icon = Icons.AutoMirrored.Rounded.Send,
-                        title = stringResource(R.string.settings_telegram),
-                        subtitle = BrandConfig.supportTelegramUrl,
-                        onClick = { Formatters.openExternalUrl(context, BrandConfig.supportTelegramUrl) }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                if (matchesSettingsGroup(listOf(R.string.settings_section_notifications, R.string.settings_expiry_alert, R.string.settings_low_traffic_alert))) {
+                    SectionLabel(stringResource(R.string.settings_section_notifications))
+                    GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+                        SettingsToggleRow(
+                            icon = Icons.Rounded.NotificationsActive,
+                            title = stringResource(R.string.settings_expiry_alert),
+                            subtitle = null,
+                            checked = settings.expiryWarningEnabled,
+                            onCheckedChange = viewModel::setExpiryAlert
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                        SettingsToggleRow(
+                            icon = Icons.Rounded.NotificationsActive,
+                            title = stringResource(R.string.settings_low_traffic_alert),
+                            subtitle = null,
+                            checked = settings.lowTrafficWarningEnabled,
+                            onCheckedChange = viewModel::setLowTrafficAlert
+                        )
+                    }
+
                 }
-                if (BrandConfig.supportWhatsappUrl.isNotBlank()) {
-                    SettingsActionRow(
-                        icon = Icons.Rounded.SupportAgent,
-                        title = stringResource(R.string.settings_whatsapp),
-                        subtitle = BrandConfig.supportWhatsappUrl,
-                        onClick = { Formatters.openExternalUrl(context, BrandConfig.supportWhatsappUrl) }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+
+                if (matchesSettingsGroup(listOf(R.string.settings_section_support, R.string.settings_telegram, R.string.settings_whatsapp, R.string.settings_version))) {
+                    SectionLabel(stringResource(R.string.settings_section_support))
+                    GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+                        if (BrandConfig.supportTelegramUrl.isNotBlank()) {
+                            SettingsActionRow(
+                                icon = Icons.AutoMirrored.Rounded.Send,
+                                title = stringResource(R.string.settings_telegram),
+                                subtitle = BrandConfig.supportTelegramUrl,
+                                onClick = { Formatters.openExternalUrl(context, BrandConfig.supportTelegramUrl) }
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                        }
+                        if (BrandConfig.supportWhatsappUrl.isNotBlank()) {
+                            SettingsActionRow(
+                                icon = Icons.Rounded.SupportAgent,
+                                title = stringResource(R.string.settings_whatsapp),
+                                subtitle = BrandConfig.supportWhatsappUrl,
+                                onClick = { Formatters.openExternalUrl(context, BrandConfig.supportWhatsappUrl) }
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Rounded.Info, contentDescription = null, tint = colors.heroEnd)
+                                Spacer(Modifier.width(Spacing.md))
+                                Column {
+                                    Text(stringResource(R.string.settings_version), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
+                                    Text(viewModel.xrayVersion, style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
+                                }
+                            }
+                            Text(
+                                text = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = colors.textSecondary
+                            )
+                        }
+                    }
+
                 }
-                Row(
+
+                OutlinedButton(
+                    onClick = { showLogoutSheet = true },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .height(52.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.statusDanger)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Info, contentDescription = null, tint = colors.heroEnd)
-                        Spacer(Modifier.width(Spacing.md))
-                        Column {
-                            Text(stringResource(R.string.settings_version), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
-                            Text(viewModel.xrayVersion, style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
-                        }
-                    }
-                    Text(
-                        text = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colors.textSecondary
-                    )
+                    Icon(Icons.AutoMirrored.Rounded.Logout, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(Spacing.sm))
+                    Text(stringResource(R.string.settings_logout))
                 }
             }
-
-            OutlinedButton(
-                onClick = { showLogoutSheet = true },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.statusDanger)
-            ) {
-                Icon(Icons.AutoMirrored.Rounded.Logout, contentDescription = null, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(Spacing.sm))
-                Text(stringResource(R.string.settings_logout))
-            }
         }
-    }
 
-    // Allow Insecure Global Warning Dialog
-    if (showAllowInsecureWarning) {
-        PasarDialog(
-            onDismissRequest = { showAllowInsecureWarning = false },
-            title = { Text(stringResource(R.string.settings_allow_insecure_title)) },
-            text = { Text(stringResource(R.string.settings_allow_insecure_warning)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.setAllowInsecureGlobal(true)
-                    showAllowInsecureWarning = false
-                }) { Text(stringResource(R.string.action_confirm), color = colors.statusDanger) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAllowInsecureWarning = false }) {
-                    Text(stringResource(R.string.action_cancel))
+        // Allow Insecure Global Warning Dialog
+        if (showAllowInsecureWarning) {
+            PasarDialog(
+                onDismissRequest = { showAllowInsecureWarning = false },
+                title = { Text(stringResource(R.string.settings_allow_insecure_title)) },
+                text = { Text(stringResource(R.string.settings_allow_insecure_warning)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        viewModel.setAllowInsecureGlobal(true)
+                        showAllowInsecureWarning = false
+                    }) { Text(stringResource(R.string.action_confirm), color = colors.statusDanger) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showAllowInsecureWarning = false }) {
+                        Text(stringResource(R.string.action_cancel))
+                    }
                 }
             }
         )

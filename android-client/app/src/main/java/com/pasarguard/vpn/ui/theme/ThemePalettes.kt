@@ -17,10 +17,10 @@ internal data class PaletteTokens(
 internal fun ThemePalette.tokens(dark: Boolean): PaletteTokens {
     val shades = when (this) {
         ThemePalette.OCEAN -> PaletteShades(
-            containerDark = 0xFF253447,
-            containerLight = 0xFFDEE8F5,
-            accentDark = 0xFFAEC7E8, accentLight = 0xFF34577C,
-            gradientStart = 0xFF2C4056, gradientEnd = 0xFF344A63
+            containerDark = 0xFF123A31,
+            containerLight = 0xFFD7EFE7,
+            accentDark = 0xFF34D3AA, accentLight = 0xFF0F7B63,
+            gradientStart = 0xFF0B6350, gradientEnd = 0xFF0F7B63
         )
         ThemePalette.JADE -> PaletteShades(
             containerDark = 0xFF203936,
@@ -37,11 +37,11 @@ internal fun ThemePalette.tokens(dark: Boolean): PaletteTokens {
     }
     return PaletteTokens(
         accent = Color(if (dark) shades.accentDark else shades.accentLight),
-        onAccent = if (dark) Color(0xFF12171D) else Color.White,
-        canvas = Color(if (dark) 0xFF12171D else 0xFFF3F5F7),
-        surface = Color(if (dark) 0xFF1B222A else 0xFFFFFFFF),
+        onAccent = if (dark) Color(0xFF070C0B) else Color.White,
+        canvas = Color(if (dark) 0xFF070C0B else 0xFFF4F7F6),
+        surface = Color(if (dark) 0xFF0F1715 else 0xFFFFFFFF),
         container = Color(if (dark) shades.containerDark else shades.containerLight),
-        onContainer = Color(if (dark) 0xFFF3F5F7 else 0xFF202124),
+        onContainer = Color(if (dark) 0xFFF4F7F6 else 0xFF0D1B17),
         gradientStart = Color(shades.gradientStart),
         gradientEnd = Color(shades.gradientEnd)
     )

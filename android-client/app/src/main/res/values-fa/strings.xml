@@ -115,7 +115,7 @@
     <string name="settings_lang_en">English</string>
     <string name="settings_theme">پوسته (تم)</string>
     <string name="settings_palette">پالت رنگ</string>
-    <string name="settings_palette_ocean">آبی سنگی</string>
+    <string name="settings_palette_ocean">فیروزه‌ای</string>
     <string name="settings_palette_jade">سبز کاجی</string>
     <string name="settings_palette_dusk">بنفش ملایم</string>
     <string name="settings_theme_dark">تیره</string>
@@ -528,4 +528,13 @@
     <string name="checkout_stage_number">مرحلهٔ %1$s از %2$s</string>
     <string name="checkout_view_subscription">مشاهدهٔ اشتراک</string>
     <string name="settings_appearance_language">ظاهر و زبان</string>
+    <string name="home_live_throughput">نمودار زندهٔ دریافت و ارسال در یک دقیقهٔ اخیر</string>
+    <string name="servers_saved_tab">ذخیره‌شده</string>
+    <string name="servers_filters">فیلتر و مرتب‌سازی</string>
+    <string name="servers_tab_empty">سروری در این بخش نیست</string>
+    <string name="servers_tab_empty_desc">بخش دیگری را باز کنید یا جست‌وجو و فیلتر را تغییر دهید.</string>
+    <string name="servers_group_closed">%1$s · %2$s  +</string>
+    <string name="servers_group_open">%1$s · %2$s  −</string>
+    <string name="settings_search_groups">جست‌وجوی بخش تنظیمات</string>
+    <string name="settings_advanced">گزینه‌های پیشرفته</string>
 </resources>
