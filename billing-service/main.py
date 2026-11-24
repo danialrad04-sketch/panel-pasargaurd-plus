@@ -370,8 +370,7 @@ async def start_provisioning_worker():
             try:
                 await asyncio.to_thread(operations_service.deliver_push)
             except Exception:
-                # Delivery can be retried without blocking provisioning.
-                pass
+                logging.getLogger(__name__).warning("Support notification delivery failed and will retry")
             await asyncio.sleep(3)
 
     app.state.notification_worker = asyncio.create_task(deliver_notifications())
@@ -392,7 +391,7 @@ async def stop_provisioning_worker():
 @app.middleware("http")
 async def prevent_billing_cache(request, call_next):
     response = await call_next(request)
-    if request.url.path.startswith(("/v1/billing/", "/v1/customer/", "/v1/app/", "/account", "/admin")):
+    if request.url.path.startswith(("/v1/billing/", "/v1/customer/", "/v1/service/", "/v1/app/", "/account", "/admin")):
         response.headers["Cache-Control"] = "no-store"
     return response
 

@@ -208,7 +208,7 @@ import json, sys
 
 env = dict(value.split("=", 1) for value in json.load(sys.stdin))
 required = ("BILLING_PUBLIC_URL", "PANEL_URL", "BILLING_KEY", "ADMIN_PASSWORD", "SMS_WEBHOOK_SECRET")
-optional = ("BILLING_ACME_EMAIL", "DESTINATION_CARD", "CARD_HOLDER", "CARD_BANK", "SMS_FORMAT", "SMS_ACCOUNT")
+optional = ("BILLING_ACME_EMAIL", "DESTINATION_CARD", "CARD_HOLDER", "CARD_BANK", "SMS_FORMAT", "SMS_ACCOUNT", "ANDROID_RELEASE_REPOSITORY", "FCM_SERVICE_ACCOUNT_FILE")
 if any(not env.get(key) for key in required):
     sys.exit("The existing container is missing required settings")
 for key in (*required, *optional):
@@ -315,6 +315,11 @@ if [[ ! -f $env_file ]]; then
     mv -- "$temp_env" "$env_file"
     temp_env=
     created_env=true
+fi
+
+# Configure the public release feed for this deployment, preserving custom values.
+if [[ $billing_host == pay.esfahanmarket.shop ]] && ! grep -Eq '^[[:space:]]*ANDROID_RELEASE_REPOSITORY=' "$env_file"; then
+    printf '\nANDROID_RELEASE_REPOSITORY=danialrad04-sketch/panel-pasargaurd-plus\n' >> "$env_file"
 fi
 
 install_nginx_tls() {

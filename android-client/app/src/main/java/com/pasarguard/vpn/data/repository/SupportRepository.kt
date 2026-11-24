@@ -57,6 +57,7 @@ class SupportRepository @Inject constructor(
         .callTimeout(10, TimeUnit.SECONDS).build()
     private val json = Json { ignoreUnknownKeys = true }
     val configured get() = BuildConfig.BILLING_BASE_URL.isNotBlank()
+    val accountChanges get() = tokens.customerSessionChanges
     fun signedIn() = tokens.customerToken() != null
 
     suspend fun threads(offset: Int = 0): List<SupportSummary> = json.decodeFromString(call("/v1/customer/support?offset=$offset", authenticated = true))

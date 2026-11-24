@@ -563,7 +563,7 @@ async function operationsPage(signal) {
   const [queue, threads, incidents] = await Promise.all([
     request("/api/operations?" + new URLSearchParams({kind, offset}), {signal}),
     request("/api/operations/support", {signal}),
-    request("/api/operations/incidents?active=false", {signal}),
+    request("/api/operations/incidents", {signal}),
   ]);
   if (signal.aborted) return;
   get("operations-count").textContent = Object.entries(operationKinds)
@@ -578,7 +578,7 @@ async function operationsPage(signal) {
       else if (item.kind === "deposit") openDepositMatch({id:item.id, amount:item.amount, received:item.created});
       else showOrder(item.id);
     }),
-  ]));
+  ]), "موردی در این صف نیست.");
   pages(get("operations-pages"), total, 50, operationPage, page => { operationPage = page; load(); });
   get("support-threads").replaceChildren(...threads.map(thread =>
     button(thread.subject + " · " + supportStatuses[thread.status], () => showSupport(thread.id))
@@ -628,7 +628,7 @@ async function showSupport(id) {
     reply.maxLength = 4000;
     reply.placeholder = "متن پاسخ پشتیبان";
     reply.setAttribute("aria-label", "پاسخ پشتیبان");
-    let requestId = crypto.randomUUID();
+    const requestId = crypto.randomUUID();
     const send = button("ارسال پاسخ", async () => {
       if (!reply.value.trim() || send.disabled) return;
       reply.disabled = send.disabled = true;

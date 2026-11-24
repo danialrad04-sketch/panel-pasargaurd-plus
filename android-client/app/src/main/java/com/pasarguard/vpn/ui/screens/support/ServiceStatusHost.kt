@@ -18,11 +18,16 @@ import com.pasarguard.vpn.R
 import com.pasarguard.vpn.data.repository.ServiceStatus
 import com.pasarguard.vpn.data.repository.SupportRepository
 import com.pasarguard.vpn.domain.repository.VpnController
+import com.pasarguard.vpn.domain.repository.ServerRepository
+import com.pasarguard.vpn.domain.model.VpnServer
+import java.security.MessageDigest
+import java.util.Locale
 import com.pasarguard.vpn.ui.components.DeepSpaceBackground
 import com.pasarguard.vpn.ui.components.GlassCard
 import com.pasarguard.vpn.worker.ServiceMessaging
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -33,9 +38,21 @@ import javax.inject.Inject
 @HiltViewModel
 class ServiceStatusViewModel @Inject constructor(
     val repository: SupportRepository,
-    controller: VpnController
+    controller: VpnController,
+    settings: com.pasarguard.vpn.domain.repository.SettingsRepository,
+    servers: ServerRepository
 ) : ViewModel() {
-    val serverIds = controller.sessionState.map { it.activeServer?.id }.distinctUntilChanged()
+    private val preferredEndpoint = combine(
+        settings.settings.map { it.selectedServerId }.distinctUntilChanged(),
+        servers.observeServers()
+    ) { id, available -> available.firstOrNull { it.id == id }?.incidentKey() }.distinctUntilChanged()
+    val registration = combine(
+        controller.sessionState.map { it.activeServer }.distinctUntilChanged().map { it?.incidentKey() },
+        preferredEndpoint,
+        repository.accountChanges
+    ) { activeServer, selectedServer, accountVersion ->
+        (activeServer ?: selectedServer) to accountVersion
+    }.distinctUntilChanged()
 }
 
 private val LocalServiceStatus = staticCompositionLocalOf { ServiceStatus() }
@@ -62,7 +79,7 @@ fun ServiceStatusHost(
                 }
             }
             launch {
-                viewModel.serverIds.collect { server -> ServiceMessaging.refreshRegistration(context, server) }
+                viewModel.registration.collect { (server, _) -> ServiceMessaging.refreshRegistration(context, server) }
             }
         }
     }
@@ -70,14 +87,15 @@ fun ServiceStatusHost(
 }
 
 @Composable
-fun ServiceIncidentBanner(scope: String, serverId: String? = null) {
+fun ServiceIncidentBanner(scope: String, server: VpnServer? = null) {
     val status = LocalServiceStatus.current
+    val serverId = remember(server?.address, server?.port) { server?.incidentKey() }
     val incident = status.items.firstOrNull {
         it.scope == scope && it.status == "investigating" && (it.server_ids.isEmpty() || serverId in it.server_ids)
     } ?: return
     GlassCard(Modifier.fillMaxWidth(), onClick = LocalOpenStatus.current) {
-        Text(incident.title, style = MaterialTheme.typography.titleMedium)
-        if (incident.guidance.isNotBlank()) Text(incident.guidance)
+        Text(incident.title, style = MaterialTheme.typography.titleMedium, maxLines = 2)
+        if (incident.guidance.isNotBlank()) Text(incident.guidance, maxLines = 2)
         if (status.stale) Text(statusAge(status), style = MaterialTheme.typography.labelSmall)
         Text(stringResource(R.string.service_status), color = MaterialTheme.colorScheme.primary)
     }
@@ -120,4 +138,12 @@ fun ServiceStatusScreen(onBack: () -> Unit) {
 private fun statusAge(status: ServiceStatus): String {
     if (status.checkedAt == 0L) return stringResource(R.string.service_unavailable)
     return stringResource(R.string.service_last_check, DateFormat.getDateTimeInstance().format(Date(status.checkedAt)))
+}
+
+
+private fun VpnServer.incidentKey(): String {
+    val host = address.trim().trim('[', ']').trimEnd('.').lowercase(Locale.ROOT)
+    val endpoint = "$host:$port"
+    return MessageDigest.getInstance("SHA-256").digest(endpoint.toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(Locale.ROOT, it.toInt() and 0xff) }
 }

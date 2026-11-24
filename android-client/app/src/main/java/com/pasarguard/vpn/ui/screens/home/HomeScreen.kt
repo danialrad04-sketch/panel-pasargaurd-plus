@@ -93,6 +93,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.util.Locale
 import javax.inject.Inject
@@ -103,7 +104,8 @@ data class HomeUiState(
     val settings: AppSettings = AppSettings(),
     val session: VpnSessionState = VpnSessionState(),
     val isRefreshing: Boolean = false,
-    val snackbarError: String? = null
+    val snackbarError: String? = null,
+    val choosingServer: Boolean = false
 )
 
 @HiltViewModel
@@ -117,6 +119,8 @@ class HomeViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val isRefreshing = MutableStateFlow(false)
+    private var connectionJob: Job? = null
+    private val choosingServer = MutableStateFlow(false)
     private val transientError = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<HomeUiState> = combine(
@@ -125,7 +129,8 @@ class HomeViewModel @Inject constructor(
         settingsRepository.settings,
         vpnController.sessionState,
         isRefreshing,
-        transientError
+        transientError,
+        choosingServer
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         HomeUiState(
@@ -134,7 +139,8 @@ class HomeViewModel @Inject constructor(
             settings = values[2] as AppSettings,
             session = values[3] as VpnSessionState,
             isRefreshing = values[4] as Boolean,
-            snackbarError = values[5] as String?
+            snackbarError = values[5] as String?,
+            choosingServer = values[6] as Boolean
         )
     }.stateIn(
         scope = viewModelScope,
@@ -183,30 +189,40 @@ class HomeViewModel @Inject constructor(
     }
 
     fun toggleConnection() {
-        val current = vpnController.sessionState.value.status
-        if (current == ConnectionStatus.CONNECTED || current == ConnectionStatus.CONNECTING) {
-            viewModelScope.launch { vpnController.disconnect() }
-        } else {
-            connectNow()
+        if (connectionJob?.isActive == true) {
+            connectionJob?.cancel()
+            return
+        }
+        when (vpnController.sessionState.value.status) {
+            ConnectionStatus.CONNECTED, ConnectionStatus.CONNECTING -> viewModelScope.launch { vpnController.disconnect() }
+            ConnectionStatus.DISCONNECTING -> Unit
+            else -> connectNow()
         }
     }
 
     fun connectNow() {
-        viewModelScope.launch {
-            transientError.value = null
-            val preferredId = settingsRepository.getSnapshot().selectedServerId
-            val (server, isAuto) = selectBestServer(preferredId)
-            if (server == null) {
-                syncSubscription()
-                val (retried, autoRetry) = selectBestServer(preferredId)
-                if (retried != null) {
-                    vpnController.connect(retried, autoRetry)
-                } else {
-                    transientError.value = "NO_SERVERS"
+        if (connectionJob?.isActive == true) return
+        choosingServer.value = true
+        connectionJob = viewModelScope.launch {
+            try {
+                transientError.value = null
+                val preferredId = settingsRepository.getSnapshot().selectedServerId
+                var (server, isAuto) = selectBestServer(preferredId)
+                if (server == null) {
+                    syncSubscription()
+                    val retry = selectBestServer(preferredId)
+                    server = retry.first
+                    isAuto = retry.second
                 }
-                return@launch
+                if (server == null) transientError.value = "NO_SERVERS"
+                else vpnController.connect(server, isAuto)
+            } catch (cancel: kotlinx.coroutines.CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                transientError.value = "NO_SERVERS"
+            } finally {
+                choosingServer.value = false
             }
-            vpnController.connect(server, isAuto)
         }
     }
 }
@@ -239,7 +255,8 @@ fun HomeScreen(
 
     val handleConnectTap = {
         val current = state.session.status
-        if (current == ConnectionStatus.CONNECTED || current == ConnectionStatus.CONNECTING) {
+        if (state.choosingServer || current == ConnectionStatus.CONNECTED ||
+            current == ConnectionStatus.CONNECTING || current == ConnectionStatus.DISCONNECTING) {
             viewModel.toggleConnection()
         } else {
             val prepareIntent = VpnService.prepare(context)
@@ -451,7 +468,8 @@ fun HomeScreen(
 
                 Spacer(Modifier.height(Spacing.lg))
 
-                ServiceIncidentBanner("connection", state.session.activeServer?.id ?: state.settings.selectedServerId)
+                ServiceIncidentBanner("connection", state.session.activeServer
+                    ?: state.servers.firstOrNull { it.id == state.settings.selectedServerId })
 
                 // Adaptive Layout: 2-pane on wide tablets, single column on phones
                 if (isWide) {
@@ -465,7 +483,7 @@ fun HomeScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             HeroConnectSection(
-                                status = state.session.status,
+                                status = if (state.choosingServer) ConnectionStatus.CONNECTING else state.session.status,
                                 errorMessage = state.session.errorMessage,
                                 onOpenDiagnostics = onOpenDiagnostics,
                                 onConnectTap = handleConnectTap
@@ -490,7 +508,7 @@ fun HomeScreen(
                     }
                 } else {
                     HeroConnectSection(
-                        status = state.session.status,
+                        status = if (state.choosingServer) ConnectionStatus.CONNECTING else state.session.status,
                         errorMessage = state.session.errorMessage,
                         onOpenDiagnostics = onOpenDiagnostics,
                         onConnectTap = handleConnectTap

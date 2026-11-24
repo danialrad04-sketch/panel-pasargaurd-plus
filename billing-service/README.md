@@ -130,3 +130,13 @@ PY
 2. قبل از عرضه، روی یک گوشی و یک حساب آزمایشی، نصب روی نسخهٔ قبلی، خرید جدید، ثبت رسید، دریافت اشتراک، تمدید بدون بازنشانی مصرف و لغو با یک ثبت اعتبار در کیف پول را بررسی کنید.
 3. پس از تأیید، از «تنظیمات ← انتشار برنامه» APK امضاشده را بارگذاری کنید، شمارهٔ نسخه و ساخت و شناسهٔ بسته را وارد کنید و عرضه را فعال کنید. پیوند ثابت را بدون نشست ادمین باز کنید و در اپ «بررسی به‌روزرسانی» را بزنید.
 4. برای توقف عرضه، گزینهٔ نمایش نسخه را غیرفعال کنید. انتخاب فایل قدیمی فقط برای دانلود بعدی اثر دارد. برای رسیدن اصلاح به گوشی‌هایی که نسخهٔ جدید را نصب کرده‌اند، نسخهٔ اصلاح‌شده با شمارهٔ ساخت بالاتر و همان امضا بسازید.
+
+## Donino 2.0 beta
+
+The operations tab lists receipts, unmatched deposits, pending activation and customer conversations. It links to the existing order actions. Support and incident tables are added on startup. Run the upgrade against a restored copy of the production volume before applying it to the live service.
+
+The app's inbox and status page work when Firebase is unavailable. To enable push, register the production Android package `com.pasarguard.vpn` in a Firebase project. Repository Actions variables `DONINO_FCM_APP_ID`, `DONINO_FCM_API_KEY`, `DONINO_FCM_PROJECT_ID` and `DONINO_FCM_SENDER_ID` come from that Android app configuration. Use a separately registered `com.pasarguard.vpn.debug` Firebase app if testing a debug build. On the billing host, keep the Firebase service account JSON in the private billing data volume, readable by the billing container user, and set `FCM_SERVICE_ACCOUNT_FILE` in `.env` to its container path. Grant that account permission to send Firebase messages. Redeploy, then install the matching signed build and grant notification permission. Verify a support reply while the app is closed before enabling public distribution. Delivery retries run independently of order provisioning.
+
+For the public feed, verify that `/download/android.apk` redirects to the signed GitHub asset and that `/v1/app/config?platform=android&package_name=com.pasarguard.vpn&version_code=14&abi=arm64-v8a` offers the new release after publication. A manual release in the panel takes precedence over GitHub. Keep beta builds outside the public feed.
+
+Run the support API regression tests from this directory with `python -m unittest -v test_operations` in a test environment with the service dependencies and HTTPX installed.

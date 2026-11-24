@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
+import androidx.activity.compose.ReportDrawn
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -231,6 +232,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             if (rootState.isReady) {
+                ReportDrawn()
                 PasarGuardVpnTheme(
                     themeMode = rootState.themeMode,
                     themePalette = rootState.themePalette,

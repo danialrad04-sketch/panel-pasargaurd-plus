@@ -90,7 +90,12 @@ fun AppUpdateHost(checker: UpdateChecker, content: @Composable () -> Unit) {
         showDialog = false
     }
 
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { check(manual = false) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        scope.launch {
+            kotlinx.coroutines.delay(1_500)
+            check(manual = false)
+        }
+    }
     CompositionLocalProvider(
         LocalCheckForUpdates provides if (checker.isConfigured) ({ check(manual = true) }) else null,
         LocalAutoDownloadSetting provides if (checker.isConfigured) AutoDownloadSetting(autoDownload) {

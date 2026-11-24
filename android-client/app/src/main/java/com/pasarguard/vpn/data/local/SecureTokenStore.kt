@@ -7,6 +7,9 @@ import androidx.security.crypto.MasterKey
 import com.pasarguard.vpn.domain.model.SubscriptionCredentials
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.security.SecureRandom
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -79,10 +82,14 @@ class SecureTokenStore @Inject constructor(
 
     fun existingPurchaseToken(): String? = prefs.getString(KEY_PURCHASE_TOKEN, null)
 
+    private val customerSessionVersion = MutableStateFlow(0L)
+    val customerSessionChanges = customerSessionVersion.asStateFlow()
+
     fun customerToken(): String? = prefs.getString("customer_token", null)
 
     fun saveCustomerToken(token: String?) {
         prefs.edit().putString("customer_token", token).apply()
+        customerSessionVersion.update { it + 1 }
     }
 
     companion object {

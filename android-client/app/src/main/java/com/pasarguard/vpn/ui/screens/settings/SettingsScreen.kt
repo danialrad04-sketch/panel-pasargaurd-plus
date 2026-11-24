@@ -348,6 +348,7 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.headlineMedium,
                 color = colors.textPrimary
             )
+            com.pasarguard.vpn.ui.screens.support.ServiceIncidentBanner("update")
 
             // Appearance, Persian & Calendar
             SectionLabel(stringResource(R.string.settings_section_general))

@@ -1,4 +1,5 @@
 """Customer support, service notices and the operations dashboard."""
+import hashlib
 import json
 import os
 import re
@@ -8,6 +9,10 @@ from urllib.request import Request as HttpRequest, urlopen
 
 from fastapi import HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator
+
+
+def endpoint_key(endpoint):
+    return hashlib.sha256(endpoint.encode()).hexdigest()
 
 
 def initialize(db):
@@ -93,15 +98,20 @@ class Incident(BaseModel):
     @field_validator("server_ids")
     @classmethod
     def validate_servers(cls, values):
-        if any(not re.fullmatch(r"[A-Za-z0-9_.:-]{1,120}", value) for value in values):
-            raise ValueError("Invalid server identifier")
-        return list(dict.fromkeys(values))
+        endpoints = []
+        for value in values:
+            host, _, port = value.strip().lower().rpartition(":")
+            host = host.strip("[]").rstrip(".")
+            if not re.fullmatch(r"[a-z0-9_.:-]{1,253}", host) or not port.isdigit() or not 1 <= int(port) <= 65535:
+                raise ValueError("Expected a server host:port")
+            endpoints.append(f"{host}:{int(port)}")
+        return list(dict.fromkeys(endpoints))
 
 
 class Device(BaseModel):
     installation_id: uuid.UUID
     token: str = Field(min_length=20, max_length=4096, pattern=r"^[A-Za-z0-9_:\-]+$")
-    server_id: str | None = Field(default=None, max_length=120)
+    server_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
 
 class Operations:
@@ -236,13 +246,21 @@ class Operations:
             self.audit(db, "SUPPORT_STATUS", self.now())
         return {"ok": True}
 
-    def incidents(self, active: bool = True):
+    def incidents(self):
+        return self.list_incidents(public=True)
+
+    def staff_incidents(self):
+        return self.list_incidents(public=False)
+
+    def list_incidents(self, public):
         with self.transaction(write=False) as db:
             rows = db.execute("""SELECT * FROM service_incidents
                 WHERE (?=0 OR status='investigating' OR updated>?)
                 ORDER BY (status='investigating') DESC, updated DESC LIMIT 100""",
-                (active, self.now()-7*86400000))
-            return [dict(row, server_ids=json.loads(row["server_ids"])) for row in rows]
+                (public, self.now()-7*86400000))
+            return [dict(row, server_ids=[
+                endpoint_key(value) if public else value for value in json.loads(row["server_ids"])
+            ]) for row in rows]
 
     def save_incident(self, request: Request, incident_id: str, body: Incident):
         self.verify_origin(request)
@@ -253,7 +271,7 @@ class Operations:
         current = self.now()
         revision = body.expected_revision + 1
         with self.transaction() as db:
-            prior = db.execute("SELECT revision, scope, server_ids FROM service_incidents WHERE id=?", (incident_id,)).fetchone()
+            prior = db.execute("SELECT revision, server_ids FROM service_incidents WHERE id=?", (incident_id,)).fetchone()
             if (prior["revision"] if prior else 0) != body.expected_revision:
                 raise HTTPException(409, "INCIDENT_CHANGED")
             db.execute("""INSERT INTO service_incidents VALUES (?,?,?,?,?,?,?,?,?)
@@ -262,10 +280,13 @@ class Operations:
                     status=excluded.status, revision=excluded.revision, updated=excluded.updated""",
                 (incident_id, body.title, body.body, body.guidance, body.scope, json.dumps(body.server_ids),
                  body.status, revision, current))
+            previous_endpoints = json.loads(prior["server_ids"]) if prior else body.server_ids
+            audience = set(body.server_ids) | set(previous_endpoints) if body.server_ids and previous_endpoints else set()
+            target_keys = json.dumps(sorted(endpoint_key(endpoint) for endpoint in audience))
             db.execute("""INSERT OR IGNORE INTO service_push(token,kind,resource,revision,next_run)
                 SELECT token,'incident',?,?,? FROM support_devices WHERE updated>?
                 AND (?='[]' OR server_id IN (SELECT value FROM json_each(?)))""",
-                (incident_id, revision, current, current-30*86400000, json.dumps(body.server_ids), json.dumps(body.server_ids)))
+                (incident_id, revision, current, current-30*86400000, target_keys, target_keys))
             self.audit(db, "SERVICE_INCIDENT", current)
         return {"id": incident_id, "revision": revision}
 
@@ -353,7 +374,7 @@ def mount(app, admin, operations):
         (app, "/v1/service", (("/incidents", "GET", operations.incidents), ("/devices", "PUT", operations.register))),
         (admin, "/api/operations", (("", "GET", operations.queue), ("/support", "GET", operations.staff_list),
             ("/support/{thread_id}", "GET", operations.staff_detail), ("/support/{thread_id}/messages", "POST", operations.staff_reply),
-            ("/support/{thread_id}/status", "PUT", operations.staff_status), ("/incidents", "GET", operations.incidents),
+            ("/support/{thread_id}/status", "PUT", operations.staff_status), ("/incidents", "GET", operations.staff_incidents),
             ("/incidents/{incident_id}", "PUT", operations.save_incident))),
     ):
         for suffix, method, endpoint in routes:
