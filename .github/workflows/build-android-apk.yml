@@ -31,6 +31,10 @@ on:
         description: 'Android release version, e.g. 1.4.0'
         required: false
         type: string
+      sign_release:
+        description: 'Sign release APKs for testing without publishing a GitHub Release'
+        default: false
+        type: boolean
       publish_release:
         description: 'Publish signed APKs and update metadata to GitHub Releases'
         default: false
@@ -86,7 +90,7 @@ jobs:
         run: gradle :app:assembleDebug -PpasarguardOptimizeDebug=true --stacktrace
 
       - name: Restore the persistent release signing key
-        if: inputs.publish_release
+        if: inputs.sign_release || inputs.publish_release
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
           PASARGUARD_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
@@ -97,7 +101,10 @@ jobs:
           BILLING_URL: ${{ inputs.billing_base_url || vars.PASARGUARD_BILLING_URL }}
         run: |
           set -euo pipefail
-          [[ -n "$KEYSTORE_BASE64" && -n "$PASARGUARD_RELEASE_STORE_PASSWORD" && -n "$PASARGUARD_RELEASE_KEY_ALIAS" && -n "$PASARGUARD_RELEASE_KEY_PASSWORD" && -n "$BILLING_URL" ]]
+          [[ -n "$KEYSTORE_BASE64" && -n "$PASARGUARD_RELEASE_STORE_PASSWORD" && -n "$PASARGUARD_RELEASE_KEY_ALIAS" && -n "$PASARGUARD_RELEASE_KEY_PASSWORD" && -n "$BILLING_URL" ]] || {
+            echo "::error::Configure the existing Android release signing key, its credentials, and the billing URL before building a signed APK."
+            exit 1
+          }
           [[ "$VERSION_CODE" =~ ^[1-9][0-9]{0,9}$ && "$VERSION_NAME" =~ ^[0-9]+[.][0-9]+([.][0-9]+){0,2}$ ]]
           umask 077
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/pasarguard-release.jks"
@@ -107,16 +114,16 @@ jobs:
         env:
           PASARGUARD_VERSION_CODE: ${{ inputs.app_version_code || '6' }}
           PASARGUARD_VERSION_NAME: ${{ inputs.app_version_name || '1.5.0' }}
-          PASARGUARD_RELEASE_STORE_PASSWORD: ${{ inputs.publish_release && secrets.ANDROID_RELEASE_STORE_PASSWORD || '' }}
-          PASARGUARD_RELEASE_KEY_ALIAS: ${{ inputs.publish_release && secrets.ANDROID_RELEASE_KEY_ALIAS || '' }}
-          PASARGUARD_RELEASE_KEY_PASSWORD: ${{ inputs.publish_release && secrets.ANDROID_RELEASE_KEY_PASSWORD || '' }}
+          PASARGUARD_RELEASE_STORE_PASSWORD: ${{ (inputs.sign_release || inputs.publish_release) && secrets.ANDROID_RELEASE_STORE_PASSWORD || '' }}
+          PASARGUARD_RELEASE_KEY_ALIAS: ${{ (inputs.sign_release || inputs.publish_release) && secrets.ANDROID_RELEASE_KEY_ALIAS || '' }}
+          PASARGUARD_RELEASE_KEY_PASSWORD: ${{ (inputs.sign_release || inputs.publish_release) && secrets.ANDROID_RELEASE_KEY_PASSWORD || '' }}
           PASARGUARD_BASE_URL: ${{ github.event.inputs.panel_base_url || vars.PASARGUARD_BASE_URL || 'https://panel.example.com' }}
           PASARGUARD_BILLING_URL: ${{ inputs.billing_base_url || vars.PASARGUARD_BILLING_URL }}
           PASARGUARD_APP_NAME: ${{ github.event.inputs.app_name || vars.PASARGUARD_APP_NAME || 'PasarGuard VPN' }}
         run: gradle :app:assembleRelease --stacktrace
 
       - name: Remove the release signing file
-        if: always() && inputs.publish_release
+        if: always() && (inputs.sign_release || inputs.publish_release)
         run: rm -f "$RUNNER_TEMP/pasarguard-release.jks"
 
       - name: Verify APK architectures and report sizes
