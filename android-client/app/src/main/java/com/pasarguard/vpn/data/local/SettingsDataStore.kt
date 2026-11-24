@@ -47,7 +47,7 @@ private data class SettingsBackupPayload(
     val language: String = "fa",
     val persianDigitsEnabled: Boolean = true,
     val calendarSystem: String = CalendarSystem.JALALI.name,
-    val themeMode: String = ThemeMode.LIGHT.name,
+    val themeMode: String = ThemeMode.DARK.name,
     val themePalette: String = ThemePalette.OCEAN.name,
     val dynamicColorEnabled: Boolean = false,
     val corePreference: String = CorePreference.AUTO.name,
@@ -108,7 +108,7 @@ class SettingsDataStore @Inject constructor(
             language = AppLanguage.fromCode(prefs[KEY_LANGUAGE] ?: BrandConfig.defaultLanguageCode),
             persianDigitsEnabled = prefs[KEY_PERSIAN_DIGITS] ?: true,
             calendarSystem = enumOrDefault(prefs[KEY_CALENDAR_SYSTEM], CalendarSystem.JALALI),
-            themeMode = enumOrDefault(prefs[KEY_THEME_MODE], ThemeMode.LIGHT),
+            themeMode = enumOrDefault(prefs[KEY_THEME_MODE], ThemeMode.DARK),
             themePalette = enumOrDefault(prefs[KEY_THEME_PALETTE], ThemePalette.OCEAN),
             dynamicColorEnabled = prefs[KEY_DYNAMIC_COLOR] ?: false,
 

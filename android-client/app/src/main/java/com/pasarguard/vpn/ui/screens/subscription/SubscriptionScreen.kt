@@ -223,7 +223,7 @@ fun SubscriptionScreen(
                     .statusBarsPadding()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = Spacing.md)
-                    .padding(bottom = Spacing.lg)
+                    .padding(bottom = 118.dp)
             ) {
                 Spacer(Modifier.height(Spacing.sm))
 
@@ -310,8 +310,8 @@ fun SubscriptionScreen(
                 // Hero Subscription Passport Card with Animated Ring & Live Countdown
                 val usedFractionTarget = when {
                     sub == null -> 0f
-                    sub.isUnlimitedTraffic -> 0f
-                    else -> (1f - sub.remainingTrafficFraction).coerceIn(0f, 1f)
+                    sub.isUnlimitedTraffic -> 0.18f
+                    else -> (1f - sub.remainingTrafficFraction).coerceIn(0.02f, 1f)
                 }
                 val animatedRing by animateFloatAsState(
                     targetValue = usedFractionTarget,
@@ -319,17 +319,18 @@ fun SubscriptionScreen(
                     label = "sub_usage_ring"
                 )
 
-                val ringTrack = MaterialTheme.colorScheme.surfaceVariant
-                val ringTone = when {
-                    usedFractionTarget >= .90f -> colors.statusDanger
-                    usedFractionTarget >= .70f -> colors.statusWarning
-                    else -> MaterialTheme.colorScheme.primary
-                }
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(28.dp))
-                        .background(MaterialTheme.colorScheme.surface)
+                        .background(
+                            Brush.linearGradient(
+                                listOf(
+                                    colors.heroStart.copy(alpha = 0.94f),
+                                    colors.heroFillEnd.copy(alpha = 0.86f)
+                                )
+                            )
+                        )
                         .padding(Spacing.lg)
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
@@ -343,14 +344,14 @@ fun SubscriptionScreen(
                                     text = sub?.profileTitle?.takeIf { it.isNotBlank() }
                                         ?: stringResource(R.string.sub_account),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = colors.textSecondary,
+                                    color = Color.White.copy(alpha = 0.8f),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
                                     text = sub?.username ?: "—",
                                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                    color = colors.textPrimary,
+                                    color = Color.White,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -373,14 +374,14 @@ fun SubscriptionScreen(
                                 Canvas(modifier = Modifier.fillMaxSize()) {
                                     val stroke = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round)
                                     drawArc(
-                                        color = ringTrack,
+                                        color = Color.White.copy(alpha = 0.22f),
                                         startAngle = -90f,
                                         sweepAngle = 360f,
                                         useCenter = false,
                                         style = stroke
                                     )
                                     drawArc(
-                                        color = ringTone,
+                                        color = Color.White,
                                         startAngle = -90f,
                                         sweepAngle = 360f * animatedRing,
                                         useCenter = false,
@@ -398,7 +399,7 @@ fun SubscriptionScreen(
                                 Text(
                                     text = centerLabel,
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = colors.textPrimary
+                                    color = Color.White
                                 )
                             }
 
@@ -416,7 +417,7 @@ fun SubscriptionScreen(
                                 Text(
                                     text = usageText,
                                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                                    color = colors.textPrimary
+                                    color = Color.White
                                 )
 
                                 Spacer(Modifier.height(4.dp))
@@ -425,7 +426,7 @@ fun SubscriptionScreen(
                                 Text(
                                     text = countdownLabel,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = colors.textSecondary
+                                    color = Color.White.copy(alpha = 0.9f)
                                 )
 
                                 if (sub != null) {
@@ -436,7 +437,7 @@ fun SubscriptionScreen(
                                             Formatters.formatRelativeSync(sub.lastSyncedEpochMs, persianDigits)
                                         ),
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = colors.textSecondary
+                                        color = Color.White.copy(alpha = 0.75f)
                                     )
                                 }
                             }

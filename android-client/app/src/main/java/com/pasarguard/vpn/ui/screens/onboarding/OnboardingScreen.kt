@@ -34,6 +34,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -112,19 +113,15 @@ fun OnboardingScreen(
                                 modifier = Modifier
                                     .size(84.dp)
                                     .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                    .background(
+                                        Brush.linearGradient(listOf(colors.heroStart, colors.heroEnd))
+                                    ),
                                 contentAlignment = Alignment.Center
                             ) {
-                                if (page == 0) {
-                                    androidx.compose.foundation.Image(
-                                        painter = androidx.compose.ui.res.painterResource(R.drawable.donino_mark),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(74.dp)
-                                    )
-                                } else Icon(
+                                Icon(
                                     imageVector = slide.icon,
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    tint = Color.White,
                                     modifier = Modifier.size(42.dp)
                                 )
                             }

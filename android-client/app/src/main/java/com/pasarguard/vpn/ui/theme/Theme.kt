@@ -153,11 +153,10 @@ private fun resolveBrandFontFamily(language: AppLanguage): FontFamily =
 
 private fun buildTypography(fontFamily: FontFamily): Typography = Typography(
     displaySmall = TextStyle(
-        fontFeatureSettings = "tnum",
         fontFamily = fontFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 40.sp,
-        lineHeight = 44.sp
+        fontSize = 32.sp,
+        lineHeight = 40.sp
     ),
     headlineMedium = TextStyle(
         fontFamily = fontFamily,
@@ -180,14 +179,14 @@ private fun buildTypography(fontFamily: FontFamily): Typography = Typography(
     bodyLarge = TextStyle(
         fontFamily = fontFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp
+        fontSize = 15.sp,
+        lineHeight = 22.sp
     ),
     bodyMedium = TextStyle(
         fontFamily = fontFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 22.sp
+        fontSize = 13.sp,
+        lineHeight = 20.sp
     ),
     labelLarge = TextStyle(
         fontFamily = fontFamily,
@@ -205,7 +204,7 @@ private fun buildTypography(fontFamily: FontFamily): Typography = Typography(
 
 @Composable
 fun PasarGuardVpnTheme(
-    themeMode: ThemeMode = ThemeMode.LIGHT,
+    themeMode: ThemeMode = ThemeMode.DARK,
     themePalette: ThemePalette = ThemePalette.OCEAN,
     language: AppLanguage = AppLanguage.PERSIAN,
     dynamicColorEnabled: Boolean = false,
@@ -226,57 +225,45 @@ fun PasarGuardVpnTheme(
 
     val useDynamic = dynamicColorEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val palette = themePalette.tokens(useDark)
-    val baseScheme = if (useDark) DarkColorScheme else LightColorScheme
-    val dynamic = when {
+    val colorScheme = when {
         useDynamic && useDark -> dynamicDarkColorScheme(context)
-        useDynamic -> dynamicLightColorScheme(context)
-        else -> null
+        useDynamic && !useDark -> dynamicLightColorScheme(context)
+        else -> (if (useDark) DarkColorScheme else LightColorScheme).copy(
+            primary = palette.accent,
+            onPrimary = palette.onAccent,
+            primaryContainer = palette.container,
+            onPrimaryContainer = palette.onContainer,
+            secondary = palette.accent,
+            onSecondary = palette.onAccent,
+            background = palette.canvas,
+            surface = palette.surface,
+            surfaceVariant = palette.container,
+            surfaceContainer = palette.surface,
+            surfaceContainerHigh = palette.container,
+            surfaceTint = palette.accent
+        )
     }
-    val contrastText = Color(if (useDark) 0xFFEAF3F0 else 0xFF0D1B17)
-    val supportingText = Color(if (useDark) 0xFFA2B5AF else 0xFF475A54)
-    val neutralContainer = Color(if (useDark) 0xFF16211E else 0xFFEDF3F1)
-    val outline = Color(if (useDark) 0xFF526963 else 0xFF718780)
+
     val baseExtended = if (useDark) DarkExtendedColors else LightExtendedColors
-    val colorScheme = baseScheme.copy(
-        primary = dynamic?.primary ?: palette.accent,
-        onPrimary = dynamic?.onPrimary ?: palette.onAccent,
-        primaryContainer = dynamic?.primaryContainer ?: palette.container,
-        onPrimaryContainer = dynamic?.onPrimaryContainer ?: palette.onContainer,
-        secondary = dynamic?.secondary ?: palette.accent,
-        onSecondary = dynamic?.onSecondary ?: palette.onAccent,
-        secondaryContainer = dynamic?.secondaryContainer ?: palette.container,
-        onSecondaryContainer = dynamic?.onSecondaryContainer ?: palette.onContainer,
-        tertiary = Color(if (useDark) 0xFF9A8CFF else 0xFF5845CC),
-        background = palette.canvas,
-        onBackground = contrastText,
-        surface = palette.surface,
-        onSurface = contrastText,
-        surfaceVariant = neutralContainer,
-        onSurfaceVariant = supportingText,
-        surfaceContainerLow = palette.surface,
-        surfaceContainer = neutralContainer,
-        surfaceContainerHigh = neutralContainer,
-        surfaceContainerHighest = neutralContainer,
-        outline = outline,
-        outlineVariant = outline.copy(alpha = .68f),
-        surfaceTint = Color.Transparent,
-        error = baseExtended.statusDanger
-    )
-    val extendedColors = baseExtended.copy(
-        backgroundCanvas = colorScheme.background,
-        glassSurface = colorScheme.surface,
-        glassBorderTop = colorScheme.outlineVariant,
-        glassBorderBottom = colorScheme.outlineVariant,
-        heroStart = palette.gradientStart,
-        heroEnd = colorScheme.primary,
-        heroFillEnd = palette.gradientEnd,
-        textPrimary = contrastText,
-        textSecondary = supportingText,
-        textMuted = supportingText,
-        statusConnected = Color(if (useDark) 0xFF3DDC97 else 0xFF08784C),
-        statusWarning = Color(if (useDark) 0xFFFFC24A else 0xFF80521A),
-        statusDanger = Color(if (useDark) 0xFFFF6B70 else 0xFFB32636)
-    )
+    val extendedColors = if (useDynamic) {
+        baseExtended.copy(
+            heroStart = if (useDark) colorScheme.primaryContainer else colorScheme.secondary,
+            heroEnd = colorScheme.primary,
+            heroFillEnd = if (useDark) colorScheme.secondaryContainer else colorScheme.primary,
+            backgroundCanvas = if (useDark) colorScheme.background else baseExtended.backgroundCanvas
+        )
+    } else {
+        baseExtended.copy(
+            backgroundCanvas = palette.canvas,
+            glassSurface = palette.surface,
+            glassBorderTop = palette.accent.copy(alpha = if (useDark) 0.26f else 0.22f),
+            glassBorderBottom = palette.accent.copy(alpha = if (useDark) 0.09f else 0.12f),
+            heroStart = palette.gradientStart,
+            heroEnd = palette.accent,
+            heroFillEnd = palette.gradientEnd,
+            textMuted = baseExtended.textSecondary
+        )
+    }
 
     val layoutDirection = if (language == AppLanguage.PERSIAN) LayoutDirection.Rtl else LayoutDirection.Ltr
     val effectivePersianDigits = language == AppLanguage.PERSIAN && persianDigitsEnabled
@@ -290,11 +277,6 @@ fun PasarGuardVpnTheme(
         MaterialTheme(
             colorScheme = colorScheme,
             typography = typography,
-            shapes = androidx.compose.material3.Shapes(
-                small = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-                medium = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
-                large = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
-            ),
             content = content
         )
     }

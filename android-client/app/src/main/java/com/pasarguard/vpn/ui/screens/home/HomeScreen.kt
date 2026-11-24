@@ -1,24 +1,6 @@
 package com.pasarguard.vpn.ui.screens.home
 
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.rounded.PowerSettingsNew
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Surface
-import androidx.compose.ui.semantics.Role
-import androidx.compose.foundation.clickable
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
 import android.app.Activity
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.material.icons.rounded.Shield
-import androidx.compose.ui.semantics.stateDescription
-import com.pasarguard.vpn.ui.components.LiveThroughputChart
-import com.pasarguard.vpn.ui.components.rememberThroughput
 import android.net.VpnService
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -26,7 +8,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -38,7 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -48,7 +29,7 @@ import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Campaign
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.NetworkCheck
 import androidx.compose.material.icons.rounded.Refresh
@@ -63,14 +44,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -97,10 +75,11 @@ import com.pasarguard.vpn.domain.repository.VpnController
 import com.pasarguard.vpn.domain.usecase.SelectBestServerUseCase
 import com.pasarguard.vpn.domain.usecase.SyncSubscriptionUseCase
 import com.pasarguard.vpn.ui.components.CoachTipBanner
-import com.pasarguard.vpn.ui.components.ServerLocationMark
-import com.pasarguard.vpn.ui.components.serverCountryLabel
+import com.pasarguard.vpn.ui.components.ConnectHeroButton
 import com.pasarguard.vpn.ui.components.DeepSpaceBackground
 import com.pasarguard.vpn.ui.components.GlassCard
+import com.pasarguard.vpn.ui.components.ProgressRingCard
+import com.pasarguard.vpn.ui.components.PulsingDot
 import com.pasarguard.vpn.ui.theme.LocalCalendarSystem
 import com.pasarguard.vpn.ui.theme.LocalPersianDigits
 import com.pasarguard.vpn.ui.theme.PasarGuardTheme
@@ -202,8 +181,7 @@ class HomeViewModel @Inject constructor(
 
     fun toggleConnection() {
         val current = vpnController.sessionState.value.status
-        if (current == ConnectionStatus.CONNECTED || current == ConnectionStatus.CONNECTING ||
-            current == ConnectionStatus.DISCONNECTING) {
+        if (current == ConnectionStatus.CONNECTED || current == ConnectionStatus.CONNECTING) {
             viewModelScope.launch { vpnController.disconnect() }
         } else {
             connectNow()
@@ -248,18 +226,15 @@ fun HomeScreen(
     val calendarSystem = LocalCalendarSystem.current
     val isPersian = state.settings.language == AppLanguage.PERSIAN
 
-    var permissionDenied by remember { mutableStateOf(false) }
     val vpnPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        permissionDenied = result.resultCode != Activity.RESULT_OK
-        if (!permissionDenied) {
+        if (result.resultCode == Activity.RESULT_OK) {
             viewModel.connectNow()
         }
     }
 
     val handleConnectTap = {
-        permissionDenied = false
         val current = state.session.status
         if (current == ConnectionStatus.CONNECTED || current == ConnectionStatus.CONNECTING) {
             viewModel.toggleConnection()
@@ -294,6 +269,12 @@ fun HomeScreen(
         }
     }
 
+    val glowColor = when (state.session.status) {
+        ConnectionStatus.CONNECTED -> colors.statusConnected
+        ConnectionStatus.ERROR -> colors.statusDanger
+        else -> colors.heroEnd
+    }
+
     val sub = state.subscription
     val daysLeft = sub?.remainingDays()
     val showRenewWarning = sub != null && (
@@ -306,43 +287,83 @@ fun HomeScreen(
         it.isNotBlank() && it.hashCode().toString() != state.settings.dismissedAnnouncementHash
     }
 
-    DeepSpaceBackground {
-        Box(Modifier.fillMaxSize().statusBarsPadding(), contentAlignment = Alignment.TopCenter) {
+    DeepSpaceBackground(accentGlowColor = glowColor) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+        ) {
+            val isWide = maxWidth >= 720.dp
 
             Column(
                 modifier = Modifier
-                    .widthIn(max = 760.dp)
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = Spacing.md)
-                    .padding(bottom = Spacing.lg),
+                    .padding(bottom = 112.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Spacer(Modifier.height(Spacing.sm))
 
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(BrandConfig.appName, style = MaterialTheme.typography.headlineSmall,
-                        modifier = Modifier.weight(1f), color = colors.textPrimary)
-                    IconButton(onClick = viewModel::refreshSubscription) {
-                        Icon(Icons.Rounded.Refresh, contentDescription = stringResource(R.string.servers_refresh))
+                // Top Dynamic Status Capsule
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(colors.glassSurface)
+                            .border(1.dp, colors.glassBorderTop, RoundedCornerShape(999.dp))
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val statusColor = when (state.session.status) {
+                            ConnectionStatus.CONNECTED -> colors.statusConnected
+                            ConnectionStatus.CONNECTING, ConnectionStatus.DISCONNECTING -> colors.heroEnd
+                            ConnectionStatus.ERROR -> colors.statusDanger
+                            ConnectionStatus.DISCONNECTED -> colors.textMuted
+                        }
+                        PulsingDot(
+                            color = statusColor,
+                            isPulsing = state.session.status == ConnectionStatus.CONNECTED ||
+                                state.session.status == ConnectionStatus.CONNECTING
+                        )
+                        Spacer(Modifier.width(Spacing.sm))
+                        Text(
+                            text = buildString {
+                                append(
+                                    stringResource(
+                                        when (state.session.status) {
+                                            ConnectionStatus.CONNECTED -> R.string.status_connected
+                                            ConnectionStatus.CONNECTING -> R.string.status_connecting
+                                            ConnectionStatus.DISCONNECTING -> R.string.status_disconnecting
+                                            ConnectionStatus.ERROR -> R.string.status_error
+                                            ConnectionStatus.DISCONNECTED -> R.string.status_disconnected
+                                        }
+                                    )
+                                )
+                                if (state.session.status == ConnectionStatus.CONNECTED ||
+                                    state.session.status == ConnectionStatus.CONNECTING
+                                ) {
+                                    append(" • ")
+                                    append(state.session.activeEngine.label)
+                                }
+                            },
+                            style = MaterialTheme.typography.labelLarge,
+                            color = colors.textPrimary
+                        )
+                    }
+
+                    IconButton(onClick = { viewModel.refreshSubscription() }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Refresh,
+                            contentDescription = stringResource(R.string.servers_refresh),
+                            tint = colors.textPrimary
+                        )
                     }
                 }
-                HeroConnectSection(
-                    status = state.session.status,
-                    errorMessage = if (permissionDenied) stringResource(R.string.connection_permission_denied)
-                        else state.session.errorMessage,
-                    elapsedMs = elapsedMs,
-                    persianDigits = persianDigits,
-                    onOpenServers = onOpenServers,
-                    onConnectTap = handleConnectTap
-                )
-                Spacer(Modifier.height(Spacing.md))
-                SelectedServerCard(state, persianDigits, onOpenServers)
-                if (state.session.status == ConnectionStatus.CONNECTED) {
-                    Spacer(Modifier.height(Spacing.sm))
-                    ConnectionTelemetry(state, elapsedMs, persianDigits, onOpenStatistics)
-                }
-                Spacer(Modifier.height(Spacing.md))
 
                 // Dismissible Panel Announcement Banner
                 if (announceText != null) {
@@ -427,106 +448,108 @@ fun HomeScreen(
 
                 Spacer(Modifier.height(Spacing.lg))
 
-                HomeDashboardBody(
-                    state = state, persianDigits = persianDigits,
-                    onOpenRenewal = onOpenRenewal,
-                    calendarSystem = calendarSystem, isPersian = isPersian,
-                    onOpenDiagnostics = onOpenDiagnostics, onOpenProfiles = onOpenProfiles,
-                    onOpenStatistics = onOpenStatistics
-                )
+                // Adaptive Layout: 2-pane on wide tablets, single column on phones
+                if (isWide) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            HeroConnectSection(
+                                status = state.session.status,
+                                errorMessage = state.session.errorMessage,
+                                onConnectTap = handleConnectTap
+                            )
+                        }
+                        Column(
+                            modifier = Modifier.weight(1.2f),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                        ) {
+                            HomeDashboardBody(
+                                state = state,
+                                elapsedMs = elapsedMs,
+                                persianDigits = persianDigits,
+                                calendarSystem = calendarSystem,
+                                isPersian = isPersian,
+                                onOpenServers = onOpenServers,
+                                onOpenDiagnostics = onOpenDiagnostics,
+                                onOpenProfiles = onOpenProfiles,
+                                onOpenStatistics = onOpenStatistics
+                            )
+                        }
+                    }
+                } else {
+                    HeroConnectSection(
+                        status = state.session.status,
+                        errorMessage = state.session.errorMessage,
+                        onConnectTap = handleConnectTap
+                    )
+                    Spacer(Modifier.height(Spacing.lg))
+                    HomeDashboardBody(
+                        state = state,
+                        elapsedMs = elapsedMs,
+                        persianDigits = persianDigits,
+                        calendarSystem = calendarSystem,
+                        isPersian = isPersian,
+                        onOpenServers = onOpenServers,
+                        onOpenDiagnostics = onOpenDiagnostics,
+                        onOpenProfiles = onOpenProfiles,
+                        onOpenStatistics = onOpenStatistics
+                    )
+                }
             }
         }
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HeroConnectSection(
     status: ConnectionStatus,
     errorMessage: String?,
-    elapsedMs: Long,
-    persianDigits: Boolean,
-    onOpenServers: () -> Unit,
     onConnectTap: () -> Unit
 ) {
     val colors = PasarGuardTheme.colors
-    val statusText = stringResource(when (status) {
-        ConnectionStatus.CONNECTED -> R.string.status_connected
-        ConnectionStatus.CONNECTING -> R.string.status_connecting
-        ConnectionStatus.DISCONNECTING -> R.string.status_disconnecting
-        ConnectionStatus.ERROR -> R.string.status_error
-        ConnectionStatus.DISCONNECTED -> R.string.status_disconnected
-    })
-    val connected = status == ConnectionStatus.CONNECTED
-    val pending = status == ConnectionStatus.CONNECTING || status == ConnectionStatus.DISCONNECTING
-    val scheme = MaterialTheme.colorScheme
-    val action = stringResource(when (status) {
-        ConnectionStatus.CONNECTED -> R.string.connection_disconnect
-        ConnectionStatus.CONNECTING -> R.string.connection_cancel
-        ConnectionStatus.DISCONNECTING -> R.string.status_disconnecting
-        ConnectionStatus.ERROR -> R.string.connection_retry
-        ConnectionStatus.DISCONNECTED -> R.string.connection_connect
-    })
-    GlassCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(Spacing.lg)) {
-        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(statusText, style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                color = when {
-                    connected -> colors.statusConnected
-                    status == ConnectionStatus.ERROR -> colors.statusDanger
-                    else -> scheme.onSurface
-                })
-            Spacer(Modifier.height(Spacing.md))
-            val orbColor = when {
-                connected -> colors.statusConnected
-                pending -> colors.statusWarning
-                status == ConnectionStatus.ERROR -> colors.statusDanger
-                else -> scheme.primary
-            }
-            val iconColor = if (orbColor.luminance() > .42f) Color(0xFF071C16) else Color.White
-            Surface(
-                modifier = Modifier.sizeIn(maxWidth = 188.dp).fillMaxWidth().heightIn(min = 188.dp)
-                    .clip(CircleShape)
-                    .combinedClickable(enabled = status != ConnectionStatus.DISCONNECTING, role = Role.Button,
-                        onClick = onConnectTap, onLongClick = onOpenServers)
-                    .semantics {
-                        contentDescription = action
-                        stateDescription = statusText
-                    },
-                shape = CircleShape,
-                color = orbColor
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    val tint = iconColor
-                    if (pending) {
-                        CircularProgressIndicator(Modifier.size(36.dp), color = tint, strokeWidth = 2.dp)
-                    } else {
-                        val icon = when {
-                            connected -> Icons.Rounded.Shield
-                            status == ConnectionStatus.ERROR -> Icons.Rounded.WarningAmber
-                            else -> Icons.Rounded.PowerSettingsNew
-                        }
-                        Icon(icon, null, tint = tint, modifier = Modifier.size(54.dp))
-                    }
-                }
-            }
-            Spacer(Modifier.height(Spacing.sm))
-            Text(action, style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
-            if (connected) {
-                Text(Formatters.formatDuration(elapsedMs, persianDigits),
-                    style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"))
-            }
-            if (errorMessage != null) {
-                Spacer(Modifier.height(Spacing.sm))
-                Text(errorMessage, style = MaterialTheme.typography.bodySmall, color = colors.statusDanger)
-            }
-        }
+    ConnectHeroButton(status = status, onClick = onConnectTap)
+    Spacer(Modifier.height(Spacing.sm))
+    Text(
+        text = stringResource(
+            if (status == ConnectionStatus.CONNECTED) R.string.tap_to_disconnect
+            else R.string.tap_to_connect
+        ),
+        style = MaterialTheme.typography.bodyMedium,
+        color = colors.textSecondary
+    )
+    if (errorMessage != null) {
+        Spacer(Modifier.height(Spacing.xs))
+        Text(
+            text = errorMessage,
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.statusDanger,
+            modifier = Modifier.padding(horizontal = Spacing.md)
+        )
     }
 }
 
 @Composable
-private fun SelectedServerCard(state: HomeUiState, persianDigits: Boolean, onOpenServers: () -> Unit) {
+private fun HomeDashboardBody(
+    state: HomeUiState,
+    elapsedMs: Long,
+    persianDigits: Boolean,
+    calendarSystem: com.pasarguard.vpn.domain.model.CalendarSystem,
+    isPersian: Boolean,
+    onOpenServers: () -> Unit,
+    onOpenDiagnostics: () -> Unit,
+    onOpenProfiles: () -> Unit,
+    onOpenStatistics: () -> Unit
+) {
     val colors = PasarGuardTheme.colors
+    val sub = state.subscription
+
+    // Active Server Selector Pill
     val activeServer = state.session.activeServer
         ?: state.servers.firstOrNull { it.id == state.settings.selectedServerId }
     GlassCard(
@@ -540,14 +563,15 @@ private fun SelectedServerCard(state: HomeUiState, persianDigits: Boolean, onOpe
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                ServerLocationMark(activeServer?.countryCode)
+                Text(
+                    text = activeServer?.flagEmoji ?: "⚡",
+                    style = MaterialTheme.typography.headlineMedium
+                )
                 Spacer(Modifier.width(Spacing.md))
                 Column {
                     Text(
                         text = if (state.settings.selectedServerId == null) {
-                            activeServer?.name ?: stringResource(
-                                if (state.servers.isEmpty()) R.string.home_no_servers else R.string.connection_automatic
-                            )
+                            stringResource(R.string.home_auto_best)
                         } else {
                             activeServer?.name ?: stringResource(R.string.home_select_server)
                         },
@@ -560,9 +584,9 @@ private fun SelectedServerCard(state: HomeUiState, persianDigits: Boolean, onOpe
                         text = activeServer?.let {
                             val pingLabel = if ((it.pingMs ?: -1) > 0) {
                                 " • ${Formatters.toPersianDigitsIfNeeded("${it.pingMs} ms", persianDigits)}"
-                            } else " · ${stringResource(R.string.server_latency_unknown)}"
+                            } else ""
                             val jsonTag = if (!it.rawXrayConfigJson.isNullOrBlank()) " • Xray JSON" else ""
-                            "${serverCountryLabel(it.countryCode)} · ${it.protocol.label}$jsonTag$pingLabel"
+                            "${it.protocol.label}$jsonTag$pingLabel"
                         } ?: stringResource(R.string.home_no_servers),
                         style = MaterialTheme.typography.bodyMedium,
                         color = colors.textSecondary
@@ -570,43 +594,46 @@ private fun SelectedServerCard(state: HomeUiState, persianDigits: Boolean, onOpe
                 }
             }
             Icon(
-                imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                imageVector = Icons.Rounded.ChevronRight,
                 contentDescription = stringResource(R.string.home_select_server),
                 tint = colors.textSecondary
             )
         }
     }
-}
 
-@Composable
-private fun HomeDashboardBody(
-    state: HomeUiState,
-    onOpenRenewal: () -> Unit,
-    persianDigits: Boolean,
-    calendarSystem: com.pasarguard.vpn.domain.model.CalendarSystem,
-    isPersian: Boolean,
-    onOpenDiagnostics: () -> Unit,
-    onOpenProfiles: () -> Unit,
-    onOpenStatistics: () -> Unit
-) {
-    val colors = PasarGuardTheme.colors
-    val sub = state.subscription
+    Spacer(Modifier.height(Spacing.md))
 
-    if (sub != null) {
-        val traffic = if (sub.isUnlimitedTraffic) stringResource(R.string.home_unlimited)
-            else Formatters.formatBytes(sub.remainingTrafficBytes ?: 0L, persianDigits)
-        val expiry = sub.expireEpochSeconds?.let {
-            Formatters.formatEpochDate(it, if (isPersian) Locale("fa") else Locale.US, calendarSystem, persianDigits)
-        } ?: stringResource(R.string.home_unlimited)
-        GlassCard(Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.home_traffic_remaining), style = MaterialTheme.typography.labelMedium,
-                color = colors.textSecondary)
-            Text(traffic, style = MaterialTheme.typography.titleMedium)
-            Text(expiry, style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
-            TextButton(onClick = onOpenRenewal) { Text(stringResource(R.string.sub_renew_cta)) }
+    // Live Telemetry Strip
+    GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 22.dp) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            TelemetryCell(
+                icon = Icons.Rounded.ArrowDownward,
+                tint = colors.statusConnected,
+                label = stringResource(R.string.home_download),
+                value = Formatters.formatSpeed(state.session.downloadBytesPerSec, persianDigits),
+                modifier = Modifier.weight(1f)
+            )
+            TelemetryCell(
+                icon = Icons.Rounded.ArrowUpward,
+                tint = colors.heroEnd,
+                label = stringResource(R.string.home_upload),
+                value = Formatters.formatSpeed(state.session.uploadBytesPerSec, persianDigits),
+                modifier = Modifier.weight(1f)
+            )
+            TelemetryCell(
+                icon = Icons.Rounded.Timer,
+                tint = colors.accentViolet,
+                label = stringResource(R.string.home_session),
+                value = Formatters.formatDuration(elapsedMs, persianDigits),
+                modifier = Modifier.weight(1f)
+            )
         }
-        Spacer(Modifier.height(Spacing.md))
     }
+
+    Spacer(Modifier.height(Spacing.md))
 
     // Pro Quick Tools Bento Row (Diagnostics, Profiles, Statistics)
     Row(
@@ -634,46 +661,66 @@ private fun HomeDashboardBody(
     }
 
     Spacer(Modifier.height(Spacing.md))
-}
-@Composable
-private fun ConnectionTelemetry(
-    state: HomeUiState,
-    elapsedMs: Long,
-    persianDigits: Boolean,
-    onOpenStatistics: () -> Unit
-) {
-    val colors = PasarGuardTheme.colors
-    val samples = rememberThroughput(state.session.connectedSinceEpochMs,
-        state.session.downloadBytesPerSec, state.session.uploadBytesPerSec)
-    GlassCard(modifier = Modifier.fillMaxWidth(), onClick = onOpenStatistics) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            TelemetryCell(
-                icon = Icons.Rounded.ArrowDownward,
-                tint = colors.statusConnected,
-                label = stringResource(R.string.home_download),
-                value = Formatters.formatSpeed(state.session.downloadBytesPerSec, persianDigits),
-                modifier = Modifier.weight(1f)
-            )
-            TelemetryCell(
-                icon = Icons.Rounded.ArrowUpward,
-                tint = MaterialTheme.colorScheme.tertiary,
-                label = stringResource(R.string.home_upload),
-                value = Formatters.formatSpeed(state.session.uploadBytesPerSec, persianDigits),
-                modifier = Modifier.weight(1f)
-            )
-            TelemetryCell(
-                icon = Icons.Rounded.Timer,
-                tint = colors.textSecondary,
-                label = stringResource(R.string.home_session),
-                value = Formatters.formatDuration(elapsedMs, persianDigits),
-                modifier = Modifier.weight(1f)
+
+    // Bento Dual Progress Rings
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md)
+    ) {
+        val trafficValue = when {
+            sub == null -> "—"
+            sub.isUnlimitedTraffic -> "∞"
+            else -> Formatters.formatBytes(sub.remainingTrafficBytes ?: 0L, persianDigits)
+        }
+        val trafficSub = when {
+            sub == null -> "—"
+            sub.isUnlimitedTraffic -> stringResource(R.string.home_unlimited)
+            else -> "${Formatters.formatBytes(sub.usedTrafficBytes, persianDigits)} / ${
+                Formatters.formatBytes(sub.dataLimitBytes ?: 0L, persianDigits)
+            }"
+        }
+        val trafficFraction = sub?.remainingTrafficFraction ?: 1f
+
+        ProgressRingCard(
+            title = stringResource(R.string.home_traffic_remaining),
+            primaryValue = trafficValue,
+            subtitle = trafficSub,
+            progress = trafficFraction,
+            isWarning = sub != null && !sub.isUnlimitedTraffic && trafficFraction < 0.30f,
+            isDanger = sub != null && !sub.isUnlimitedTraffic && trafficFraction < 0.15f,
+            modifier = Modifier.weight(1f)
+        )
+
+        val remDays = sub?.remainingDays()
+        val daysPrimary = when {
+            sub == null -> "—"
+            sub.status == SubscriptionStatus.ON_HOLD -> stringResource(R.string.home_on_hold)
+            sub.status == SubscriptionStatus.EXPIRED -> stringResource(R.string.home_expired)
+            remDays == null -> "∞"
+            else -> Formatters.toPersianDigitsIfNeeded(
+                stringResource(R.string.home_days_unit, remDays),
+                persianDigits
             )
         }
-        Spacer(Modifier.height(Spacing.sm))
-        LiveThroughputChart(samples, stringResource(R.string.home_live_throughput))
+        val daysSub = sub?.expireEpochSeconds?.let {
+            Formatters.formatEpochDate(
+                epochSeconds = it,
+                locale = if (isPersian) Locale("fa") else Locale.US,
+                calendarSystem = calendarSystem,
+                persianDigits = persianDigits
+            )
+        } ?: stringResource(R.string.home_unlimited)
+        val timeFraction = sub?.remainingTimeFraction() ?: 1f
+
+        ProgressRingCard(
+            title = stringResource(R.string.home_days_remaining),
+            primaryValue = daysPrimary,
+            subtitle = daysSub,
+            progress = timeFraction,
+            isWarning = remDays != null && remDays in 2..5,
+            isDanger = sub?.status == SubscriptionStatus.EXPIRED || (remDays != null && remDays <= 1),
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 

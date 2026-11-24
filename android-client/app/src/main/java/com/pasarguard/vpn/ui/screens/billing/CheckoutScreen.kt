@@ -465,16 +465,16 @@ private fun CardToCardStep(
         }
 
         // Destination Card & Exact Amount Card
-        GlassCard(Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
+        GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
             Text(
                 text = if (isPersian) order.destinationBankFa else order.destinationBankEn,
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface
+                color = colors.heroEnd
             )
             Text(
                 text = if (isPersian) order.destinationCardHolderFa else order.destinationCardHolderEn,
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface
+                color = colors.textPrimary
             )
             Spacer(Modifier.height(Spacing.sm))
 
@@ -483,7 +483,7 @@ private fun CardToCardStep(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .background(colors.heroStart.copy(alpha = 0.16f))
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -496,13 +496,13 @@ private fun CardToCardStep(
                         textDirection = TextDirection.Ltr,
                         fontFamily = FontFamily.Monospace
                     ),
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = colors.textPrimary
                 )
                 IconButton(onClick = onCopyCard) {
                     Icon(
                         imageVector = Icons.Rounded.ContentCopy,
                         contentDescription = stringResource(R.string.action_copy),
-                        tint = MaterialTheme.colorScheme.onSurface
+                        tint = colors.heroEnd
                     )
                 }
             }
@@ -514,7 +514,7 @@ private fun CardToCardStep(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .background(colors.statusConnected.copy(alpha = 0.14f))
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -523,19 +523,19 @@ private fun CardToCardStep(
                     Text(
                         text = stringResource(R.string.checkout_exact_amount),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = colors.textSecondary
                     )
                     Text(
                         text = "${Formatters.formatNumber(order.finalPriceToman, persianDigits)} $currency",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = colors.statusConnected
                     )
                 }
                 IconButton(onClick = onCopyAmount) {
                     Icon(
                         imageVector = Icons.Rounded.ContentCopy,
                         contentDescription = stringResource(R.string.action_copy),
-                        tint = MaterialTheme.colorScheme.onSurface
+                        tint = colors.statusConnected
                     )
                 }
             }
@@ -544,7 +544,7 @@ private fun CardToCardStep(
             Text(
                 text = stringResource(R.string.checkout_do_not_round_note),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface
+                color = colors.statusWarning
             )
         }
 
