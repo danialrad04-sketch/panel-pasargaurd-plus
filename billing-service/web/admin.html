@@ -51,22 +51,22 @@
         <noscript><p class="notice">برای کار با پنل، جاوااسکریپت مرورگر را فعال کنید.</p></noscript>
         <p id="notice" class="notice" role="status" hidden></p>
         <section id="overview" data-view>
-          <div class="page-heading page-heading-row">
-            <div><p id="today"></p><h1>داشبورد پرداخت</h1><div class="hero-total"><strong id="hero-amount">—</strong><span>تومان واریز تأییدشده</span></div></div>
+          <header class="ledger-heading"><h1>دفتر پرداخت</h1><p id="today"></p></header><div class="page-heading page-heading-row">
+            <div><h2>واریزی تأییدشده</h2><div class="hero-total"><strong id="hero-amount">—</strong><span>تومان</span></div></div>
             <div class="period-box"><label for="period">بازهٔ گزارش</label><select id="period"><option value="7">۷ روز اخیر</option><option value="30">۳۰ روز اخیر</option></select></div>
           </div>
           <div class="metrics">
-            <div class="metric"><div><span>سفارش‌های تأییدشده در بازه</span><strong id="paid-metric">—</strong></div><i class="icon i-card" aria-hidden="true"></i></div>
+            <a href="#orders" id="paid-link" class="metric"><div><span>سفارش‌های تأییدشده در بازه</span><strong id="paid-metric">—</strong></div><i class="icon i-card" aria-hidden="true"></i></a>
             <a class="metric" href="#orders" id="awaiting-link"><div><span>در انتظار پرداخت</span><strong id="awaiting-metric">—</strong></div><i class="icon i-order" aria-hidden="true"></i></a>
             <a class="metric" href="#orders" id="review-metric-link"><div><span>در صف بررسی</span><strong id="review-metric">—</strong></div><i class="icon i-activity" aria-hidden="true"></i></a>
-          </div>
+          <a href="#deposits" class="metric" id="unmatched-link"><div><span>واریز بدون سفارش</span><strong id="unmatched">—</strong></div><i class="icon i-deposit" aria-hidden="true"></i></a></div>
           <div class="lead-grid">
             <article class="surface queue-surface">
               <div class="section-head"><div><h2>صف بررسی</h2><p>رسیدهای در انتظار تصمیم</p></div><strong class="count-pill" id="pending" aria-label="تعداد رسیدهای در انتظار">—</strong></div>
               <p id="oldest-review" class="oldest-review text-muted" hidden></p>
               <div id="review-queue" class="review-queue"></div>
               <a href="#orders" class="button primary full" id="pending-link">مشاهدهٔ همهٔ رسیدها</a>
-              <a href="#deposits" class="unmatched-link" id="unmatched-link"><span>واریزهای بدون سفارش</span><strong id="unmatched">—</strong></a>
+
             </article>
             <article class="surface chart-surface" aria-labelledby="chart-title">
               <div class="chart-head">

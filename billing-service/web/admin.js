@@ -727,6 +727,7 @@ function applyStatus(status) {
 for (const id of ["pending-link", "review-metric-link"]) {
   get(id).addEventListener("click", () => applyStatus("PENDING_REVIEW"));
 }
+get("paid-link").addEventListener("click", () => applyStatus("APPROVED"));
 get("awaiting-link").addEventListener("click", () => applyStatus("AWAITING_RECEIPT"));
 get("export-orders").addEventListener("click", async (event) => {
   const trigger = event.currentTarget;

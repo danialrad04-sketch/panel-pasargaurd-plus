@@ -1,5 +1,6 @@
 package com.pasarguard.vpn.ui.screens.subscription
 
+import com.pasarguard.vpn.ui.components.PasarSheetHandle
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -42,7 +43,7 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.WarningAmber
-import androidx.compose.material3.AlertDialog
+import com.pasarguard.vpn.ui.components.PasarDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -811,7 +812,7 @@ fun SubscriptionScreen(
         val qrBmp = remember(sub!!.subscriptionUrl) {
             QrCodeGenerator.generateBitmap(sub.subscriptionUrl, 520)
         }
-        ModalBottomSheet(onDismissRequest = { showQrSheet = false }) {
+        ModalBottomSheet(dragHandle = { PasarSheetHandle() },onDismissRequest = { showQrSheet = false }) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -852,7 +853,7 @@ fun SubscriptionScreen(
 
     // Devices (HWID) Modal Bottom Sheet
     if (showDevicesSheet) {
-        ModalBottomSheet(onDismissRequest = { showDevicesSheet = false }) {
+        ModalBottomSheet(dragHandle = { PasarSheetHandle() },onDismissRequest = { showDevicesSheet = false }) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -929,7 +930,7 @@ fun SubscriptionScreen(
     if (showSupportSheet) {
         var subject by remember { mutableStateOf("") }
         var body by remember { mutableStateOf("") }
-        ModalBottomSheet(onDismissRequest = { showSupportSheet = false }) {
+        ModalBottomSheet(dragHandle = { PasarSheetHandle() },onDismissRequest = { showSupportSheet = false }) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1002,7 +1003,7 @@ fun SubscriptionScreen(
     }
 
     if (confirmNewLink) {
-        AlertDialog(
+        PasarDialog(
             onDismissRequest = { confirmNewLink = false },
             title = { Text(stringResource(R.string.sub_request_new_link)) },
             text = { Text(stringResource(R.string.sub_confirm_new_link_desc)) },

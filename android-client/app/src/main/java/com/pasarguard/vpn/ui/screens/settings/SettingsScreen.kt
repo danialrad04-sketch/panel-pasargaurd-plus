@@ -1,5 +1,6 @@
 package com.pasarguard.vpn.ui.screens.settings
 
+import com.pasarguard.vpn.ui.components.PasarSheetHandle
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -54,7 +55,7 @@ import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material3.AlertDialog
+import com.pasarguard.vpn.ui.components.PasarDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -857,7 +858,7 @@ fun SettingsScreen(
 
     // Allow Insecure Global Warning Dialog
     if (showAllowInsecureWarning) {
-        AlertDialog(
+        PasarDialog(
             onDismissRequest = { showAllowInsecureWarning = false },
             title = { Text(stringResource(R.string.settings_allow_insecure_title)) },
             text = { Text(stringResource(R.string.settings_allow_insecure_warning)) },
@@ -878,7 +879,7 @@ fun SettingsScreen(
     // App Lock PIN Setup Dialog
     if (showPinDialog) {
         var pinInput by remember { mutableStateOf("") }
-        AlertDialog(
+        PasarDialog(
             onDismissRequest = { showPinDialog = false },
             title = { Text(stringResource(R.string.app_lock_set_pin_title)) },
             text = {
@@ -910,7 +911,7 @@ fun SettingsScreen(
     }
 
     if (showLogoutSheet) {
-        ModalBottomSheet(
+        ModalBottomSheet(dragHandle = { PasarSheetHandle() },
             onDismissRequest = { showLogoutSheet = false },
             containerColor = colors.backgroundCanvas,
             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)

@@ -546,3 +546,20 @@ dialog::backdrop { background:#091e29aa; backdrop-filter:blur(4px); }
   .dialog-actions .button { flex:1; min-height:46px; }
   #open-sections { flex:none; min-height:44px; }
 }
+
+.ledger-heading { display:flex; align-items:baseline; justify-content:space-between; gap:.8rem; margin-block-end:1rem; }
+.ledger-heading h1 { font-family:Estedad,sans-serif; }
+.ledger-heading p { color:var(--muted); }
+#overview .page-heading { min-height:clamp(150px,15vw,212px); background-color:#183d39; }
+#overview .metrics { grid-template-columns:repeat(4,minmax(0,1fr)); }
+@media(min-width:896px){
+  .lead-grid { grid-template-columns:minmax(0,1.55fr) minmax(265px,1fr); }
+  .chart-surface { grid-column:1; grid-row:1; }
+  .queue-surface { grid-column:2; grid-row:1; }
+}
+@media(max-width:740px){
+  #overview .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .metric { min-height:93px; padding:.85rem; }
+  .chart-surface { grid-row:1; }
+  .ledger-heading { align-items:start; flex-direction:column; gap:.1rem; }
+}

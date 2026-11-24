@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
+import com.pasarguard.vpn.ui.components.PasarDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -239,7 +239,7 @@ fun AccountScreen(
     }
 
     cancelId?.let { id ->
-        AlertDialog(onDismissRequest = { cancelId = null },
+        PasarDialog(onDismissRequest = { cancelId = null },
             title = { Text(stringResource(R.string.account_cancel)) },
             text = { Text(stringResource(R.string.account_cancel_confirm)) },
             confirmButton = { TextButton(onClick = { cancelId = null; viewModel.cancel(id) }) { Text(stringResource(R.string.action_confirm)) } },

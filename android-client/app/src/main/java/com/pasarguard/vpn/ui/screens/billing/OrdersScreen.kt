@@ -1,5 +1,6 @@
 package com.pasarguard.vpn.ui.screens.billing
 
+import com.pasarguard.vpn.ui.components.PasarSheetHandle
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -237,7 +238,7 @@ fun OrdersScreen(
     }
 
     selectedOrder?.let { order ->
-        ModalBottomSheet(onDismissRequest = { selectedOrder = null }) {
+        ModalBottomSheet(dragHandle = { PasarSheetHandle() },onDismissRequest = { selectedOrder = null }) {
             if (order.newSubscription && order.activationStatus == "READY") {
                 var transferring by remember(order.id) { mutableStateOf(false) }
                 OutlinedButton(

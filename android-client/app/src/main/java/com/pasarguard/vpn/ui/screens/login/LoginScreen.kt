@@ -1,5 +1,6 @@
 package com.pasarguard.vpn.ui.screens.login
 
+import com.pasarguard.vpn.ui.components.PasarSheetHandle
 import android.Manifest
 import android.util.Size
 import androidx.camera.core.CameraSelector
@@ -297,7 +298,7 @@ fun LoginScreen(
 
     if (showQrSheet) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
+        ModalBottomSheet(dragHandle = { PasarSheetHandle() },
             onDismissRequest = { showQrSheet = false },
             sheetState = sheetState,
             containerColor = colors.backgroundCanvas,

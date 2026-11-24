@@ -1,5 +1,6 @@
 package com.pasarguard.vpn.ui.screens.billing
 
+import com.pasarguard.vpn.ui.components.PasarSheetHandle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -347,7 +348,7 @@ fun PlansScreen(
     }
 
     if (showCompareSheet && visiblePlans.isNotEmpty()) {
-        ModalBottomSheet(onDismissRequest = { showCompareSheet = false }) {
+        ModalBottomSheet(dragHandle = { PasarSheetHandle() },onDismissRequest = { showCompareSheet = false }) {
             ComparePlansSheetContent(
                 plans = visiblePlans,
                 isPersian = isPersian,

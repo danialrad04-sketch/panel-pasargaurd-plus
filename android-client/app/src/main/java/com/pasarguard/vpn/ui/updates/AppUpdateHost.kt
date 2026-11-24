@@ -2,7 +2,7 @@ package com.pasarguard.vpn.ui.updates
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.AlertDialog
+import com.pasarguard.vpn.ui.components.PasarDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
@@ -102,7 +102,7 @@ fun AppUpdateHost(checker: UpdateChecker, content: @Composable () -> Unit) {
     }
 
     if (showDialog) {
-        AlertDialog(
+        PasarDialog(
             onDismissRequest = ::close,
             title = { Text(stringResource(R.string.settings_check_updates)) },
             text = {
