@@ -96,7 +96,7 @@ fun LogsScreen(onBack: () -> Unit) {
                         )
                         val shareIntent = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
-                            putExtra(Intent.EXTRA_SUBJECT, "PasarGuard VPN Sanitized Diagnostics")
+                            putExtra(Intent.EXTRA_SUBJECT, "Donino Vpn Sanitized Diagnostics")
                             putExtra(Intent.EXTRA_TEXT, report)
                         }
                         context.startActivity(Intent.createChooser(shareIntent, null))

@@ -1,11 +1,14 @@
 package com.pasarguard.vpn.ui.screens.settings
 
+import com.pasarguard.vpn.ui.components.PasarSheetHandle
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -20,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -51,7 +55,7 @@ import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material3.AlertDialog
+import com.pasarguard.vpn.ui.components.PasarDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -86,15 +90,14 @@ import androidx.lifecycle.viewModelScope
 import com.pasarguard.vpn.BrandConfig
 import com.pasarguard.vpn.BuildConfig
 import com.pasarguard.vpn.R
-import com.pasarguard.vpn.data.diagnostics.UpdateChecker
 import com.pasarguard.vpn.domain.model.AppLanguage
 import com.pasarguard.vpn.domain.model.AppSettings
-import com.pasarguard.vpn.domain.model.AppUpdateInfo
 import com.pasarguard.vpn.domain.model.CalendarSystem
 import com.pasarguard.vpn.domain.model.CorePreference
 import com.pasarguard.vpn.domain.model.DnsPreset
 import com.pasarguard.vpn.domain.model.NetworkAutoConnectRule
 import com.pasarguard.vpn.domain.model.SubscriptionFormatStrategy
+import com.pasarguard.vpn.domain.model.ThemePalette
 import com.pasarguard.vpn.domain.model.ThemeMode
 import com.pasarguard.vpn.domain.repository.SettingsRepository
 import com.pasarguard.vpn.domain.usecase.LogoutUseCase
@@ -103,13 +106,13 @@ import com.pasarguard.vpn.ui.components.GlassCard
 import com.pasarguard.vpn.ui.theme.LocalPersianDigits
 import com.pasarguard.vpn.ui.theme.PasarGuardTheme
 import com.pasarguard.vpn.ui.theme.Spacing
+import com.pasarguard.vpn.ui.theme.tokens
+import com.pasarguard.vpn.ui.updates.LocalCheckForUpdates
 import com.pasarguard.vpn.util.Formatters
 import com.pasarguard.vpn.vpn.core.XrayCore
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -118,8 +121,7 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val logoutUseCase: LogoutUseCase,
-    private val xrayCore: XrayCore,
-    private val updateChecker: UpdateChecker
+    private val xrayCore: XrayCore
 ) : ViewModel() {
 
     val settings: StateFlow<AppSettings> = settingsRepository.settings.stateIn(
@@ -127,9 +129,6 @@ class SettingsViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = AppSettings()
     )
-
-    private val _updateResult = MutableStateFlow<Pair<AppUpdateInfo?, String?>?>(null)
-    val updateResult: StateFlow<Pair<AppUpdateInfo?, String?>?> = _updateResult.asStateFlow()
 
     val xrayVersion: String by lazy { xrayCore.versionInfo() }
 
@@ -146,6 +145,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setCalendarSystem(system: CalendarSystem) {
         viewModelScope.launch { settingsRepository.setCalendarSystem(system) }
+    }
+
+    fun setThemePalette(palette: ThemePalette) {
+        viewModelScope.launch { settingsRepository.setThemePalette(palette) }
     }
 
     fun setThemeMode(mode: ThemeMode) {
@@ -264,22 +267,6 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun checkForUpdates(url: String) {
-        viewModelScope.launch {
-            settingsRepository.setUpdateCheckUrl(url)
-            val res = updateChecker.checkForUpdate(url)
-            res.onSuccess { info ->
-                _updateResult.value = info to null
-            }.onFailure { err ->
-                _updateResult.value = null to (err.localizedMessage ?: "Check failed")
-            }
-        }
-    }
-
-    fun clearUpdateResult() {
-        _updateResult.value = null
-    }
-
     fun logout(onComplete: () -> Unit) {
         viewModelScope.launch {
             logoutUseCase()
@@ -301,7 +288,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
-    val updateResult by viewModel.updateResult.collectAsStateWithLifecycle()
+    val checkForUpdates = LocalCheckForUpdates.current
     val colors = PasarGuardTheme.colors
     val persianDigits = LocalPersianDigits.current
     val context = LocalContext.current
@@ -309,7 +296,6 @@ fun SettingsScreen(
     var showLogoutSheet by remember { mutableStateOf(false) }
     var showAllowInsecureWarning by remember { mutableStateOf(false) }
     var showPinDialog by remember { mutableStateOf(false) }
-    var showUpdateDialog by remember { mutableStateOf(false) }
     var customDnsInput by remember(settings.customDnsServer) { mutableStateOf(settings.customDnsServer) }
     var pendingExportJson by remember { mutableStateOf<String?>(null) }
 
@@ -434,6 +420,26 @@ fun SettingsScreen(
                             selected = settings.themeMode == mode,
                             onClick = { viewModel.setThemeMode(mode) },
                             label = { Text(stringResource(resId)) }
+                        )
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                Text(stringResource(R.string.settings_palette), style = MaterialTheme.typography.titleMedium)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    listOf(
+                        ThemePalette.OCEAN to R.string.settings_palette_ocean,
+                        ThemePalette.JADE to R.string.settings_palette_jade,
+                        ThemePalette.DUSK to R.string.settings_palette_dusk
+                    ).forEach { (palette, label) ->
+                        val swatch = palette.tokens(colors.isDark).accent
+                        FilterChip(
+                            selected = !settings.dynamicColorEnabled && settings.themePalette == palette,
+                            onClick = { viewModel.setThemePalette(palette) },
+                            label = { Text(stringResource(label)) },
+                            leadingIcon = {
+                                Box(Modifier.size(12.dp).background(swatch, CircleShape))
+                            }
                         )
                     }
                 }
@@ -765,12 +771,14 @@ fun SettingsScreen(
                     onClick = { importLauncher.launch(arrayOf("application/json", "*/*")) }
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-                SettingsActionRow(
-                    icon = Icons.Rounded.SystemUpdate,
-                    title = stringResource(R.string.settings_check_updates),
-                    subtitle = "v${BuildConfig.VERSION_NAME}",
-                    onClick = { showUpdateDialog = true }
-                )
+                checkForUpdates?.let {
+                    SettingsActionRow(
+                        icon = Icons.Rounded.SystemUpdate,
+                        title = stringResource(R.string.settings_check_updates),
+                        subtitle = "v${BuildConfig.VERSION_NAME}",
+                        onClick = it
+                    )
+                }
             }
 
             // Alerts & Notifications
@@ -796,20 +804,24 @@ fun SettingsScreen(
             // Support & Version
             SectionLabel(stringResource(R.string.settings_section_support))
             GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
-                SettingsActionRow(
-                    icon = Icons.AutoMirrored.Rounded.Send,
-                    title = stringResource(R.string.settings_telegram),
-                    subtitle = BrandConfig.supportTelegramUrl,
-                    onClick = { Formatters.openExternalUrl(context, BrandConfig.supportTelegramUrl) }
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-                SettingsActionRow(
-                    icon = Icons.Rounded.SupportAgent,
-                    title = stringResource(R.string.settings_whatsapp),
-                    subtitle = BrandConfig.supportWhatsappUrl,
-                    onClick = { Formatters.openExternalUrl(context, BrandConfig.supportWhatsappUrl) }
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                if (BrandConfig.supportTelegramUrl.isNotBlank()) {
+                    SettingsActionRow(
+                        icon = Icons.AutoMirrored.Rounded.Send,
+                        title = stringResource(R.string.settings_telegram),
+                        subtitle = BrandConfig.supportTelegramUrl,
+                        onClick = { Formatters.openExternalUrl(context, BrandConfig.supportTelegramUrl) }
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                }
+                if (BrandConfig.supportWhatsappUrl.isNotBlank()) {
+                    SettingsActionRow(
+                        icon = Icons.Rounded.SupportAgent,
+                        title = stringResource(R.string.settings_whatsapp),
+                        subtitle = BrandConfig.supportWhatsappUrl,
+                        onClick = { Formatters.openExternalUrl(context, BrandConfig.supportWhatsappUrl) }
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -850,7 +862,7 @@ fun SettingsScreen(
 
     // Allow Insecure Global Warning Dialog
     if (showAllowInsecureWarning) {
-        AlertDialog(
+        PasarDialog(
             onDismissRequest = { showAllowInsecureWarning = false },
             title = { Text(stringResource(R.string.settings_allow_insecure_title)) },
             text = { Text(stringResource(R.string.settings_allow_insecure_warning)) },
@@ -871,7 +883,7 @@ fun SettingsScreen(
     // App Lock PIN Setup Dialog
     if (showPinDialog) {
         var pinInput by remember { mutableStateOf("") }
-        AlertDialog(
+        PasarDialog(
             onDismissRequest = { showPinDialog = false },
             title = { Text(stringResource(R.string.app_lock_set_pin_title)) },
             text = {
@@ -902,67 +914,8 @@ fun SettingsScreen(
         )
     }
 
-    // Remote Update Checker Dialog
-    if (showUpdateDialog) {
-        var feedUrl by remember(settings.updateCheckUrl) { mutableStateOf(settings.updateCheckUrl) }
-        AlertDialog(
-            onDismissRequest = {
-                showUpdateDialog = false
-                viewModel.clearUpdateResult()
-            },
-            title = { Text(stringResource(R.string.settings_check_updates)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    OutlinedTextField(
-                        value = feedUrl,
-                        onValueChange = { feedUrl = it },
-                        label = { Text(stringResource(R.string.settings_update_url_hint)) },
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    updateResult?.let { (info, err) ->
-                        when {
-                            err != null -> Text(err, color = colors.statusDanger, style = MaterialTheme.typography.bodySmall)
-                            info != null -> {
-                                Text(
-                                    text = stringResource(R.string.settings_update_available, info.latestVersion),
-                                    color = colors.statusConnected,
-                                    style = MaterialTheme.typography.titleSmall
-                                )
-                                if (info.changelog.isNotBlank()) {
-                                    Text(info.changelog, style = MaterialTheme.typography.bodySmall)
-                                }
-                                OutlinedButton(onClick = { Formatters.openExternalUrl(context, info.downloadUrl) }) {
-                                    Text(stringResource(R.string.settings_update_download))
-                                }
-                            }
-                            else -> Text(
-                                text = stringResource(R.string.settings_update_latest),
-                                color = colors.statusConnected,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = feedUrl.isNotBlank(),
-                    onClick = { viewModel.checkForUpdates(feedUrl) }
-                ) { Text(stringResource(R.string.settings_check_now)) }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showUpdateDialog = false
-                    viewModel.clearUpdateResult()
-                }) { Text(stringResource(R.string.action_close)) }
-            }
-        )
-    }
-
     if (showLogoutSheet) {
-        ModalBottomSheet(
+        ModalBottomSheet(dragHandle = { PasarSheetHandle() },
             onDismissRequest = { showLogoutSheet = false },
             containerColor = colors.backgroundCanvas,
             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)

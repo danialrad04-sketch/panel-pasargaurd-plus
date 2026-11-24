@@ -1,0 +1,11 @@
+{
+	{$CADDY_ACME_CONTACT}
+}
+
+{$BILLING_HOST} {
+	header Strict-Transport-Security "max-age=31536000"
+	request_body {
+		max_size 768KB
+	}
+	reverse_proxy billing:8080
+}

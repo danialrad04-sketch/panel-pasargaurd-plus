@@ -65,7 +65,7 @@ class SanitizedLogBuffer @Inject constructor() {
         }
 
         fun exportReport(headerLines: List<String> = emptyList()): String = buildString {
-            appendLine("=== PasarGuard VPN Diagnostics Report ===")
+            appendLine("=== Donino Vpn Diagnostics Report ===")
             headerLines.forEach { appendLine(sanitize(it)) }
             appendLine("---")
             val snapshot = synchronized(lock) { buffer.toList() }

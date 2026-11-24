@@ -26,6 +26,7 @@ object ReceiptImageUtils {
 
     private const val MAX_DIMENSION_PX = 1280
     private const val TARGET_MAX_BYTES = 350 * 1024
+    private const val UPLOAD_MAX_BYTES = 512 * 1024
 
     suspend fun compressReceiptUri(
         context: Context,
@@ -34,12 +35,15 @@ object ReceiptImageUtils {
         runCatching {
             val resolver = context.contentResolver
             val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            resolver.openInputStream(sourceUri)?.use { stream ->
+            val boundsStream = resolver.openInputStream(sourceUri) ?: error("Cannot open selected image")
+            boundsStream.use { stream ->
+                // A bounds-only decode returns null even when the image is readable.
                 BitmapFactory.decodeStream(stream, null, boundsOpts)
-            } ?: error("Cannot read selected image")
+            }
 
-            val srcW = boundsOpts.outWidth.coerceAtLeast(1)
-            val srcH = boundsOpts.outHeight.coerceAtLeast(1)
+            val srcW = boundsOpts.outWidth
+            val srcH = boundsOpts.outHeight
+            check(srcW > 0 && srcH > 0) { "Could not read the image dimensions" }
             var sampleSize = 1
             while ((srcW / sampleSize) > MAX_DIMENSION_PX * 2 || (srcH / sampleSize) > MAX_DIMENSION_PX * 2) {
                 sampleSize *= 2
@@ -57,21 +61,24 @@ object ReceiptImageUtils {
 
             var quality = 85
             val baos = ByteArrayOutputStream()
-            do {
-                baos.reset()
-                scaled.compress(Bitmap.CompressFormat.JPEG, quality, baos)
-                quality -= 10
-            } while (baos.size() > TARGET_MAX_BYTES && quality >= 35)
+            val finalW = scaled.width
+            val finalH = scaled.height
+            try {
+                do {
+                    baos.reset()
+                    check(scaled.compress(Bitmap.CompressFormat.JPEG, quality, baos)) { "Could not prepare receipt JPEG" }
+                    quality -= 10
+                } while (baos.size() > TARGET_MAX_BYTES && quality >= 35)
+            } finally {
+                scaled.recycle()
+            }
+            check(baos.size() in 1..UPLOAD_MAX_BYTES) { "The prepared receipt is too large" }
 
             val outDir = File(context.cacheDir, "receipts").apply { mkdirs() }
             val outFile = File(outDir, "rcpt_${UUID.randomUUID().toString().take(12)}.jpg")
             FileOutputStream(outFile).use { fos ->
-                fos.write(baos.toByteArray())
+                baos.writeTo(fos)
             }
-
-            val finalW = scaled.width
-            val finalH = scaled.height
-            scaled.recycle()
 
             CompressedReceiptResult(
                 filePath = outFile.absolutePath,

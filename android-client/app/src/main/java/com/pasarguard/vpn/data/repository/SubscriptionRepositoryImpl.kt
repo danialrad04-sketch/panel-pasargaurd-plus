@@ -66,9 +66,10 @@ class SubscriptionRepositoryImpl @Inject constructor(
     override fun getSavedCredentials(): SubscriptionCredentials? = tokenStore.getCredentials()
 
     override suspend fun validateAndSaveSubscription(
-        credentials: SubscriptionCredentials
+        credentials: SubscriptionCredentials,
+        requireServers: Boolean
     ): Result<SubscriptionInfo> = withContext(Dispatchers.IO) {
-        val result = fetchAndPersist(credentials)
+        val result = fetchAndPersist(credentials, requireServers = requireServers)
         result.onSuccess { info ->
             tokenStore.saveCredentials(credentials)
             ensureProfileEntry(
@@ -198,7 +199,8 @@ class SubscriptionRepositoryImpl @Inject constructor(
 
     private suspend fun fetchAndPersist(
         credentials: SubscriptionCredentials,
-        groupLabel: String = "Subscription"
+        groupLabel: String = "Subscription",
+        requireServers: Boolean = false
     ): Result<SubscriptionInfo> = runCatching {
         val baseSubUrl = credentials.fullSubscriptionUrl
         val nowMs = System.currentTimeMillis()
@@ -269,6 +271,9 @@ class SubscriptionRepositoryImpl @Inject constructor(
             logBuffer.info("Sync", "Loaded ${parsedServers.size} servers from Base64 subscription")
         }
 
+        if (requireServers && parsedServers.isEmpty()) {
+            throw IOException("The new subscription does not contain usable server configurations yet")
+        }
         if (infoDto == null && parsedServers.isEmpty() && headerUserInfo == null) {
             throw IOException("Subscription returned no metadata or proxy links")
         }

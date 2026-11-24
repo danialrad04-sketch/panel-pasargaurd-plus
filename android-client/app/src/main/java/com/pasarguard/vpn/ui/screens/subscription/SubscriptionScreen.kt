@@ -1,5 +1,6 @@
 package com.pasarguard.vpn.ui.screens.subscription
 
+import com.pasarguard.vpn.ui.components.PasarSheetHandle
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -31,19 +32,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Devices
-import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.WarningAmber
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -53,9 +50,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -83,17 +78,15 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.pasarguard.vpn.BuildConfig
 import com.pasarguard.vpn.BrandConfig
 import com.pasarguard.vpn.R
 import com.pasarguard.vpn.domain.model.AppLanguage
-import com.pasarguard.vpn.domain.model.ConnectedDevice
 import com.pasarguard.vpn.domain.model.SubscriptionInfo
 import com.pasarguard.vpn.domain.model.SubscriptionStatus
-import com.pasarguard.vpn.domain.model.SupportTicketRequest
 import com.pasarguard.vpn.domain.model.UsageForecast
 import com.pasarguard.vpn.domain.model.UsageForecastCalculator
 import com.pasarguard.vpn.domain.model.UsagePoint
-import com.pasarguard.vpn.domain.repository.AccountActionsRepository
 import com.pasarguard.vpn.domain.repository.PaymentRepository
 import com.pasarguard.vpn.domain.repository.SettingsRepository
 import com.pasarguard.vpn.domain.repository.SubscriptionRepository
@@ -106,6 +99,7 @@ import com.pasarguard.vpn.ui.theme.LocalCalendarSystem
 import com.pasarguard.vpn.ui.theme.LocalPersianDigits
 import com.pasarguard.vpn.ui.theme.PasarGuardTheme
 import com.pasarguard.vpn.ui.theme.Spacing
+import com.pasarguard.vpn.ui.updates.LocalCheckForUpdates
 import com.pasarguard.vpn.util.Formatters
 import com.pasarguard.vpn.util.QrCodeGenerator
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -123,12 +117,9 @@ data class SubscriptionUiState(
     val subscription: SubscriptionInfo? = null,
     val usagePoints: List<UsagePoint> = emptyList(),
     val forecast: UsageForecast = UsageForecast(0L, null, 0L, null, false, null),
-    val devices: List<ConnectedDevice> = emptyList(),
-    val isLoadingDevices: Boolean = false,
     val language: AppLanguage = AppLanguage.PERSIAN,
     val isSyncing: Boolean = false,
     val pendingOrderCount: Int = 0,
-    val feedbackMessage: String? = null
 )
 
 @HiltViewModel
@@ -136,14 +127,10 @@ class SubscriptionViewModel @Inject constructor(
     private val subscriptionRepository: SubscriptionRepository,
     settingsRepository: SettingsRepository,
     paymentRepository: PaymentRepository,
-    private val accountActionsRepository: AccountActionsRepository,
     private val syncSubscription: SyncSubscriptionUseCase
 ) : ViewModel() {
 
     private val isSyncing = MutableStateFlow(false)
-    private val devicesFlow = MutableStateFlow<List<ConnectedDevice>>(emptyList())
-    private val loadingDevicesFlow = MutableStateFlow(false)
-    private val feedbackFlow = MutableStateFlow<String?>(null)
 
     private val baseFlow = combine(
         subscriptionRepository.observeSubscription(),
@@ -157,23 +144,17 @@ class SubscriptionViewModel @Inject constructor(
 
     val uiState: StateFlow<SubscriptionUiState> = combine(
         baseFlow,
-        isSyncing,
-        devicesFlow,
-        loadingDevicesFlow,
-        feedbackFlow
-    ) { base, syncing, devices, loadingDev, feedback ->
+        isSyncing
+    ) { base, syncing ->
         val (sub, usage) = base.first
         val forecast = UsageForecastCalculator.calculate(sub, usage)
         SubscriptionUiState(
             subscription = sub,
             usagePoints = usage,
             forecast = forecast,
-            devices = devices,
-            isLoadingDevices = loadingDev,
             language = base.second,
             isSyncing = syncing,
             pendingOrderCount = base.third,
-            feedbackMessage = feedback
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SubscriptionUiState())
 
@@ -181,62 +162,19 @@ class SubscriptionViewModel @Inject constructor(
         if (isSyncing.value) return
         viewModelScope.launch {
             isSyncing.value = true
-            syncSubscription()
-            isSyncing.value = false
-        }
-    }
-
-    fun loadDevices() {
-        viewModelScope.launch {
-            loadingDevicesFlow.value = true
-            accountActionsRepository.listConnectedDevices()
-                .onSuccess { devicesFlow.value = it }
-            loadingDevicesFlow.value = false
-        }
-    }
-
-    fun removeDevice(deviceId: String, isPersian: Boolean) {
-        viewModelScope.launch {
-            accountActionsRepository.removeDevice(deviceId).onSuccess { res ->
-                feedbackFlow.value = if (isPersian) res.messageFa else res.messageEn
-                if (res.success) loadDevices()
+            try {
+                syncSubscription()
+            } finally {
+                isSyncing.value = false
             }
         }
-    }
-
-    fun requestTrafficReset(isPersian: Boolean) {
-        viewModelScope.launch {
-            accountActionsRepository.requestTrafficReset().onSuccess { res ->
-                feedbackFlow.value = if (isPersian) res.messageFa else res.messageEn
-            }
-        }
-    }
-
-    fun requestNewLink(isPersian: Boolean) {
-        viewModelScope.launch {
-            accountActionsRepository.requestNewSubscriptionLink().onSuccess { res ->
-                feedbackFlow.value = if (isPersian) res.messageFa else res.messageEn
-            }
-        }
-    }
-
-    fun submitSupportTicket(subject: String, message: String, isPersian: Boolean) {
-        viewModelScope.launch {
-            accountActionsRepository.submitSupportTicket(SupportTicketRequest(subject, message))
-                .onSuccess { res ->
-                    feedbackFlow.value = if (isPersian) res.messageFa else res.messageEn
-                }
-        }
-    }
-
-    fun clearFeedback() {
-        feedbackFlow.value = null
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubscriptionScreen(
+    onOpenAccount: () -> Unit,
     onOpenRenewal: () -> Unit,
     onOpenOrders: () -> Unit = {},
     viewModel: SubscriptionViewModel = hiltViewModel()
@@ -244,6 +182,7 @@ fun SubscriptionScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val colors = PasarGuardTheme.colors
     val context = LocalContext.current
+    val checkForUpdates = LocalCheckForUpdates.current
     val persianDigits = LocalPersianDigits.current
     val calendarSystem = LocalCalendarSystem.current
     val sub = state.subscription
@@ -252,9 +191,10 @@ fun SubscriptionScreen(
 
     var chartRangeDays by remember { mutableIntStateOf(7) }
     var showQrSheet by remember { mutableStateOf(false) }
-    var showDevicesSheet by remember { mutableStateOf(false) }
+    val primarySupport = sub?.supportUrl?.takeIf { it.startsWith("https://", ignoreCase = true) }
+        ?: BrandConfig.supportTelegramUrl
+    val secondarySupport = BrandConfig.supportWhatsappUrl
     var showSupportSheet by remember { mutableStateOf(false) }
-    var confirmActionType by remember { mutableStateOf<String?>(null) }
 
     // Live 1-minute countdown ticker for expiry card
     var nowEpochSec by remember { mutableStateOf(System.currentTimeMillis() / 1000L) }
@@ -263,12 +203,6 @@ fun SubscriptionScreen(
             delay(30_000L)
             nowEpochSec = System.currentTimeMillis() / 1000L
         }
-    }
-
-    LaunchedEffect(state.feedbackMessage) {
-        val msg = state.feedbackMessage ?: return@LaunchedEffect
-        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-        viewModel.clearFeedback()
     }
 
     val isExpiredOrLimited = sub != null && (
@@ -393,7 +327,7 @@ fun SubscriptionScreen(
                             Brush.linearGradient(
                                 listOf(
                                     colors.heroStart.copy(alpha = 0.94f),
-                                    colors.heroEnd.copy(alpha = 0.86f)
+                                    colors.heroFillEnd.copy(alpha = 0.86f)
                                 )
                             )
                         )
@@ -745,15 +679,6 @@ fun SubscriptionScreen(
                         horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                     ) {
                         ActionTileButton(
-                            icon = Icons.Rounded.Devices,
-                            label = stringResource(R.string.sub_manage_devices),
-                            onClick = {
-                                viewModel.loadDevices()
-                                showDevicesSheet = true
-                            },
-                            modifier = Modifier.weight(1f)
-                        )
-                        ActionTileButton(
                             icon = Icons.Rounded.ReceiptLong,
                             label = if (state.pendingOrderCount > 0) {
                                 "${stringResource(R.string.orders_title)} (${Formatters.formatNumber(state.pendingOrderCount.toLong(), persianDigits)})"
@@ -765,32 +690,27 @@ fun SubscriptionScreen(
                         )
                     }
                     Spacer(Modifier.height(Spacing.sm))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
-                    ) {
-                        ActionTileButton(
-                            icon = Icons.Rounded.RestartAlt,
-                            label = stringResource(R.string.sub_request_reset),
-                            onClick = { confirmActionType = "reset" },
-                            modifier = Modifier.weight(1f)
-                        )
-                        ActionTileButton(
-                            icon = Icons.Rounded.Key,
-                            label = stringResource(R.string.sub_request_new_link),
-                            onClick = { confirmActionType = "newlink" },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    Spacer(Modifier.height(Spacing.sm))
                     OutlinedButton(
                         onClick = { showSupportSheet = true },
+                        enabled = primarySupport.isNotBlank() || secondarySupport.isNotBlank(),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Rounded.SupportAgent, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(Spacing.sm))
                         Text(stringResource(R.string.sub_contact_support))
                     }
+                }
+
+                checkForUpdates?.let {
+                    OutlinedButton(onClick = it, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.settings_check_updates))
+                    }
+                }
+                if (BuildConfig.BILLING_BASE_URL.isNotBlank()) {
+                    OutlinedButton(
+                        onClick = onOpenAccount,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(stringResource(R.string.customer_portal)) }
                 }
 
                 Spacer(Modifier.height(Spacing.lg))
@@ -810,7 +730,7 @@ fun SubscriptionScreen(
         val qrBmp = remember(sub!!.subscriptionUrl) {
             QrCodeGenerator.generateBitmap(sub.subscriptionUrl, 520)
         }
-        ModalBottomSheet(onDismissRequest = { showQrSheet = false }) {
+        ModalBottomSheet(dragHandle = { PasarSheetHandle() },onDismissRequest = { showQrSheet = false }) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -849,86 +769,9 @@ fun SubscriptionScreen(
         }
     }
 
-    // Devices (HWID) Modal Bottom Sheet
-    if (showDevicesSheet) {
-        ModalBottomSheet(onDismissRequest = { showDevicesSheet = false }) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = Spacing.md, vertical = Spacing.sm)
-                    .padding(bottom = Spacing.xl)
-            ) {
-                Text(
-                    text = stringResource(R.string.sub_manage_devices),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = colors.textPrimary
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = stringResource(R.string.sub_devices_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.textSecondary
-                )
-                Spacer(Modifier.height(Spacing.md))
-                if (state.isLoadingDevices) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(120.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = colors.heroEnd)
-                    }
-                } else {
-                    state.devices.forEach { dev ->
-                        GlassCard(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            cornerRadius = 18.dp,
-                            contentPadding = PaddingValues(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = dev.name + if (dev.isCurrentDevice) {
-                                            " (${stringResource(R.string.sub_this_device)})"
-                                        } else "",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = colors.textPrimary
-                                    )
-                                    Text(
-                                        text = "${dev.platform} • ${Formatters.formatRelativeSync(dev.lastSeenEpochMs, persianDigits)}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = colors.textSecondary
-                                    )
-                                }
-                                if (!dev.isCurrentDevice) {
-                                    IconButton(onClick = { viewModel.removeDevice(dev.id, isPersian) }) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.DeleteOutline,
-                                            contentDescription = stringResource(R.string.action_remove),
-                                            tint = colors.statusDanger
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Support & Ticket Sheet
+    // Configured support channels
     if (showSupportSheet) {
-        var subject by remember { mutableStateOf("") }
-        var body by remember { mutableStateOf("") }
-        ModalBottomSheet(onDismissRequest = { showSupportSheet = false }) {
+        ModalBottomSheet(dragHandle = { PasarSheetHandle() },onDismissRequest = { showSupportSheet = false }) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -945,95 +788,26 @@ fun SubscriptionScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                 ) {
-                    OutlinedButton(
-                        onClick = {
-                            Formatters.openExternalUrl(
-                                context,
-                                sub?.supportUrl ?: BrandConfig.supportTelegramUrl
-                            )
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(stringResource(R.string.settings_telegram))
+                    if (primarySupport.isNotBlank()) {
+                        OutlinedButton(
+                            onClick = { Formatters.openExternalUrl(context, primarySupport) },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(stringResource(if (primarySupport == BrandConfig.supportTelegramUrl)
+                                R.string.settings_telegram else R.string.sub_contact_support))
+                        }
                     }
-                    OutlinedButton(
-                        onClick = {
-                            Formatters.openExternalUrl(context, BrandConfig.supportWhatsappUrl)
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(stringResource(R.string.settings_whatsapp))
+                    if (secondarySupport.isNotBlank()) {
+                        OutlinedButton(
+                            onClick = { Formatters.openExternalUrl(context, secondarySupport) },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(stringResource(R.string.settings_whatsapp))
+                        }
                     }
                 }
-                HorizontalDivider(color = colors.glassBorder)
-                Text(
-                    text = stringResource(R.string.sub_ticket_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = colors.textPrimary
-                )
-                OutlinedTextField(
-                    value = subject,
-                    onValueChange = { subject = it },
-                    label = { Text(stringResource(R.string.sub_ticket_subject)) },
-                    singleLine = true,
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = body,
-                    onValueChange = { body = it },
-                    label = { Text(stringResource(R.string.sub_ticket_message)) },
-                    minLines = 3,
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                GradientButton(
-                    text = stringResource(R.string.sub_ticket_send),
-                    enabled = subject.isNotBlank() && body.isNotBlank(),
-                    onClick = {
-                        viewModel.submitSupportTicket(subject.trim(), body.trim(), isPersian)
-                        showSupportSheet = false
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
         }
-    }
-
-    // Confirm sensitive account actions (traffic reset / regenerate sub link)
-    if (confirmActionType != null) {
-        val isReset = confirmActionType == "reset"
-        AlertDialog(
-            onDismissRequest = { confirmActionType = null },
-            title = {
-                Text(
-                    stringResource(
-                        if (isReset) R.string.sub_request_reset else R.string.sub_request_new_link
-                    )
-                )
-            },
-            text = {
-                Text(
-                    stringResource(
-                        if (isReset) R.string.sub_confirm_reset_desc else R.string.sub_confirm_new_link_desc
-                    )
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (isReset) viewModel.requestTrafficReset(isPersian)
-                    else viewModel.requestNewLink(isPersian)
-                    confirmActionType = null
-                }) {
-                    Text(stringResource(R.string.action_confirm))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmActionType = null }) {
-                    Text(stringResource(R.string.action_cancel))
-                }
-            }
-        )
     }
 }
 

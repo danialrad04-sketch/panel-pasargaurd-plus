@@ -21,6 +21,13 @@ fun resolveConfig(key: String, defaultValue: String): String {
         ?: defaultValue
 }
 
+val optimizeDebugApks = providers.gradleProperty("pasarguardOptimizeDebug").orNull == "true"
+val buildUniversalApk = providers.gradleProperty("pasarguardUniversalApk").orNull == "true"
+val releaseKeyStore = System.getenv("PASARGUARD_RELEASE_KEYSTORE")
+val releaseStorePassword = System.getenv("PASARGUARD_RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = System.getenv("PASARGUARD_RELEASE_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("PASARGUARD_RELEASE_KEY_PASSWORD")
+
 android {
     namespace = "com.pasarguard.vpn"
     compileSdk = 35
@@ -29,16 +36,24 @@ android {
         applicationId = "com.pasarguard.vpn"
         minSdk = 24
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.3.0"
+        resourceConfigurations += listOf("en", "fa")
+        versionCode = resolveConfig("PASARGUARD_VERSION_CODE", "14").toInt().also { require(it in 1..2_100_000_000) }
+        versionName = resolveConfig("PASARGUARD_VERSION_NAME", "1.8.1").also {
+            require(Regex("[0-9]+(?:[.][0-9]+){1,3}").matches(it))
+        }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
 
         val baseUrl = resolveConfig("PASARGUARD_BASE_URL", "https://panel.example.com")
-        val appName = resolveConfig("PASARGUARD_APP_NAME", "PasarGuard VPN")
-        val telegramUrl = resolveConfig("PASARGUARD_SUPPORT_TELEGRAM", "https://t.me/your_support_channel")
-        val whatsappUrl = resolveConfig("PASARGUARD_SUPPORT_WHATSAPP", "https://wa.me/15550000000")
+        val billingUrl = resolveConfig("PASARGUARD_BILLING_URL", "")
+        require(billingUrl.isBlank() || Regex("https://[a-zA-Z0-9.-]+(?::[0-9]+)?/?").matches(billingUrl)) {
+            "PASARGUARD_BILLING_URL must be an HTTPS origin"
+        }
+        buildConfigField("String", "BILLING_BASE_URL", "\"$billingUrl\"")
+        val appName = resolveConfig("PASARGUARD_APP_NAME", "Donino Vpn")
+        val telegramUrl = resolveConfig("PASARGUARD_SUPPORT_TELEGRAM", "")
+        val whatsappUrl = resolveConfig("PASARGUARD_SUPPORT_WHATSAPP", "")
         val paymentScheme = resolveConfig("PASARGUARD_PAYMENT_SCHEME", "pasarguardvpn")
 
         buildConfigField("String", "DEFAULT_BASE_URL", "\"$baseUrl\"")
@@ -56,19 +71,38 @@ android {
             isEnable = true
             reset()
             include("arm64-v8a", "armeabi-v7a", "x86_64")
-            isUniversalApk = true
+            isUniversalApk = buildUniversalApk
+        }
+    }
+
+    signingConfigs {
+        if (!releaseKeyStore.isNullOrBlank()) {
+            require(!releaseStorePassword.isNullOrBlank() && !releaseKeyAlias.isNullOrBlank() && !releaseKeyPassword.isNullOrBlank())
+            create("distribution") {
+                storeFile = file(releaseKeyStore)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
         }
     }
 
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
-            isMinifyEnabled = false
+            isMinifyEnabled = optimizeDebugApks
+            isShrinkResources = optimizeDebugApks
+            if (optimizeDebugApks) {
+                proguardFiles(
+                    getDefaultProguardFile("proguard-android-optimize.txt"),
+                    "proguard-rules.pro"
+                )
+            }
         }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("distribution") ?: signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -155,7 +189,6 @@ dependencies {
     implementation(libs.camerax.camera2)
     implementation(libs.camerax.lifecycle)
     implementation(libs.camerax.view)
-    implementation(libs.mlkit.barcode)
     implementation(libs.accompanist.permissions)
     implementation(libs.zxing.core)
 

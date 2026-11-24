@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">PasarGuard VPN</string>
+    <string name="app_name">Donino Vpn</string>
 
     <!-- Navigation -->
     <string name="nav_home">Home</string>
@@ -17,11 +17,11 @@
     <string name="onboarding_title_2">Smart Auto-Best Ping</string>
     <string name="onboarding_desc_2">Automatically probes server latency and connects you to the fastest location with a single tap.</string>
     <string name="onboarding_title_3">Live Sync &amp; Instant Renewal</string>
-    <string name="onboarding_desc_3">Your PasarGuard subscription stays synced automatically with quota alerts and effortless in-app renewal.</string>
+    <string name="onboarding_desc_3">Your Donino Vpn subscription stays synced automatically with quota alerts and effortless in-app renewal.</string>
 
     <!-- Login -->
     <string name="login_title">Activate Subscription</string>
-    <string name="login_subtitle">Paste your PasarGuard subscription link or scan the QR code from your account.</string>
+    <string name="login_subtitle">Paste your Donino Vpn subscription link or scan the QR code from your account.</string>
     <string name="login_input_label">Subscription URL or Token</string>
     <string name="login_input_placeholder">https://panel.example.com/sub/...</string>
     <string name="login_paste">Paste</string>
@@ -31,7 +31,7 @@
     <string name="login_error_empty">Please enter a subscription link or token.</string>
     <string name="login_error_invalid">Could not verify subscription. Check your link and internet connection.</string>
     <string name="qr_scanner_title">Scan Subscription QR</string>
-    <string name="qr_scanner_hint">Point your camera at the PasarGuard QR code</string>
+    <string name="qr_scanner_hint">Point your camera at the Donino Vpn QR code</string>
     <string name="qr_camera_permission">Camera permission is needed to scan QR codes.</string>
     <string name="grant_permission">Grant Permission</string>
 
@@ -100,7 +100,7 @@
     <string name="renew_popular">Most Popular</string>
     <string name="renew_pay_cta">Continue to Payment</string>
     <string name="renew_polling_title">Confirming Payment…</string>
-    <string name="renew_polling_desc">Checking your PasarGuard subscription for updated traffic and expiry. This usually takes a few seconds.</string>
+    <string name="renew_polling_desc">Checking your Donino Vpn subscription for updated traffic and expiry. This usually takes a few seconds.</string>
     <string name="renew_success_title">Subscription Renewed!</string>
     <string name="renew_success_desc">Your account and server configs have been refreshed automatically.</string>
     <string name="renew_done">Back to Home</string>
@@ -114,6 +114,10 @@
     <string name="settings_lang_fa">فارسی (RTL)</string>
     <string name="settings_lang_en">English</string>
     <string name="settings_theme">Theme</string>
+    <string name="settings_palette">Color palette</string>
+    <string name="settings_palette_ocean">Ocean</string>
+    <string name="settings_palette_jade">Jade</string>
+    <string name="settings_palette_dusk">Copper dusk</string>
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_system">System</string>
@@ -124,7 +128,7 @@
     <string name="settings_core_xray">Xray</string>
     <string name="settings_core_singbox">sing-box</string>
     <string name="settings_sub_format_title">Subscription Format</string>
-    <string name="settings_sub_format_desc">Prefer panel Xray-JSON config when exposed by PasarGuard</string>
+    <string name="settings_sub_format_desc">Prefer panel Xray-JSON config when exposed by Donino Vpn</string>
     <string name="settings_sub_format_xray_json">Prefer Xray JSON</string>
     <string name="settings_sub_format_links_only">Links Only</string>
     <string name="settings_ipv6_title">Enable IPv6 Routing</string>
@@ -191,7 +195,7 @@
     <string name="coach_tip_title">Pro Tip: Smarter Server Selection</string>
     <string name="coach_tip_body">Tap the tune icon in Servers to choose Multi-URL testing, stability scoring, or manual config import.</string>
     <string name="app_lock_title">App Lock (PIN)</string>
-    <string name="app_lock_subtitle">Enter your PIN to access PasarGuard VPN</string>
+    <string name="app_lock_subtitle">Enter your PIN to access Donino Vpn</string>
     <string name="app_lock_pin_hint">PIN (4–8 digits)</string>
     <string name="app_lock_wrong_pin">Incorrect PIN. Try again.</string>
     <string name="app_lock_unlock">Unlock</string>
@@ -272,7 +276,7 @@
     <string name="profiles_refresh_interval">Auto-Refresh Interval</string>
     <string name="profiles_interval_manual">Manual</string>
     <string name="profiles_empty_title">No Saved Profiles</string>
-    <string name="profiles_empty_desc">Tap + to add another PasarGuard subscription profile.</string>
+    <string name="profiles_empty_desc">Tap + to add another Donino Vpn subscription profile.</string>
     <string name="profiles_add">Add Subscription Profile</string>
     <string name="profiles_name_hint">Profile Name</string>
 
@@ -335,7 +339,6 @@
     <string name="settings_backup_restored">Settings restored successfully</string>
     <string name="settings_backup_invalid">Invalid backup JSON file</string>
     <string name="settings_check_updates">Check for Updates</string>
-    <string name="settings_update_url_hint">Update JSON Endpoint URL</string>
     <string name="settings_update_available">New version available: v%1$s</string>
     <string name="settings_update_download">Download Update</string>
     <string name="settings_update_latest">You are on the latest version.</string>
@@ -357,8 +360,8 @@
     <string name="notif_expiry_expired_body">Your VPN subscription has expired. Tap to renew right away.</string>
     <string name="notif_low_traffic_used_body">You have used %1$d%% of your data quota. Tap to add traffic or renew.</string>
     <string name="notif_low_traffic_exhausted_body">Your traffic quota is exhausted. Tap to top up or renew now.</string>
-    <string name="notif_order_approved_title">Subscription Activated!</string>
-    <string name="notif_order_approved_body">%1$s (%2$s) has been approved and synced.</string>
+    <string name="notif_order_approved_title">Payment approved</string>
+    <string name="notif_order_approved_body">%1$s (%2$s) has been approved.</string>
 
     <string name="sub_expired_banner_title">Subscription Expired</string>
     <string name="sub_limited_banner_title">Traffic Quota Reached</string>
@@ -375,9 +378,7 @@
     <string name="sub_manage_devices">Devices (HWID)</string>
     <string name="sub_devices_subtitle">Devices currently using this subscription</string>
     <string name="sub_this_device">This device</string>
-    <string name="sub_request_reset">Reset Traffic</string>
     <string name="sub_request_new_link">New Sub Link</string>
-    <string name="sub_confirm_reset_desc">Request a traffic counter reset from the billing backend?</string>
     <string name="sub_confirm_new_link_desc">Request a fresh subscription token? Your old link will stop working after rotation.</string>
     <string name="sub_contact_support">Contact Support</string>
     <string name="sub_ticket_title">Send Support Ticket</string>
@@ -415,7 +416,7 @@
     <string name="checkout_apply_code">Apply</string>
     <string name="checkout_method_title">Payment Method</string>
     <string name="checkout_method_card">Card-to-Card Transfer</string>
-    <string name="checkout_method_card_desc">Direct Iranian bank transfer with receipt upload</string>
+    <string name="checkout_method_card_desc">Card-to-card transfer with automatic confirmation</string>
     <string name="checkout_method_gateway">Online Bank Gateway</string>
     <string name="checkout_method_crypto">Crypto (USDT / TON)</string>
     <string name="checkout_continue_card">Continue to Card-to-Card</string>
@@ -425,18 +426,18 @@
     <string name="checkout_steps_title">How to Pay</string>
     <string name="checkout_step_1">1. Copy the destination card number and exact amount above.</string>
     <string name="checkout_step_2">2. Complete the transfer via your banking app and verify the holder name.</string>
-    <string name="checkout_step_3">3. Enter your card last 4 digits / tracking number, attach receipt, and submit.</string>
+    <string name="checkout_step_3">3. Wait for automatic confirmation or submit your tracking number for review.</string>
     <string name="checkout_payer_form_title">Transfer Confirmation</string>
     <string name="checkout_payer_last4">Last 4 digits of your card</string>
     <string name="checkout_tracking_number">Tracking / Reference number</string>
     <string name="checkout_upload_receipt">Attach Receipt Screenshot (Optional)</string>
     <string name="checkout_receipt_attached">Receipt compressed &amp; attached</string>
-    <string name="checkout_submit_receipt_cta">Submit Payment Receipt</string>
+    <string name="checkout_submit_receipt_cta">Send payment receipt</string>
     <string name="checkout_pending_heading">Waiting for Confirmation</string>
     <string name="checkout_pending_desc">Order %1$s has been received. Status updates automatically — you may safely leave this screen and track it in Orders.</string>
     <string name="checkout_leave_and_track">Track in Orders History</string>
     <string name="checkout_rejected_heading">Receipt Rejected</string>
-    <string name="checkout_rejected_default">Your receipt could not be verified. Please submit again.</string>
+    <string name="checkout_rejected_default">This order was closed. If you already transferred money, contact support with the order ID before paying again.</string>
     <string name="checkout_retry_receipt">Re-submit Receipt</string>
     <string name="checkout_expired_heading">Payment Window Expired</string>
     <string name="checkout_expired_desc">The 30-minute window for this order elapsed. Start a new order to get a fresh window.</string>
@@ -455,4 +456,91 @@
     <string name="orders_share_invoice">Download / Share Receipt</string>
     <string name="orders_view_receipt">View Receipt in Orders</string>
     <string name="orders_invoice_error">Could not generate receipt image</string>
+    <string name="purchase_new_subscription">Buy a new subscription</string>
+    <string name="purchase_track">Track a purchase</string>
+    <string name="purchase_activate">Activate subscription</string>
+    <string name="purchase_preparing">Preparing your configuration…</string>
+    <string name="purchase_activation_retry">Activation could not finish. Try again from this order.</string>
+    <string name="purchase_unavailable">New subscriptions are currently unavailable. Try again later or track an existing purchase.</string>
+    <string name="checkout_unavailable">This order or plan could not be loaded. Go back and try again.</string>
+    <string name="checkout_remove_receipt">Remove selected photo</string>
+    <string name="checkout_receipt_preparing">Preparing photo…</string>
+    <string name="checkout_receipt_image_saved">Receipt photo received by the payment panel.</string>
+    <string name="checkout_receipt_image_problem">The receipt could not be sent. Try another photo or send it again.</string>
+    <string name="customer_portal">Account and wallet</string>
+    <string name="order_transfer_to_account">Transfer order to account</string>
+    <string name="order_transfer_unavailable">Order transfer is currently unavailable.</string>
+    <string name="update_checking">Checking for an update…</string>
+    <string name="update_downloading">Downloading and verifying…</string>
+    <string name="update_check_failed">Could not check for updates.</string>
+    <string name="update_download_failed">The package could not be downloaded or verified.</string>
+    <string name="update_allow_install">Allow package installation in Android settings, then select Install.</string>
+    <string name="update_install">Install</string>
+    <string name="account_code">Verification code</string>
+    <string name="account_password">Donino Vpn password</string>
+    <string name="account_login">Sign in</string>
+    <string name="account_verify">Verify and sign in</string>
+    <string name="account_signup_reset">Create an account or reset password</string>
+    <string name="account_code_sent">Verification code sent to Gmail.</string>
+    <string name="account_error">The request could not be completed.</string>
+    <string name="account_bad_code">The code is incorrect or expired.</string>
+    <string name="account_bad_login">Check your login details or sign in again.</string>
+    <string name="account_try_later">Too many requests. Try again later.</string>
+    <string name="account_email_unavailable">Email verification is currently unavailable.</string>
+    <string name="account_wallet">Wallet</string>
+    <string name="account_wallet_amount">%1$s toman</string>
+    <string name="account_purchase">Buy or renew subscription</string>
+    <string name="account_logout">Sign out</string>
+    <string name="account_cancel">Cancel subscription</string>
+    <string name="account_cancelled">Subscription cancelled</string>
+    <string name="account_cancelling">Cancelling subscription</string>
+    <string name="account_cancel_confirm">Access will be disabled and the unused time credited to your wallet.</string>
+    <string name="account_wallet_pay">Pay with wallet</string>
+    <string name="account_transfer_success">Order added to your account.</string>
+    <string name="account_refresh">Refresh</string>
+    <string name="update_auto_download">Download updates automatically</string>
+    <string name="renew_payment_approved">Payment approved</string>
+    <string name="renew_applying">Applying changes to your subscription…</string>
+    <string name="refund_renewal_conflict">A renewal prevents cancellation right now.</string>
+    <string name="refund_expired">This subscription has expired.</string>
+    <string name="refund_preview_error">Could not check the refund. Try again.</string>
+    <string name="refund_loading">Checking remaining credit…</string>
+    <string name="refund_estimate">Estimated refund: %1$s toman</string>
+    <string name="refund_after">Estimated wallet after refund: %1$s toman</string>
+    <string name="refund_changed">The quote changed or expired. Check again before confirming.</string>
+    <string name="refund_refresh">Check again</string>
+    <string name="activation_delayed">Activation is taking longer than usual. Keep your order ID for follow-up.</string>
+    <string name="refund_credited">Credited to wallet: %1$s toman</string>
+    <string name="order_last_checked">Last checked at %1$s</string>
+    <string name="order_status_stale">Showing the last known status.</string>
+    <string name="orders_copy_id">Copy order ID</string>
+    <string name="checkout_card_amount_reservation">The exact card transfer amount is shown after placing the order.</string>
+    <string name="nav_connect">Connection</string>
+    <string name="connection_connect">Connect</string>
+    <string name="connection_disconnect">Disconnect</string>
+    <string name="connection_cancel">Cancel connection</string>
+    <string name="connection_retry">Try again</string>
+    <string name="connection_permission_denied">VPN permission is off. Tap Connect to try again.</string>
+    <string name="connection_automatic">Automatic server</string>
+    <string name="server_latency_unknown">Latency unknown</string>
+    <string name="server_country_unknown">Location unknown</string>
+    <string name="server_recent_title">Recently connected</string>
+    <string name="checkout_stage_number">Step %1$s of %2$s</string>
+    <string name="checkout_view_subscription">View subscription</string>
+    <string name="settings_appearance_language">Appearance and language</string>
+    <string name="home_live_throughput">Live download and upload during the last minute</string>
+    <string name="servers_saved_tab">Saved</string>
+    <string name="servers_filters">Filter and sort</string>
+    <string name="servers_tab_empty">No servers in this view</string>
+    <string name="servers_tab_empty_desc">Change the tab or clear your search and filters.</string>
+    <string name="servers_group_closed">%1$s · %2$s  +</string>
+    <string name="servers_group_open">%1$s · %2$s  −</string>
+    <string name="settings_search_groups">Find a settings section</string>
+    <string name="settings_advanced">Advanced options</string>
+    <string name="stats_clear_history">Clear connection history</string>
+    <string name="stats_clear_history_body">All saved session records will be removed.</string>
+    <string name="stats_live_title">Live connection traffic</string>
+    <string name="stats_minutes">%1$s min</string>
+    <string name="stats_today">Today</string>
+    <string name="stats_days">%1$s days</string>
 </resources>

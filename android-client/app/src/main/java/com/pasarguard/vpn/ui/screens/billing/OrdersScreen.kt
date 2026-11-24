@@ -1,5 +1,6 @@
 package com.pasarguard.vpn.ui.screens.billing
 
+import com.pasarguard.vpn.ui.components.PasarSheetHandle
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -41,6 +43,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,15 +56,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.pasarguard.vpn.data.api.CustomerApi
 import com.pasarguard.vpn.R
 import com.pasarguard.vpn.domain.model.AppLanguage
 import com.pasarguard.vpn.domain.model.OrderStatus
+import com.pasarguard.vpn.domain.model.PaymentMethodType
 import com.pasarguard.vpn.domain.model.PaymentOrder
 import com.pasarguard.vpn.domain.repository.PaymentRepository
 import com.pasarguard.vpn.domain.repository.SettingsRepository
@@ -91,9 +97,15 @@ data class OrdersUiState(
 
 @HiltViewModel
 class OrdersViewModel @Inject constructor(
-    paymentRepository: PaymentRepository,
+    private val paymentRepository: PaymentRepository,
+    private val customer: CustomerApi,
     settingsRepository: SettingsRepository
 ) : ViewModel() {
+
+    suspend fun refresh(id: String) = paymentRepository.refreshOrderStatus(id)
+
+    val signedIn: Boolean get() = customer.signedIn
+    suspend fun transfer(orderId: String) = customer.transfer(orderId)
 
     val uiState: StateFlow<OrdersUiState> = combine(
         paymentRepository.observeOrders(),
@@ -106,6 +118,7 @@ class OrdersViewModel @Inject constructor(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrdersScreen(
+    onOpenAccount: () -> Unit,
     onBack: () -> Unit,
     onOpenPlans: () -> Unit,
     onResumeOrder: (String) -> Unit,
@@ -231,7 +244,58 @@ fun OrdersScreen(
     }
 
     selectedOrder?.let { order ->
-        ModalBottomSheet(onDismissRequest = { selectedOrder = null }) {
+        var updatedAt by remember(order.id) { mutableStateOf<Long?>(null) }
+        var stale by remember(order.id) { mutableStateOf(false) }
+        LaunchedEffect(order.id) {
+            do {
+                val latest = viewModel.refresh(order.id).getOrNull()
+                stale = latest == null
+                if (latest != null) {
+                    selectedOrder = latest
+                    updatedAt = System.currentTimeMillis()
+                }
+                val current = latest ?: selectedOrder ?: break
+                if (latest != null && current.status.isTerminal &&
+                    current.activationStatus != "PENDING") break
+                kotlinx.coroutines.delay(8_000)
+            } while (true)
+        }
+        ModalBottomSheet(dragHandle = { PasarSheetHandle() },onDismissRequest = { selectedOrder = null }) {
+            if (order.newSubscription && order.activationStatus == "READY") {
+                var transferring by remember(order.id) { mutableStateOf(false) }
+                OutlinedButton(
+                    onClick = {
+                        if (!viewModel.signedIn) {
+                            onOpenAccount()
+                            return@OutlinedButton
+                        }
+                        transferring = true
+                        scope.launch {
+                            try {
+                                viewModel.transfer(order.id)
+                                Toast.makeText(context, R.string.account_transfer_success, Toast.LENGTH_SHORT).show()
+                                selectedOrder = null
+                                onOpenAccount()
+                            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                throw cancelled
+                            } catch (_: Exception) {
+                                Toast.makeText(context, R.string.order_transfer_unavailable, Toast.LENGTH_SHORT).show()
+                            } finally {
+                                transferring = false
+                            }
+                        }
+                    },
+                    enabled = !transferring,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md)
+                ) { Text(stringResource(R.string.order_transfer_to_account)) }
+            }
+            updatedAt?.let {
+                Text(
+                    stringResource(R.string.order_last_checked, java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT, locale).format(java.util.Date(it))),
+                    modifier = Modifier.padding(horizontal = Spacing.md)
+                )
+            }
+            if (stale) Text(stringResource(R.string.order_status_stale), modifier = Modifier.padding(horizontal = Spacing.md))
             OrderDetailSheetContent(
                 order = order,
                 isPersian = isPersian,
@@ -339,11 +403,11 @@ private fun OrderDetailSheetContent(
     onShareInvoice: () -> Unit
 ) {
     val colors = PasarGuardTheme.colors
-    val timeline = remember(order) { order.buildTimeline() }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = Spacing.md, vertical = Spacing.sm)
             .padding(bottom = Spacing.xl),
         verticalArrangement = Arrangement.spacedBy(Spacing.sm)
@@ -362,7 +426,7 @@ private fun OrderDetailSheetContent(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = order.id,
-                        style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace),
+                        style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace, textDirection = TextDirection.Ltr),
                         color = colors.textSecondary
                     )
                     IconButton(onClick = onCopyOrderId, modifier = Modifier.size(28.dp)) {
@@ -398,7 +462,7 @@ private fun OrderDetailSheetContent(
                     Text(stringResource(R.string.checkout_tracking_number), style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
                     Text(
                         Formatters.toPersianDigitsIfNeeded(order.trackingNumber, persianDigits),
-                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, textDirection = TextDirection.Ltr),
                         color = colors.textPrimary
                     )
                 }
@@ -411,31 +475,19 @@ private fun OrderDetailSheetContent(
             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
             color = colors.textPrimary
         )
-        timeline.forEach { ev ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Icon(
-                    imageVector = if (ev.completed) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
-                    contentDescription = null,
-                    tint = if (ev.completed) colors.statusConnected else colors.statusWarning,
-                    modifier = Modifier.size(18.dp)
-                )
-                Text(
-                    text = if (isPersian) ev.titleFa else ev.titleEn,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.textPrimary
-                )
-            }
-        }
+        OrderProgressTimeline(order, isPersian)
 
         HorizontalDivider(color = colors.glassBorder)
 
-        if (!order.status.isTerminal) {
+        val canAddSubscription = order.newSubscription && order.activationStatus == "READY"
+        val canAttachReceipt = order.status == OrderStatus.APPROVED && !order.hasReceiptImage &&
+            order.paymentMethod == PaymentMethodType.CARD_TO_CARD
+        if (!order.status.isTerminal || canAddSubscription || canAttachReceipt) {
             GradientButton(
-                text = if (order.status == OrderStatus.REJECTED) {
-                    stringResource(R.string.checkout_retry_receipt)
+                text = if (canAddSubscription) {
+                    stringResource(R.string.purchase_activate)
+                } else if (canAttachReceipt) {
+                    stringResource(R.string.checkout_upload_receipt)
                 } else {
                     stringResource(R.string.plans_resume_cta)
                 },
@@ -476,5 +528,46 @@ private fun OrderStatusChip(status: OrderStatus) {
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
             color = tint
         )
+    }
+}
+
+
+@Composable
+internal fun OrderProgressTimeline(order: PaymentOrder, isPersian: Boolean) {
+    val colors = PasarGuardTheme.colors
+    val calendar = LocalCalendarSystem.current
+    val digits = LocalPersianDigits.current
+    val locale = if (isPersian) Locale("fa") else Locale.US
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        order.buildTimeline().forEach { ev ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Icon(
+                    imageVector = if (ev.completed) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                    contentDescription = null,
+                    tint = if (ev.completed) colors.statusConnected else colors.statusWarning,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = (if (isPersian) ev.titleFa else ev.titleEn) +
+                        (ev.timestampMs?.let {
+                            val date = Formatters.formatEpochDate(it / 1000L, locale, calendar, digits)
+                            val time = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT, locale)
+                                .format(java.util.Date(it))
+                            " · $date $time"
+                        } ?: ""),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textPrimary
+                )
+            }
+        }
+
+
+        if (order.activationStatus == "PENDING" &&
+            System.currentTimeMillis() - (order.reviewedAtMs ?: order.createdAtMs) >= 300_000) {
+            Text(stringResource(R.string.activation_delayed), color = colors.statusWarning)
+        }
     }
 }

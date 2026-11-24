@@ -1,6 +1,5 @@
 package com.pasarguard.vpn.ui.theme
 
-import android.content.Context
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -25,8 +24,10 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pasarguard.vpn.BrandConfig
+import com.pasarguard.vpn.R
 import com.pasarguard.vpn.domain.model.AppLanguage
 import com.pasarguard.vpn.domain.model.CalendarSystem
+import com.pasarguard.vpn.domain.model.ThemePalette
 import com.pasarguard.vpn.domain.model.ThemeMode
 
 /**
@@ -50,6 +51,7 @@ data class PasarGuardExtendedColors(
     val glassBorderBottom: Color,
     val heroStart: Color,
     val heroEnd: Color,
+    val heroFillEnd: Color,
     val statusConnected: Color,
     val statusWarning: Color,
     val statusDanger: Color,
@@ -69,6 +71,7 @@ private val DarkExtendedColors = PasarGuardExtendedColors(
     glassBorderBottom = BrandConfig.darkGlassBorderBottom,
     heroStart = BrandConfig.accentPrimary,
     heroEnd = BrandConfig.accentSecondary,
+    heroFillEnd = BrandConfig.accentSky,
     statusConnected = BrandConfig.statusConnected,
     statusWarning = BrandConfig.statusWarning,
     statusDanger = BrandConfig.statusDanger,
@@ -86,6 +89,7 @@ private val LightExtendedColors = PasarGuardExtendedColors(
     glassBorderBottom = BrandConfig.lightGlassBorderBottom,
     heroStart = BrandConfig.accentPrimary,
     heroEnd = BrandConfig.accentSky,
+    heroFillEnd = BrandConfig.accentSky,
     statusConnected = Color(0xFF059669),
     statusWarning = Color(0xFFD97706),
     statusDanger = Color(0xFFE11D48),
@@ -135,22 +139,17 @@ private val LightColorScheme = lightColorScheme(
     outline = Color(0x240F172A)
 )
 
-private fun resolveBrandFontFamily(context: Context, language: AppLanguage): FontFamily {
-    val prefix = if (language == AppLanguage.PERSIAN) "vazirmatn" else "inter"
-    val regularId = context.resources.getIdentifier("${prefix}_regular", "font", context.packageName)
-    val mediumId = context.resources.getIdentifier("${prefix}_medium", "font", context.packageName)
-    val semiBoldId = context.resources.getIdentifier("${prefix}_semibold", "font", context.packageName)
-    val boldId = context.resources.getIdentifier("${prefix}_bold", "font", context.packageName)
-
-    if (regularId == 0) return FontFamily.SansSerif
-    val fonts = buildList {
-        add(Font(regularId, FontWeight.Normal))
-        if (mediumId != 0) add(Font(mediumId, FontWeight.Medium))
-        if (semiBoldId != 0) add(Font(semiBoldId, FontWeight.SemiBold))
-        if (boldId != 0) add(Font(boldId, FontWeight.Bold))
+private fun resolveBrandFontFamily(language: AppLanguage): FontFamily =
+    if (language == AppLanguage.PERSIAN) {
+        FontFamily(
+            Font(R.font.vazirmatn_regular, FontWeight.Normal),
+            Font(R.font.vazirmatn_medium, FontWeight.Medium),
+            Font(R.font.vazirmatn_semibold, FontWeight.SemiBold),
+            Font(R.font.vazirmatn_bold, FontWeight.Bold)
+        )
+    } else {
+        FontFamily(Font(R.font.inter_regular, FontWeight.Normal))
     }
-    return FontFamily(fonts)
-}
 
 private fun buildTypography(fontFamily: FontFamily): Typography = Typography(
     displaySmall = TextStyle(
@@ -206,6 +205,7 @@ private fun buildTypography(fontFamily: FontFamily): Typography = Typography(
 @Composable
 fun PasarGuardVpnTheme(
     themeMode: ThemeMode = ThemeMode.DARK,
+    themePalette: ThemePalette = ThemePalette.OCEAN,
     language: AppLanguage = AppLanguage.PERSIAN,
     dynamicColorEnabled: Boolean = false,
     persianDigitsEnabled: Boolean = true,
@@ -220,26 +220,49 @@ fun PasarGuardVpnTheme(
     }
 
     val context = LocalContext.current
-    val fontFamily = remember(language) { resolveBrandFontFamily(context, language) }
+    val fontFamily = remember(language) { resolveBrandFontFamily(language) }
     val typography = remember(fontFamily) { buildTypography(fontFamily) }
 
     val useDynamic = dynamicColorEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val palette = themePalette.tokens(useDark)
     val colorScheme = when {
         useDynamic && useDark -> dynamicDarkColorScheme(context)
         useDynamic && !useDark -> dynamicLightColorScheme(context)
-        useDark -> DarkColorScheme
-        else -> LightColorScheme
+        else -> (if (useDark) DarkColorScheme else LightColorScheme).copy(
+            primary = palette.accent,
+            onPrimary = palette.onAccent,
+            primaryContainer = palette.container,
+            onPrimaryContainer = palette.onContainer,
+            secondary = palette.accent,
+            onSecondary = palette.onAccent,
+            background = palette.canvas,
+            surface = palette.surface,
+            surfaceVariant = palette.container,
+            surfaceContainer = palette.surface,
+            surfaceContainerHigh = palette.container,
+            surfaceTint = palette.accent
+        )
     }
 
     val baseExtended = if (useDark) DarkExtendedColors else LightExtendedColors
     val extendedColors = if (useDynamic) {
         baseExtended.copy(
-            heroStart = colorScheme.secondary,
+            heroStart = if (useDark) colorScheme.primaryContainer else colorScheme.secondary,
             heroEnd = colorScheme.primary,
+            heroFillEnd = if (useDark) colorScheme.secondaryContainer else colorScheme.primary,
             backgroundCanvas = if (useDark) colorScheme.background else baseExtended.backgroundCanvas
         )
     } else {
-        baseExtended
+        baseExtended.copy(
+            backgroundCanvas = palette.canvas,
+            glassSurface = palette.surface,
+            glassBorderTop = palette.accent.copy(alpha = if (useDark) 0.26f else 0.22f),
+            glassBorderBottom = palette.accent.copy(alpha = if (useDark) 0.09f else 0.12f),
+            heroStart = palette.gradientStart,
+            heroEnd = palette.accent,
+            heroFillEnd = palette.gradientEnd,
+            textMuted = baseExtended.textSecondary
+        )
     }
 
     val layoutDirection = if (language == AppLanguage.PERSIAN) LayoutDirection.Rtl else LayoutDirection.Ltr

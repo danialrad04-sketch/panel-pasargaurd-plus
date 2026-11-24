@@ -78,7 +78,8 @@ data class PlansCatalogConfig(
 enum class PaymentMethodType {
     CARD_TO_CARD,
     ONLINE_GATEWAY,
-    CRYPTO
+    CRYPTO,
+    WALLET
 }
 
 data class DiscountValidationResult(
@@ -99,17 +100,17 @@ enum class OrderStatus {
     EXPIRED;
 
     val isTerminal: Boolean
-        get() = this == APPROVED || this == EXPIRED
+        get() = this == APPROVED || this == REJECTED || this == EXPIRED
 
     val canSubmitReceipt: Boolean
-        get() = this == AWAITING_RECEIPT || this == REJECTED
+        get() = this == AWAITING_RECEIPT
 }
 
 @Serializable
 data class OrderTimelineEvent(
     val titleFa: String,
     val titleEn: String,
-    val timestampMs: Long,
+    val timestampMs: Long?,
     val completed: Boolean = true
 )
 
@@ -139,7 +140,11 @@ data class PaymentOrder(
     val createdAtMs: Long,
     val expiresAtMs: Long,
     val submittedAtMs: Long? = null,
-    val reviewedAtMs: Long? = null
+    val reviewedAtMs: Long? = null,
+    val newSubscription: Boolean = false,
+    val activationStatus: String? = null,
+    val hasReceiptImage: Boolean = false,
+    val activationReadyAtMs: Long? = null
 ) {
     fun remainingPaymentWindowMs(nowMs: Long = System.currentTimeMillis()): Long =
         max(0L, expiresAtMs - nowMs)
@@ -166,15 +171,15 @@ data class PaymentOrder(
         }
         when (status) {
             OrderStatus.APPROVED -> events += OrderTimelineEvent(
-                titleFa = "تأیید پرداخت و فعال‌سازی خودکار اشتراک",
-                titleEn = "Payment approved & subscription activated",
-                timestampMs = reviewedAtMs ?: System.currentTimeMillis(),
+                titleFa = "تأیید پرداخت",
+                titleEn = "Payment approved",
+                timestampMs = reviewedAtMs,
                 completed = true
             )
             OrderStatus.REJECTED -> events += OrderTimelineEvent(
-                titleFa = "رد رسید توسط پشتیبانی (قابل ارسال مجدد)",
-                titleEn = "Receipt rejected (retry available)",
-                timestampMs = reviewedAtMs ?: System.currentTimeMillis(),
+                titleFa = "پرداخت تأیید نشد",
+                titleEn = "Payment was not approved",
+                timestampMs = reviewedAtMs,
                 completed = true
             )
             OrderStatus.EXPIRED -> events += OrderTimelineEvent(
@@ -196,8 +201,51 @@ data class PaymentOrder(
                 completed = false
             )
         }
-        return events
+        if (activationStatus == "READY" || activationStatus == "PENDING") {
+            val ready = activationStatus == "READY"
+            events += OrderTimelineEvent(
+                titleFa = when {
+                    ready && newSubscription -> "اشتراک آماده است"
+                    ready -> "تمدید اعمال شد"
+                    newSubscription -> "در انتظار ساخت اشتراک"
+                    else -> "در انتظار اعمال تمدید"
+                },
+                titleEn = when {
+                    ready && newSubscription -> "Subscription ready"
+                    ready -> "Renewal applied"
+                    newSubscription -> "Preparing subscription"
+                    else -> "Applying renewal"
+                },
+                timestampMs = activationReadyAtMs,
+                completed = ready
+            )
+        }
+        return events.sortedBy { it.timestampMs ?: Long.MAX_VALUE }
     }
+}
+
+/**
+ * A list response can arrive after a newer detail response. Reconciliation can
+ * advance an expired order to approved, while approved fulfillment cannot regress.
+ */
+internal fun newestPaymentStatus(previous: PaymentOrder?, incoming: PaymentOrder): PaymentOrder {
+    if (previous == null) return incoming
+    val previousRank = previous.status.confirmationRank()
+    val incomingRank = incoming.status.confirmationRank()
+    return when {
+        previousRank > incomingRank -> previous
+        previous.status == OrderStatus.REJECTED && incoming.status == OrderStatus.EXPIRED -> previous
+        previous.activationStatus == "READY" && incoming.activationStatus != "READY" -> previous
+        previous.hasReceiptImage && !incoming.hasReceiptImage -> incoming.copy(hasReceiptImage = true)
+        else -> incoming
+    }
+}
+
+private fun OrderStatus.confirmationRank(): Int = when (this) {
+    OrderStatus.AWAITING_RECEIPT -> 0
+    OrderStatus.PENDING_REVIEW -> 1
+    OrderStatus.EXPIRED, OrderStatus.REJECTED -> 2
+    OrderStatus.APPROVED -> 3
 }
 
 /**
@@ -206,10 +254,10 @@ data class PaymentOrder(
 object OrderStateMachine {
 
     fun canTransition(from: OrderStatus, to: OrderStatus): Boolean = when (from) {
-        OrderStatus.AWAITING_RECEIPT -> to == OrderStatus.PENDING_REVIEW || to == OrderStatus.EXPIRED
-        OrderStatus.PENDING_REVIEW -> to == OrderStatus.APPROVED || to == OrderStatus.REJECTED || to == OrderStatus.EXPIRED
-        OrderStatus.REJECTED -> to == OrderStatus.PENDING_REVIEW || to == OrderStatus.EXPIRED
-        OrderStatus.APPROVED, OrderStatus.EXPIRED -> false
+        OrderStatus.AWAITING_RECEIPT -> to != OrderStatus.AWAITING_RECEIPT
+        OrderStatus.PENDING_REVIEW -> to == OrderStatus.APPROVED || to == OrderStatus.REJECTED
+        OrderStatus.EXPIRED -> to == OrderStatus.APPROVED
+        OrderStatus.APPROVED, OrderStatus.REJECTED -> false
     }
 
     fun evaluateEffectiveStatus(order: PaymentOrder, nowMs: Long = System.currentTimeMillis()): OrderStatus {

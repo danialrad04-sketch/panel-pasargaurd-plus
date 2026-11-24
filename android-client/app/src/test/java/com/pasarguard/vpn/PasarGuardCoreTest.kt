@@ -2,6 +2,8 @@ package com.pasarguard.vpn
 
 import com.pasarguard.vpn.data.api.dto.PasarGuardSubInfoDto
 import com.pasarguard.vpn.data.parser.ProxyLinkParser
+import com.pasarguard.vpn.domain.model.OrderStatus
+import com.pasarguard.vpn.domain.model.newestPaymentStatus
 import com.pasarguard.vpn.domain.model.CorePreference
 import com.pasarguard.vpn.domain.model.ProtocolConfig
 import com.pasarguard.vpn.domain.model.ProxyProtocol
@@ -435,7 +437,8 @@ class PasarGuardCoreTest {
         val sm = com.pasarguard.vpn.domain.model.OrderStateMachine
         assertTrue(sm.canTransition(com.pasarguard.vpn.domain.model.OrderStatus.AWAITING_RECEIPT, com.pasarguard.vpn.domain.model.OrderStatus.PENDING_REVIEW))
         assertTrue(sm.canTransition(com.pasarguard.vpn.domain.model.OrderStatus.PENDING_REVIEW, com.pasarguard.vpn.domain.model.OrderStatus.APPROVED))
-        assertTrue(sm.canTransition(com.pasarguard.vpn.domain.model.OrderStatus.REJECTED, com.pasarguard.vpn.domain.model.OrderStatus.PENDING_REVIEW))
+        assertTrue(!sm.canTransition(OrderStatus.REJECTED, OrderStatus.PENDING_REVIEW))
+        assertTrue(sm.canTransition(OrderStatus.EXPIRED, OrderStatus.APPROVED))
         assertTrue(!sm.canTransition(com.pasarguard.vpn.domain.model.OrderStatus.APPROVED, com.pasarguard.vpn.domain.model.OrderStatus.REJECTED))
         assertTrue(!sm.canTransition(com.pasarguard.vpn.domain.model.OrderStatus.EXPIRED, com.pasarguard.vpn.domain.model.OrderStatus.PENDING_REVIEW))
 
@@ -467,6 +470,12 @@ class PasarGuardCoreTest {
             com.pasarguard.vpn.domain.model.OrderStatus.EXPIRED,
             sm.evaluateEffectiveStatus(order, nowMs = 1_900_000L)
         )
+        val approved = order.copy(status = OrderStatus.APPROVED, activationStatus = "READY")
+        val stale = approved.copy(activationStatus = "PENDING")
+        assertEquals(approved, newestPaymentStatus(approved, stale))
+        assertEquals(approved, newestPaymentStatus(order.copy(status = OrderStatus.EXPIRED), approved))
+        val rejected = order.copy(status = OrderStatus.REJECTED)
+        assertEquals(rejected, newestPaymentStatus(rejected, order.copy(status = OrderStatus.PENDING_REVIEW)))
         assertTrue(sm.nextPollDelayMs(0) < sm.nextPollDelayMs(3))
         assertTrue(sm.nextPollDelayMs(99) == 20_000L)
     }

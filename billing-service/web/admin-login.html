@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>ورود مدیر | پاسارگارد پلاس</title>
+  <link rel="preload" href="/assets/fonts/vazirmatn.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/admin/dashboard.css">
+  <link rel="stylesheet" href="/admin/utilities.css">
+  <script src="/admin/login.js" defer></script>
+</head>
+<body class="login-page">
+  <main class="login-layout">
+    <section class="login-panel bg-surface">
+      <div class="brand login-brand">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span><strong>پاسارگارد پلاس</strong><small>مدیریت پرداخت</small></span>
+      </div>
+      <div class="login-content">
+        <h1>ورود به پنل مدیریت</h1>
+        <p class="text-muted">با حساب مدیر پرداخت وارد شوید.</p>
+        <form method="post" action="/admin/login" class="login-form grid gap-4">
+          <!-- login-error -->
+          <label class="field" for="login-username">نام کاربری
+            <input id="login-username" name="username" type="text" dir="ltr" required autocomplete="username" maxlength="128" autocapitalize="none" spellcheck="false">
+          </label>
+          <div class="field">
+            <label for="login-password">رمز عبور</label>
+            <div class="password-field">
+              <input id="login-password" name="password" type="password" dir="ltr" required autocomplete="current-password" maxlength="4096">
+              <button type="button" id="reveal-password" class="button text-button" aria-label="نمایش رمز عبور" aria-controls="login-password" aria-pressed="false" hidden>نمایش رمز</button>
+            </div>
+          </div>
+          <button class="button primary login-submit" type="submit">ورود به پنل <span aria-hidden="true">←</span></button>
+        </form>
+      </div>
+      <footer class="login-footer"><a href="/" class="text-primary">بازگشت به صفحهٔ پرداخت <span aria-hidden="true">↗</span></a></footer>
+    </section>
+    <div class="login-visual" aria-hidden="true">
+      <div class="login-illustration">
+        <div class="orbit orbit-outer"></div>
+        <div class="orbit orbit-inner"></div>
+        <div class="ledger-card">
+          <div class="ledger-heading"><span></span><span></span></div>
+          <div class="ledger-row"><span></span><i></i><b></b></div>
+          <div class="ledger-row"><span></span><i></i><b></b></div>
+          <div class="ledger-row"><span></span><i></i><b></b></div>
+          <div class="ledger-row"><span></span><i></i><b></b></div>
+        </div>
+        <div class="ledger-check">✓</div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

@@ -87,16 +87,16 @@ fun DeepSpaceBackground(
             .fillMaxSize()
             .background(colors.backgroundCanvas)
             .drawBehind {
-                val alphaTop = if (colors.isDark) 0.18f else 0.08f
-                val alphaBottom = if (colors.isDark) 0.14f else 0.06f
+                val alphaTop = if (colors.isDark) 0.15f else 0.07f
+                val alphaBottom = if (colors.isDark) 0.10f else 0.045f
                 drawCircle(
                     brush = Brush.radialGradient(
                         colors = listOf(animatedGlow.copy(alpha = alphaTop), Color.Transparent),
-                        center = Offset(size.width * 0.5f, size.height * 0.12f),
+                        center = Offset(size.width * 0.75f, size.height * 0.06f),
                         radius = size.width * 0.85f
                     ),
                     radius = size.width * 0.85f,
-                    center = Offset(size.width * 0.5f, size.height * 0.12f)
+                    center = Offset(size.width * 0.75f, size.height * 0.06f)
                 )
                 drawCircle(
                     brush = Brush.radialGradient(
@@ -131,7 +131,11 @@ fun GlassCard(
 
     val cardModifier = modifier
         .clip(shape)
-        .background(colors.glassSurface, shape)
+        .background(colors.glassSurface.copy(alpha = if (colors.isDark) 0.92f else 0.93f), shape)
+        .background(
+            Brush.verticalGradient(listOf(colors.heroEnd.copy(alpha = if (colors.isDark) 0.09f else 0.055f), Color.Transparent)),
+            shape
+        )
         .border(BorderStroke(1.dp, borderBrush), shape)
         .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
         .padding(contentPadding)
@@ -158,7 +162,7 @@ fun GradientButton(
     )
     val shape = RoundedCornerShape(18.dp)
     val brush = Brush.horizontalGradient(
-        if (enabled) listOf(colors.heroStart, colors.heroEnd)
+        if (enabled) listOf(colors.heroStart, colors.heroFillEnd)
         else listOf(colors.textMuted.copy(alpha = 0.35f), colors.textMuted.copy(alpha = 0.35f))
     )
 
@@ -278,7 +282,7 @@ fun ConnectHeroButton(
     val startColor by animateColorAsState(
         targetValue = when (status) {
             ConnectionStatus.CONNECTED -> colors.statusConnected
-            ConnectionStatus.CONNECTING, ConnectionStatus.DISCONNECTING -> colors.heroEnd
+            ConnectionStatus.CONNECTING, ConnectionStatus.DISCONNECTING -> colors.heroFillEnd
             ConnectionStatus.ERROR -> colors.statusDanger
             ConnectionStatus.DISCONNECTED -> colors.heroStart
         },
@@ -290,7 +294,7 @@ fun ConnectHeroButton(
             ConnectionStatus.CONNECTED -> Color(0xFF059669)
             ConnectionStatus.CONNECTING, ConnectionStatus.DISCONNECTING -> colors.heroStart
             ConnectionStatus.ERROR -> Color(0xFFBE123C)
-            ConnectionStatus.DISCONNECTED -> colors.heroEnd
+            ConnectionStatus.DISCONNECTED -> colors.heroFillEnd
         },
         animationSpec = tween(450),
         label = "connectEnd"

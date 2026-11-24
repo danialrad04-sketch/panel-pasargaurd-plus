@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">پاسارگارد VPN</string>
+    <string name="app_name">Donino Vpn</string>
 
     <!-- Navigation -->
     <string name="nav_home">خانه</string>
@@ -17,11 +17,11 @@
     <string name="onboarding_title_2">انتخاب هوشمند کمترین پینگ</string>
     <string name="onboarding_desc_2">تست خودکار تأخیر سرورها و اتصال به سریع‌ترین لوکیشن تنها با یک لمس.</string>
     <string name="onboarding_title_3">همگام‌سازی خودکار و تمدید آنی</string>
-    <string name="onboarding_desc_3">اشتراک پاسارگارد شما به‌صورت خودکار به‌روز می‌ماند و در هر لحظه قابل تمدید است.</string>
+    <string name="onboarding_desc_3">اشتراک دونینو شما به‌صورت خودکار به‌روز می‌ماند و در هر لحظه قابل تمدید است.</string>
 
     <!-- Login -->
     <string name="login_title">فعالسازی اشتراک</string>
-    <string name="login_subtitle">لینک اشتراک پاسارگارد خود را وارد کنید یا کد QR آن را اسکن نمایید.</string>
+    <string name="login_subtitle">لینک اشتراک دونینو خود را وارد کنید یا کد QR آن را اسکن نمایید.</string>
     <string name="login_input_label">لینک اشتراک یا توکن</string>
     <string name="login_input_placeholder">https://panel.example.com/sub/...</string>
     <string name="login_paste">جای‌گذاری</string>
@@ -31,7 +31,7 @@
     <string name="login_error_empty">لطفاً لینک اشتراک یا توکن را وارد کنید.</string>
     <string name="login_error_invalid">اعتبارسنجی اشتراک ناموفق بود. لینک و اتصال اینترنت را بررسی کنید.</string>
     <string name="qr_scanner_title">اسکن کد QR اشتراک</string>
-    <string name="qr_scanner_hint">دوربین را روی کد QR اشتراک پاسارگارد بگیرید</string>
+    <string name="qr_scanner_hint">دوربین را روی کد QR اشتراک دونینو بگیرید</string>
     <string name="qr_camera_permission">برای اسکن کد QR نیاز به دسترسی دوربین است.</string>
     <string name="grant_permission">اعطای دسترسی</string>
 
@@ -100,7 +100,7 @@
     <string name="renew_popular">محبوب‌ترین</string>
     <string name="renew_pay_cta">ادامه و پرداخت</string>
     <string name="renew_polling_title">در حال تأیید پرداخت…</string>
-    <string name="renew_polling_desc">در حال بررسی اشتراک پاسارگارد برای اعمال زمان و حجم جدید. لطفاً چند لحظه صبر کنید.</string>
+    <string name="renew_polling_desc">در حال بررسی اشتراک دونینو برای اعمال زمان و حجم جدید. لطفاً چند لحظه صبر کنید.</string>
     <string name="renew_success_title">اشتراک با موفقیت تمدید شد!</string>
     <string name="renew_success_desc">اطلاعات حساب و لیست سرورها به‌صورت خودکار بروزرسانی شد.</string>
     <string name="renew_done">بازگشت به خانه</string>
@@ -114,6 +114,10 @@
     <string name="settings_lang_fa">فارسی (راست‌به‌چپ)</string>
     <string name="settings_lang_en">English</string>
     <string name="settings_theme">پوسته (تم)</string>
+    <string name="settings_palette">پالت رنگ</string>
+    <string name="settings_palette_ocean">اقیانوس</string>
+    <string name="settings_palette_jade">یشمی</string>
+    <string name="settings_palette_dusk">غروب مسی</string>
     <string name="settings_theme_dark">تیره</string>
     <string name="settings_theme_light">روشن</string>
     <string name="settings_theme_system">سیستم</string>
@@ -124,7 +128,7 @@
     <string name="settings_core_xray">Xray</string>
     <string name="settings_core_singbox">sing-box</string>
     <string name="settings_sub_format_title">فرمت دریافت اشتراک</string>
-    <string name="settings_sub_format_desc">در صورت پشتیبانی پنل پاسارگارد، کانفیگ کامل Xray-JSON را ترجیح می‌دهد</string>
+    <string name="settings_sub_format_desc">در صورت پشتیبانی پنل دونینو، کانفیگ کامل Xray-JSON را ترجیح می‌دهد</string>
     <string name="settings_sub_format_xray_json">اولویت با Xray JSON</string>
     <string name="settings_sub_format_links_only">فقط لینک‌ها</string>
     <string name="settings_ipv6_title">فعال‌سازی مسیریابی IPv6</string>
@@ -272,7 +276,7 @@
     <string name="profiles_refresh_interval">بازه بروزرسانی خودکار</string>
     <string name="profiles_interval_manual">دستی</string>
     <string name="profiles_empty_title">پروفایلی ذخیره نشده</string>
-    <string name="profiles_empty_desc">برای افزودن اشتراک پاسارگارد دیگر دکمه + را بزنید.</string>
+    <string name="profiles_empty_desc">برای افزودن اشتراک دونینو دیگر دکمه + را بزنید.</string>
     <string name="profiles_add">افزودن پروفایل اشتراک</string>
     <string name="profiles_name_hint">نام پروفایل</string>
 
@@ -335,7 +339,6 @@
     <string name="settings_backup_restored">تنظیمات با موفقیت بازیابی شد</string>
     <string name="settings_backup_invalid">فایل پشتیبان نامعتبر است</string>
     <string name="settings_check_updates">بررسی بروزرسانی</string>
-    <string name="settings_update_url_hint">آدرس JSON بررسی نسخه جدید</string>
     <string name="settings_update_available">نسخه جدید در دسترس است: v%1$s</string>
     <string name="settings_update_download">دانلود نسخه جدید</string>
     <string name="settings_update_latest">شما از آخرین نسخه استفاده می‌کنید.</string>
@@ -357,8 +360,8 @@
     <string name="notif_expiry_expired_body">اعتبار اشتراک VPN شما به پایان رسیده است. برای تمدید لمس کنید.</string>
     <string name="notif_low_traffic_used_body">%1$d٪ از حجم اشتراک شما مصرف شده است. برای افزایش حجم یا تمدید لمس کنید.</string>
     <string name="notif_low_traffic_exhausted_body">حجم اشتراک شما تمام شده است. برای خرید بسته اضافه یا تمدید لمس کنید.</string>
-    <string name="notif_order_approved_title">اشتراک با موفقیت فعال شد!</string>
-    <string name="notif_order_approved_body">سفارش %1$s (%2$s) تأیید و همگام‌سازی شد.</string>
+    <string name="notif_order_approved_title">پرداخت تأیید شد</string>
+    <string name="notif_order_approved_body">سفارش %1$s (%2$s) تأیید شد.</string>
 
     <string name="sub_expired_banner_title">اشتراک منقضی شده است</string>
     <string name="sub_limited_banner_title">حجم اشتراک به پایان رسیده است</string>
@@ -375,9 +378,7 @@
     <string name="sub_manage_devices">دستگاه‌ها (HWID)</string>
     <string name="sub_devices_subtitle">دستگاه‌های متصل به این اشتراک</string>
     <string name="sub_this_device">این دستگاه</string>
-    <string name="sub_request_reset">ریست ترافیک</string>
     <string name="sub_request_new_link">لینک اشتراک جدید</string>
-    <string name="sub_confirm_reset_desc">آیا درخواست ریست شمارنده مصرف ترافیک به سرور ارسال شود؟</string>
     <string name="sub_confirm_new_link_desc">آیا درخواست صدور لینک اشتراک جدید ثبت شود؟ پس از تعویض، لینک قبلی غیرفعال می‌شود.</string>
     <string name="sub_contact_support">ارتباط با پشتیبانی</string>
     <string name="sub_ticket_title">ارسال تیکت پشتیبانی</string>
@@ -415,7 +416,7 @@
     <string name="checkout_apply_code">اعمال</string>
     <string name="checkout_method_title">روش پرداخت</string>
     <string name="checkout_method_card">کارت‌به‌کارت</string>
-    <string name="checkout_method_card_desc">انتقال وجه مستقیم بانکی و ثبت رسید</string>
+    <string name="checkout_method_card_desc">انتقال کارت‌به‌کارت با تأیید خودکار</string>
     <string name="checkout_method_gateway">درگاه پرداخت آنلاین</string>
     <string name="checkout_method_crypto">پرداخت ارزی (USDT / TON)</string>
     <string name="checkout_continue_card">ادامه و نمایش شماره کارت</string>
@@ -425,18 +426,18 @@
     <string name="checkout_steps_title">راهنمای گام‌به‌گام پرداخت</string>
     <string name="checkout_step_1">۱. شماره کارت مقصد و مبلغ دقیق را با یک لمس کپی کنید.</string>
     <string name="checkout_step_2">۲. از همراه بانک واریز را انجام دهید و نام صاحب حساب را تطبیق دهید.</string>
-    <string name="checkout_step_3">۳. ۴ رقم آخر کارت خود یا کد پیگیری را وارد کرده، تصویر رسید را ضمیمه و ثبت کنید.</string>
+    <string name="checkout_step_3">۳. منتظر تأیید خودکار بمانید یا شماره پیگیری را برای بررسی ثبت کنید.</string>
     <string name="checkout_payer_form_title">اطلاعات واریز شما</string>
     <string name="checkout_payer_last4">۴ رقم آخر کارت مبدا</string>
     <string name="checkout_tracking_number">شماره پیگیری / ارجاع</string>
     <string name="checkout_upload_receipt">پیوست تصویر رسید (اختیاری)</string>
     <string name="checkout_receipt_attached">تصویر رسید فشرده و پیوست شد</string>
-    <string name="checkout_submit_receipt_cta">ثبت رسید و ارسال برای تأیید</string>
+    <string name="checkout_submit_receipt_cta">ارسال رسید واریز</string>
     <string name="checkout_pending_heading">در انتظار تأیید پرداخت</string>
     <string name="checkout_pending_desc">سفارش %1$s ثبت شد. وضعیت به‌طور خودکار بروز می‌شود؛ می‌توانید صفحه را ببندید و بعداً از بخش سفارش‌ها پیگیری کنید.</string>
     <string name="checkout_leave_and_track">پیگیری در تاریخچه سفارش‌ها</string>
     <string name="checkout_rejected_heading">رسید تأیید نشد</string>
-    <string name="checkout_rejected_default">رسید ارسال‌شده قابل تأیید نبود. لطفاً مجدداً ارسال کنید.</string>
+    <string name="checkout_rejected_default">این سفارش بسته شده است. اگر مبلغ را واریز کرده‌اید، قبل از پرداخت دوباره شناسهٔ سفارش را به پشتیبانی بدهید.</string>
     <string name="checkout_retry_receipt">ارسال مجدد رسید</string>
     <string name="checkout_expired_heading">مهلت پرداخت به پایان رسید</string>
     <string name="checkout_expired_desc">مهلت ۳۰ دقیقه‌ای این سفارش منقضی شد. برای پرداخت، سفارش جدیدی ثبت کنید.</string>
@@ -455,4 +456,91 @@
     <string name="orders_share_invoice">دریافت / اشتراک رسید</string>
     <string name="orders_view_receipt">مشاهده رسید در سفارش‌ها</string>
     <string name="orders_invoice_error">خطا در ساخت تصویر رسید</string>
+    <string name="purchase_new_subscription">خرید اشتراک جدید</string>
+    <string name="purchase_track">پیگیری خرید</string>
+    <string name="purchase_activate">فعال‌سازی اشتراک</string>
+    <string name="purchase_preparing">در حال آماده‌سازی کانفیگ…</string>
+    <string name="purchase_activation_retry">فعال‌سازی کامل نشد. از همین سفارش دوباره امتحان کنید.</string>
+    <string name="purchase_unavailable">خرید اشتراک جدید فعلاً در دسترس نیست. بعداً امتحان کنید یا سفارش قبلی را پیگیری کنید.</string>
+    <string name="checkout_unavailable">سفارش یا پلن بارگیری نشد. برگردید و دوباره امتحان کنید.</string>
+    <string name="checkout_remove_receipt">حذف عکس انتخاب‌شده</string>
+    <string name="checkout_receipt_preparing">در حال آماده‌سازی عکس…</string>
+    <string name="checkout_receipt_image_saved">عکس فیش به پنل پرداخت رسید.</string>
+    <string name="checkout_receipt_image_problem">ارسال رسید کامل نشد. دوباره تلاش کنید یا عکس دیگری انتخاب کنید.</string>
+    <string name="customer_portal">حساب کاربری و کیف پول</string>
+    <string name="order_transfer_to_account">انتقال سفارش به حساب کاربری</string>
+    <string name="order_transfer_unavailable">انتقال این سفارش در حال حاضر ممکن نیست.</string>
+    <string name="update_checking">در حال بررسی نسخه…</string>
+    <string name="update_downloading">در حال دانلود و بررسی فایل…</string>
+    <string name="update_check_failed">بررسی نسخه ممکن نشد.</string>
+    <string name="update_download_failed">دانلود یا اعتبارسنجی بسته انجام نشد.</string>
+    <string name="update_allow_install">اجازهٔ نصب را در تنظیمات اندروید فعال کنید و سپس نصب را بزنید.</string>
+    <string name="update_install">نصب</string>
+    <string name="account_code">کد تأیید</string>
+    <string name="account_password">رمز دونینو</string>
+    <string name="account_login">ورود</string>
+    <string name="account_verify">تأیید و ورود</string>
+    <string name="account_signup_reset">ساخت حساب یا بازیابی رمز</string>
+    <string name="account_code_sent">کد تأیید به جیمیل ارسال شد.</string>
+    <string name="account_error">درخواست انجام نشد. دوباره تلاش کنید.</string>
+    <string name="account_bad_code">کد تأیید اشتباه است یا اعتبارش تمام شده.</string>
+    <string name="account_bad_login">اطلاعات ورود را بررسی کنید یا دوباره وارد شوید.</string>
+    <string name="account_try_later">تعداد درخواست‌ها زیاد است. کمی بعد امتحان کنید.</string>
+    <string name="account_email_unavailable">ارسال کد پست الکترونیکی فعلاً در دسترس نیست.</string>
+    <string name="account_wallet">کیف پول</string>
+    <string name="account_wallet_amount">%1$s تومان</string>
+    <string name="account_purchase">خرید یا تمدید اشتراک</string>
+    <string name="account_logout">خروج از حساب</string>
+    <string name="account_cancel">لغو اشتراک</string>
+    <string name="account_cancelled">اشتراک لغو شد</string>
+    <string name="account_cancelling">در حال لغو اشتراک</string>
+    <string name="account_cancel_confirm">دسترسی قطع می‌شود و اعتبار زمان باقی‌مانده به کیف پول برمی‌گردد.</string>
+    <string name="account_wallet_pay">پرداخت با کیف پول</string>
+    <string name="account_transfer_success">سفارش به حساب کاربری منتقل شد.</string>
+    <string name="account_refresh">به‌روزرسانی اطلاعات</string>
+    <string name="update_auto_download">دانلود خودکار نسخه‌های جدید</string>
+    <string name="renew_payment_approved">پرداخت تأیید شد</string>
+    <string name="renew_applying">در حال اعمال روی اشتراک…</string>
+    <string name="refund_renewal_conflict">به‌دلیل وضعیت تمدید، لغو در حال حاضر ممکن نیست.</string>
+    <string name="refund_expired">این اشتراک منقضی شده است.</string>
+    <string name="refund_preview_error">بررسی اعتبار ممکن نبود. دوباره تلاش کنید.</string>
+    <string name="refund_loading">در حال بررسی اعتبار باقی‌مانده…</string>
+    <string name="refund_estimate">اعتبار برآوردی: %1$s تومان</string>
+    <string name="refund_after">موجودی برآوردی بعد از لغو: %1$s تومان</string>
+    <string name="refund_changed">برآورد تغییر کرده یا منقضی شده است. دوباره بررسی کنید.</string>
+    <string name="refund_refresh">بررسی مجدد</string>
+    <string name="activation_delayed">فعال‌سازی بیشتر از معمول طول کشیده است. شناسهٔ سفارش را برای پیگیری نگه دارید.</string>
+    <string name="refund_credited">واریز به کیف پول: %1$s تومان</string>
+    <string name="order_last_checked">آخرین بررسی ساعت %1$s</string>
+    <string name="order_status_stale">آخرین وضعیت دریافت‌شده نمایش داده می‌شود.</string>
+    <string name="orders_copy_id">کپی شناسهٔ سفارش</string>
+    <string name="checkout_card_amount_reservation">مبلغ دقیق کارت‌به‌کارت پس از ثبت سفارش نمایش داده می‌شود.</string>
+    <string name="nav_connect">اتصال</string>
+    <string name="connection_connect">اتصال به VPN</string>
+    <string name="connection_disconnect">قطع اتصال</string>
+    <string name="connection_cancel">لغو اتصال</string>
+    <string name="connection_retry">تلاش مجدد</string>
+    <string name="connection_permission_denied">مجوز VPN داده نشد. برای تلاش دوباره، دکمهٔ اتصال را بزنید.</string>
+    <string name="connection_automatic">انتخاب خودکار سرور</string>
+    <string name="server_latency_unknown">پینگ نامشخص</string>
+    <string name="server_country_unknown">موقعیت نامشخص</string>
+    <string name="server_recent_title">اتصال‌های اخیر</string>
+    <string name="checkout_stage_number">مرحلهٔ %1$s از %2$s</string>
+    <string name="checkout_view_subscription">مشاهدهٔ اشتراک</string>
+    <string name="settings_appearance_language">ظاهر و زبان</string>
+    <string name="home_live_throughput">نمودار زندهٔ دریافت و ارسال در یک دقیقهٔ اخیر</string>
+    <string name="servers_saved_tab">ذخیره‌شده</string>
+    <string name="servers_filters">فیلتر و مرتب‌سازی</string>
+    <string name="servers_tab_empty">سروری در این بخش نیست</string>
+    <string name="servers_tab_empty_desc">بخش دیگری را باز کنید یا جست‌وجو و فیلتر را تغییر دهید.</string>
+    <string name="servers_group_closed">%1$s · %2$s  +</string>
+    <string name="servers_group_open">%1$s · %2$s  −</string>
+    <string name="settings_search_groups">جست‌وجوی بخش تنظیمات</string>
+    <string name="settings_advanced">گزینه‌های پیشرفته</string>
+    <string name="stats_clear_history">پاک‌کردن تاریخچهٔ اتصال</string>
+    <string name="stats_clear_history_body">همهٔ نشست‌های ذخیره‌شده پاک می‌شوند.</string>
+    <string name="stats_live_title">ترافیک زندهٔ اتصال</string>
+    <string name="stats_minutes">%1$s دقیقه</string>
+    <string name="stats_today">امروز</string>
+    <string name="stats_days">%1$s روز</string>
 </resources>

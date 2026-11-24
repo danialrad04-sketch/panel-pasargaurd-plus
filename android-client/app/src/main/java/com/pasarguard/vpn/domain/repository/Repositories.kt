@@ -22,6 +22,7 @@ import com.pasarguard.vpn.domain.model.SubscriptionCredentials
 import com.pasarguard.vpn.domain.model.SubscriptionFormatStrategy
 import com.pasarguard.vpn.domain.model.SubscriptionInfo
 import com.pasarguard.vpn.domain.model.SubscriptionProfile
+import com.pasarguard.vpn.domain.model.ThemePalette
 import com.pasarguard.vpn.domain.model.ThemeMode
 import com.pasarguard.vpn.domain.model.UsagePoint
 import com.pasarguard.vpn.domain.model.VpnServer
@@ -34,7 +35,7 @@ interface SubscriptionRepository {
     fun observeUsageHistory(): Flow<List<UsagePoint>>
     fun observeProfiles(): Flow<List<SubscriptionProfile>>
     fun getSavedCredentials(): SubscriptionCredentials?
-    suspend fun validateAndSaveSubscription(credentials: SubscriptionCredentials): Result<SubscriptionInfo>
+    suspend fun validateAndSaveSubscription(credentials: SubscriptionCredentials, requireServers: Boolean = false): Result<SubscriptionInfo>
     suspend fun addProfile(name: String, rawUrl: String, colorHex: Long): Result<SubscriptionProfile>
     suspend fun switchProfile(profileId: String): Result<SubscriptionInfo>
     suspend fun deleteProfile(profileId: String)
@@ -63,7 +64,6 @@ interface ServerRepository {
 
 /**
  * Billing, plans, discount validation, and card-to-card order repository contract.
- * Backed by [com.pasarguard.vpn.data.repository.FakePaymentRepository] until the real backend is deployed.
  */
 interface PaymentRepository {
     suspend fun getAvailablePlans(): Result<List<RenewalPlan>>
@@ -95,6 +95,8 @@ interface PaymentRepository {
     ): Result<com.pasarguard.vpn.domain.model.PaymentOrder>
 
     suspend fun refreshOrderStatus(orderId: String): Result<com.pasarguard.vpn.domain.model.PaymentOrder>
+    suspend fun getPurchasedSubscription(orderId: String): Result<String> =
+        Result.failure(UnsupportedOperationException("New subscriptions are unavailable"))
     fun observeOrders(): Flow<List<com.pasarguard.vpn.domain.model.PaymentOrder>>
     fun observeOrderById(orderId: String): Flow<com.pasarguard.vpn.domain.model.PaymentOrder?>
     suspend fun getOrderById(orderId: String): com.pasarguard.vpn.domain.model.PaymentOrder?
@@ -113,7 +115,6 @@ interface PaymentRepository {
 interface AccountActionsRepository {
     suspend fun listConnectedDevices(): Result<List<com.pasarguard.vpn.domain.model.ConnectedDevice>>
     suspend fun removeDevice(deviceId: String): Result<com.pasarguard.vpn.domain.model.AccountActionResult>
-    suspend fun requestTrafficReset(): Result<com.pasarguard.vpn.domain.model.AccountActionResult>
     suspend fun requestNewSubscriptionLink(): Result<com.pasarguard.vpn.domain.model.AccountActionResult>
     suspend fun submitSupportTicket(
         request: com.pasarguard.vpn.domain.model.SupportTicketRequest
@@ -129,6 +130,7 @@ interface SettingsRepository {
     suspend fun setPersianDigitsEnabled(enabled: Boolean)
     suspend fun setCalendarSystem(system: CalendarSystem)
     suspend fun setThemeMode(mode: ThemeMode)
+    suspend fun setThemePalette(palette: ThemePalette)
     suspend fun setDynamicColorEnabled(enabled: Boolean)
     suspend fun setCorePreference(preference: CorePreference)
     suspend fun setSubscriptionFormatStrategy(strategy: SubscriptionFormatStrategy)

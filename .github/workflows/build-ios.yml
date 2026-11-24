@@ -1,0 +1,72 @@
+name: Build PasarGuard iOS
+
+on:
+  push:
+    branches: [main, master, codex/pasarguard-billing]
+    paths:
+      - 'ios-client/**'
+      - '.github/workflows/build-ios.yml'
+  pull_request:
+    paths:
+      - 'ios-client/**'
+      - '.github/workflows/build-ios.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15-intel
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: ios-client
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          ./scripts/fetch-core.sh
+          xcodegen generate
+          xcodebuild -version
+      - name: Build device app and VPN extension
+        run: |
+          set -o pipefail
+          xcodebuild build -project PasarGuard.xcodeproj -scheme PasarGuard \
+            -destination 'generic/platform=iOS' -derivedDataPath build/device \
+            CODE_SIGNING_ALLOWED=NO | tee build-device.log
+          test -d build/device/Build/Products/Debug-iphoneos/PasarGuard.app/PlugIns/PacketTunnel.appex
+      - name: Run simulator tests
+        run: |
+          set -o pipefail
+          device=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          phones = [d["udid"] for runtime, entries in sorted(devices.items(), reverse=True)
+                    if ".iOS-" in runtime for d in entries if d["name"].startswith("iPhone")]
+          if not phones:
+              sys.exit("No iPhone simulator is installed on the runner")
+          print(phones[0])
+          ')
+          xcodebuild test -project PasarGuard.xcodeproj -scheme PasarGuard \
+            -destination "platform=iOS Simulator,id=$device" -derivedDataPath build/simulator \
+            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO | tee build-simulator.log
+      - name: Package app for the iOS Simulator
+        run: |
+          ditto -c -k --keepParent \
+            build/simulator/Build/Products/Debug-iphonesimulator/PasarGuard.app build/PasarGuard-iOS-Simulator.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PasarGuard-iOS-Simulator
+          path: ios-client/build/PasarGuard-iOS-Simulator.zip
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: iOS-build-logs
+          path: ios-client/build-*.log

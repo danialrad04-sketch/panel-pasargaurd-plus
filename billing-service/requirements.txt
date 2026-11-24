@@ -1,0 +1,7 @@
+fastapi==0.141.1
+uvicorn==0.52.1
+python-multipart==0.0.32
+jdatetime==6.1.1
+tzdata==2026.2
+cryptography==50.0.2
+pillow==13.0.0

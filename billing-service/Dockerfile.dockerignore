@@ -1,0 +1,14 @@
+**
+!billing-service/
+!billing-service/main.py
+!billing-service/customer_accounts.py
+!billing-service/provisioning.py
+!billing-service/requirements.txt
+!billing-service/web/
+!billing-service/web/**
+!android-client/
+!android-client/app/
+!android-client/app/src/
+!android-client/app/src/main/
+!android-client/app/src/main/assets/
+!android-client/app/src/main/assets/plans_config.json

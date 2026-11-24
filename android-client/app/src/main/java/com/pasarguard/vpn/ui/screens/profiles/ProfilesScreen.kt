@@ -1,5 +1,6 @@
 package com.pasarguard.vpn.ui.screens.profiles
 
+import com.pasarguard.vpn.ui.components.PasarSheetHandle
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -337,7 +338,7 @@ fun ProfilesScreen(
         var url by remember { mutableStateOf("") }
         var selectedColor by remember { mutableLongStateOf(colorPalette.first()) }
 
-        ModalBottomSheet(
+        ModalBottomSheet(dragHandle = { PasarSheetHandle() },
             onDismissRequest = { showAddSheet = false },
             containerColor = colors.backgroundCanvas,
             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)

@@ -3,9 +3,9 @@ package com.pasarguard.vpn.ui.screens.billing
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -24,11 +24,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,26 +38,21 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.CreditCard
-import androidx.compose.material.icons.rounded.CurrencyBitcoin
-import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material.icons.rounded.Timer
-import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -67,6 +64,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,7 +74,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
@@ -84,23 +81,15 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
 import com.pasarguard.vpn.BrandConfig
 import com.pasarguard.vpn.R
 import com.pasarguard.vpn.domain.model.AppLanguage
-import com.pasarguard.vpn.domain.model.CatalogPlan
-import com.pasarguard.vpn.domain.model.DiscountValidationResult
-import com.pasarguard.vpn.domain.model.OrderStateMachine
 import com.pasarguard.vpn.domain.model.OrderStatus
-import com.pasarguard.vpn.domain.model.PaymentMethodType
 import com.pasarguard.vpn.domain.model.PaymentOrder
-import com.pasarguard.vpn.domain.repository.PaymentRepository
-import com.pasarguard.vpn.domain.repository.SettingsRepository
-import com.pasarguard.vpn.domain.usecase.SyncSubscriptionUseCase
 import com.pasarguard.vpn.ui.components.DeepSpaceBackground
 import com.pasarguard.vpn.ui.components.GlassCard
 import com.pasarguard.vpn.ui.components.GradientButton
@@ -109,324 +98,8 @@ import com.pasarguard.vpn.ui.theme.PasarGuardTheme
 import com.pasarguard.vpn.ui.theme.Spacing
 import com.pasarguard.vpn.util.Formatters
 import com.pasarguard.vpn.util.ReceiptImageUtils
-import com.pasarguard.vpn.worker.NotificationHelper
-import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.UUID
-import javax.inject.Inject
-
-enum class CheckoutStep {
-    SUMMARY,
-    CARD_TO_CARD,
-    WAITING,
-    SUCCESS
-}
-
-data class CheckoutUiState(
-    val isLoading: Boolean = true,
-    val step: CheckoutStep = CheckoutStep.SUMMARY,
-    val language: AppLanguage = AppLanguage.PERSIAN,
-    val plan: CatalogPlan? = null,
-    val paymentMethod: PaymentMethodType = PaymentMethodType.CARD_TO_CARD,
-    val discountInput: String = "",
-    val isValidatingDiscount: Boolean = false,
-    val appliedDiscount: DiscountValidationResult? = null,
-    val order: PaymentOrder? = null,
-    val isCreatingOrder: Boolean = false,
-    val payerCardLast4: String = "",
-    val trackingNumber: String = "",
-    val receiptPath: String? = null,
-    val receiptSizeBytes: Long = 0L,
-    val isCompressingReceipt: Boolean = false,
-    val isSubmittingReceipt: Boolean = false,
-    val isRefreshingSubscription: Boolean = false,
-    val errorMessage: String? = null
-)
-
-@HiltViewModel
-class CheckoutViewModel @Inject constructor(
-    private val paymentRepository: PaymentRepository,
-    private val settingsRepository: SettingsRepository,
-    private val syncSubscription: SyncSubscriptionUseCase,
-    private val notificationHelper: NotificationHelper
-) : ViewModel() {
-
-    private val _uiState = MutableStateFlow(CheckoutUiState())
-    val uiState: StateFlow<CheckoutUiState> = _uiState.asStateFlow()
-
-    private var idempotencyKey: String = UUID.randomUUID().toString()
-    private var pollJob: Job? = null
-    private var observeOrderJob: Job? = null
-    private var initializedKey: String? = null
-    private var approvedHandledForOrderId: String? = null
-
-    fun init(planId: String?, orderId: String?) {
-        val key = "${planId.orEmpty()}|${orderId.orEmpty()}"
-        if (initializedKey == key) return
-        initializedKey = key
-
-        viewModelScope.launch {
-            val lang = settingsRepository.getSnapshot().language
-            _uiState.update { it.copy(isLoading = true, language = lang, errorMessage = null) }
-
-            if (!orderId.isNullOrBlank()) {
-                val existing = paymentRepository.getOrderById(orderId)
-                if (existing != null) {
-                    attachOrder(existing)
-                    return@launch
-                }
-            }
-
-            val catalog = paymentRepository.loadPlansCatalog().getOrNull()
-            val selectedPlan = catalog?.plans?.firstOrNull { it.id == planId }
-                ?: catalog?.plans?.firstOrNull()
-
-            if (selectedPlan == null) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = "Plan not found") }
-                return@launch
-            }
-
-            idempotencyKey = UUID.randomUUID().toString()
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    step = CheckoutStep.SUMMARY,
-                    plan = selectedPlan
-                )
-            }
-        }
-    }
-
-    private fun attachOrder(order: PaymentOrder) {
-        val step = when (order.status) {
-            OrderStatus.AWAITING_RECEIPT -> CheckoutStep.CARD_TO_CARD
-            OrderStatus.PENDING_REVIEW, OrderStatus.REJECTED, OrderStatus.EXPIRED -> CheckoutStep.WAITING
-            OrderStatus.APPROVED -> CheckoutStep.SUCCESS
-        }
-        _uiState.update {
-            it.copy(
-                isLoading = false,
-                order = order,
-                step = step,
-                payerCardLast4 = order.payerCardLast4.orEmpty(),
-                trackingNumber = order.trackingNumber.orEmpty(),
-                receiptPath = order.receiptLocalPath
-            )
-        }
-        observeOrderUpdates(order.id)
-        if (order.status == OrderStatus.PENDING_REVIEW) {
-            startPollingOrder(order.id)
-        } else if (order.status == OrderStatus.APPROVED) {
-            onOrderApproved(order)
-        }
-    }
-
-    private fun observeOrderUpdates(orderId: String) {
-        observeOrderJob?.cancel()
-        observeOrderJob = viewModelScope.launch {
-            paymentRepository.observeOrderById(orderId).collect { latest ->
-                if (latest == null) return@collect
-                _uiState.update { cur ->
-                    val nextStep = when {
-                        latest.status == OrderStatus.APPROVED -> CheckoutStep.SUCCESS
-                        cur.step == CheckoutStep.CARD_TO_CARD && latest.status == OrderStatus.EXPIRED -> CheckoutStep.WAITING
-                        else -> cur.step
-                    }
-                    cur.copy(order = latest, step = nextStep)
-                }
-                if (latest.status == OrderStatus.APPROVED) {
-                    pollJob?.cancel()
-                    onOrderApproved(latest)
-                } else if (latest.status == OrderStatus.REJECTED || latest.status == OrderStatus.EXPIRED) {
-                    pollJob?.cancel()
-                }
-            }
-        }
-    }
-
-    fun updateDiscountInput(value: String) {
-        _uiState.update { it.copy(discountInput = value, errorMessage = null) }
-    }
-
-    fun applyDiscount() {
-        val plan = _uiState.value.plan ?: return
-        val code = _uiState.value.discountInput.trim()
-        if (code.isBlank() || _uiState.value.isValidatingDiscount) return
-        viewModelScope.launch {
-            _uiState.update { it.copy(isValidatingDiscount = true, errorMessage = null) }
-            paymentRepository.validateDiscountCode(plan.id, code)
-                .onSuccess { res ->
-                    _uiState.update { it.copy(isValidatingDiscount = false, appliedDiscount = res) }
-                }
-                .onFailure { err ->
-                    _uiState.update {
-                        it.copy(isValidatingDiscount = false, errorMessage = err.localizedMessage)
-                    }
-                }
-        }
-    }
-
-    fun clearDiscount() {
-        _uiState.update { it.copy(discountInput = "", appliedDiscount = null) }
-    }
-
-    fun proceedToCardToCard() {
-        val state = _uiState.value
-        val plan = state.plan ?: return
-        if (state.isCreatingOrder) return
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isCreatingOrder = true, errorMessage = null) }
-            val validCode = state.appliedDiscount?.takeIf { it.isValid }?.code
-            paymentRepository.createOrder(
-                plan = plan,
-                paymentMethod = state.paymentMethod,
-                discountCode = validCode,
-                idempotencyKey = idempotencyKey
-            ).onSuccess { order ->
-                _uiState.update { it.copy(isCreatingOrder = false) }
-                attachOrder(order)
-            }.onFailure { err ->
-                _uiState.update {
-                    it.copy(
-                        isCreatingOrder = false,
-                        errorMessage = err.localizedMessage ?: "Failed to create order"
-                    )
-                }
-            }
-        }
-    }
-
-    fun updatePayerCardLast4(raw: String) {
-        val digits = raw.filter(Char::isDigit).take(4)
-        _uiState.update { it.copy(payerCardLast4 = digits, errorMessage = null) }
-    }
-
-    fun updateTrackingNumber(raw: String) {
-        _uiState.update { it.copy(trackingNumber = raw.take(32), errorMessage = null) }
-    }
-
-    fun onReceiptImageSelected(context: Context, uri: Uri) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isCompressingReceipt = true, errorMessage = null) }
-            ReceiptImageUtils.compressReceiptUri(context, uri)
-                .onSuccess { res ->
-                    _uiState.update {
-                        it.copy(
-                            isCompressingReceipt = false,
-                            receiptPath = res.filePath,
-                            receiptSizeBytes = res.sizeBytes
-                        )
-                    }
-                }
-                .onFailure {
-                    _uiState.update {
-                        it.copy(
-                            isCompressingReceipt = false,
-                            errorMessage = "Could not process selected image"
-                        )
-                    }
-                }
-        }
-    }
-
-    fun removeReceiptImage() {
-        _uiState.update { it.copy(receiptPath = null, receiptSizeBytes = 0L) }
-    }
-
-    fun submitReceipt() {
-        val state = _uiState.value
-        val order = state.order ?: return
-        if (state.isSubmittingReceipt) return
-        if (state.payerCardLast4.length < 4 && state.trackingNumber.trim().length < 4) {
-            _uiState.update {
-                it.copy(
-                    errorMessage = if (state.language == AppLanguage.PERSIAN) {
-                        "لطفاً ۴ رقم آخر کارت مبدا یا شماره پیگیری تراکنش را وارد کنید."
-                    } else {
-                        "Please enter the last 4 digits of your card or the tracking number."
-                    }
-                )
-            }
-            return
-        }
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isSubmittingReceipt = true, errorMessage = null) }
-            paymentRepository.submitCardReceipt(
-                orderId = order.id,
-                payerCardLast4 = state.payerCardLast4,
-                trackingNumber = state.trackingNumber,
-                receiptLocalPath = state.receiptPath
-            ).onSuccess { updated ->
-                _uiState.update {
-                    it.copy(
-                        isSubmittingReceipt = false,
-                        order = updated,
-                        step = CheckoutStep.WAITING
-                    )
-                }
-                startPollingOrder(updated.id)
-            }.onFailure { err ->
-                _uiState.update {
-                    it.copy(
-                        isSubmittingReceipt = false,
-                        errorMessage = err.localizedMessage ?: "Submission failed"
-                    )
-                }
-            }
-        }
-    }
-
-    fun retryRejectedReceipt() {
-        _uiState.update { it.copy(step = CheckoutStep.CARD_TO_CARD, errorMessage = null) }
-    }
-
-    fun checkOrderStatusNow() {
-        val orderId = _uiState.value.order?.id ?: return
-        viewModelScope.launch {
-            paymentRepository.refreshOrderStatus(orderId)
-        }
-    }
-
-    private fun startPollingOrder(orderId: String) {
-        pollJob?.cancel()
-        pollJob = viewModelScope.launch {
-            var attempt = 0
-            while (attempt < 20) {
-                delay(OrderStateMachine.nextPollDelayMs(attempt))
-                val latest = paymentRepository.refreshOrderStatus(orderId).getOrNull() ?: break
-                if (latest.status != OrderStatus.PENDING_REVIEW) break
-                attempt++
-            }
-        }
-    }
-
-    private fun onOrderApproved(order: PaymentOrder) {
-        if (approvedHandledForOrderId == order.id) return
-        approvedHandledForOrderId = order.id
-        viewModelScope.launch {
-            _uiState.update { it.copy(isRefreshingSubscription = true) }
-            notificationHelper.cancelSubscriptionAlerts()
-            val planTitle = if (_uiState.value.language == AppLanguage.PERSIAN) order.planTitleFa else order.planTitleEn
-            notificationHelper.showOrderApprovedNotification(order.id, planTitle)
-            syncSubscription()
-            _uiState.update { it.copy(isRefreshingSubscription = false) }
-        }
-    }
-
-    override fun onCleared() {
-        pollJob?.cancel()
-        observeOrderJob?.cancel()
-        super.onCleared()
-    }
-}
 
 @Composable
 fun CheckoutScreen(
@@ -435,6 +108,7 @@ fun CheckoutScreen(
     onBack: () -> Unit,
     onOpenOrders: () -> Unit,
     onDoneHome: () -> Unit,
+    onViewSubscription: () -> Unit,
     viewModel: CheckoutViewModel = hiltViewModel()
 ) {
     LaunchedEffect(planId, orderId) {
@@ -442,20 +116,35 @@ fun CheckoutScreen(
     }
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { viewModel.loadWallet() }
+    var pickingPhoto by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(state.purchaseConnected, state.selectedReceiptPath, state.isPreparingReceipt, state.isSubmittingReceipt, pickingPhoto) {
+        if (state.purchaseConnected && state.selectedReceiptPath == null &&
+            !state.isPreparingReceipt && !state.isSubmittingReceipt && !pickingPhoto) {
+            onDoneHome()
+        }
+    }
     val colors = PasarGuardTheme.colors
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     val persianDigits = LocalPersianDigits.current
     val isPersian = state.language == AppLanguage.PERSIAN
     val currency = stringResource(R.string.currency_toman)
-
-    val receiptPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri ->
-        if (uri != null) {
-            viewModel.onReceiptImageSelected(context, uri)
-        }
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) viewModel.chooseReceipt(uri)
+        pickingPhoto = false
     }
+    val receiptContent: @Composable () -> Unit = {
+        ReceiptAttachment(
+            state, {
+                pickingPhoto = true
+                photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            }, viewModel::removeReceipt,
+            onSubmit = if (state.step == CheckoutStep.CARD_TO_CARD) null else viewModel::submitReceipt
+        )
+    }
+
+
 
     fun copyText(label: String, value: String) {
         val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -467,6 +156,8 @@ fun CheckoutScreen(
     DeepSpaceBackground {
         Column(
             modifier = Modifier
+                .align(Alignment.TopCenter)
+                .widthIn(max = 640.dp)
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
@@ -498,21 +189,30 @@ fun CheckoutScreen(
                 )
             }
 
+            if (!state.isLoading && (state.plan != null || state.order != null)) {
+                CheckoutStageProgress(state.step, persianDigits)
+            }
+
             if (state.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = colors.heroEnd)
                 }
             } else {
-                when (state.step) {
+                if (state.step == CheckoutStep.SUMMARY && state.plan == null && state.errorMessage != null) {
+                    GlassCard(Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.checkout_unavailable), color = colors.statusDanger)
+                        TextButton(onClick = { viewModel.retryLoad(planId, orderId) }) {
+                            Text(stringResource(R.string.action_retry))
+                        }
+                    }
+                } else when (state.step) {
                     CheckoutStep.SUMMARY -> SummaryAndMethodStep(
                         state = state,
                         isPersian = isPersian,
                         persianDigits = persianDigits,
                         currency = currency,
-                        onDiscountChange = viewModel::updateDiscountInput,
-                        onApplyDiscount = viewModel::applyDiscount,
-                        onClearDiscount = viewModel::clearDiscount,
-                        onContinue = viewModel::proceedToCardToCard
+                        onContinue = viewModel::proceedToCardToCard,
+                        onWallet = viewModel::payWithWallet
                     )
 
                     CheckoutStep.CARD_TO_CARD -> {
@@ -528,8 +228,7 @@ fun CheckoutScreen(
                                 onCopyAmount = { copyText("Amount", order.finalPriceToman.toString()) },
                                 onCardLast4Change = viewModel::updatePayerCardLast4,
                                 onTrackingChange = viewModel::updateTrackingNumber,
-                                onPickReceipt = { receiptPicker.launch("image/*") },
-                                onRemoveReceipt = viewModel::removeReceiptImage,
+                                receiptContent = receiptContent,
                                 onSubmit = viewModel::submitReceipt,
                                 onExpired = viewModel::checkOrderStatusNow
                             )
@@ -543,12 +242,11 @@ fun CheckoutScreen(
                                 order = order,
                                 isPersian = isPersian,
                                 onCheckNow = viewModel::checkOrderStatusNow,
-                                onRetryRejected = viewModel::retryRejectedReceipt,
                                 onStartNewOrder = onBack,
-                                onContactSupport = {
-                                    Formatters.openExternalUrl(context, BrandConfig.supportTelegramUrl)
-                                },
-                                onTrackInOrders = onOpenOrders
+                                supportUrl = BrandConfig.supportTelegramUrl.ifBlank { BrandConfig.supportWhatsappUrl },
+                                onCopyOrder = { copyText("Order ID", order.id) },
+                                onTrackInOrders = onOpenOrders,
+                                receiptContent = receiptContent
                             )
                         }
                     }
@@ -558,7 +256,11 @@ fun CheckoutScreen(
                             order = state.order,
                             isRefreshingSub = state.isRefreshingSubscription,
                             isPersian = isPersian,
-                            onDoneHome = onDoneHome,
+                            purchaseImportFailed = state.purchaseImportFailed,
+                            needsActivation = state.order?.newSubscription == true && !state.purchaseConnected,
+                            receiptContent = receiptContent,
+                            onActivatePurchase = viewModel::activatePurchase,
+                            onDoneHome = if (state.order?.newSubscription == false) onViewSubscription else onDoneHome,
                             onViewOrders = onOpenOrders
                         )
                     }
@@ -569,21 +271,36 @@ fun CheckoutScreen(
 }
 
 @Composable
+private fun CheckoutStageProgress(step: CheckoutStep, persianDigits: Boolean) {
+    val index = when (step) {
+        CheckoutStep.SUMMARY -> 1
+        CheckoutStep.CARD_TO_CARD -> 2
+        CheckoutStep.WAITING -> 3
+        CheckoutStep.SUCCESS -> 4
+    }
+    Column(Modifier.fillMaxWidth().padding(vertical = Spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        Text(
+            stringResource(R.string.checkout_stage_number, Formatters.formatNumber(index.toLong(), persianDigits),
+                Formatters.formatNumber(4L, persianDigits)),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        LinearProgressIndicator(progress = { index / 4f }, modifier = Modifier.fillMaxWidth())
+    }
+}
+
+@Composable
 private fun SummaryAndMethodStep(
     state: CheckoutUiState,
     isPersian: Boolean,
     persianDigits: Boolean,
     currency: String,
-    onDiscountChange: (String) -> Unit,
-    onApplyDiscount: () -> Unit,
-    onClearDiscount: () -> Unit,
-    onContinue: () -> Unit
+    onContinue: () -> Unit,
+    onWallet: () -> Unit
 ) {
     val colors = PasarGuardTheme.colors
     val plan = state.plan ?: return
-    val applied = state.appliedDiscount?.takeIf { it.isValid }
-    val discountAmt = applied?.discountAmountToman ?: 0L
-    val finalPrice = (plan.priceToman - discountAmt).coerceAtLeast(1_000L)
 
     Column(
         modifier = Modifier
@@ -604,103 +321,18 @@ private fun SummaryAndMethodStep(
                 label = stringResource(R.string.checkout_base_price),
                 value = "${Formatters.formatNumber(plan.priceToman, persianDigits)} $currency"
             )
-            if (discountAmt > 0L) {
+            state.walletBalance?.let { balance ->
                 PriceLineRow(
-                    label = "${stringResource(R.string.checkout_discount)} (${applied?.code.orEmpty()})",
-                    value = "-${Formatters.formatNumber(discountAmt, persianDigits)} $currency",
-                    valueColor = colors.statusConnected
+                    label = stringResource(R.string.account_wallet),
+                    value = "${Formatters.formatNumber(balance, persianDigits)} $currency"
                 )
             }
-            // Disabled wallet credit slot
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Rounded.AccountBalanceWallet,
-                        contentDescription = null,
-                        tint = colors.textSecondary.copy(alpha = 0.6f),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = stringResource(R.string.checkout_wallet_slot),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.textSecondary.copy(alpha = 0.6f)
-                    )
-                }
-                Text(
-                    text = stringResource(R.string.coming_soon),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colors.textSecondary.copy(alpha = 0.6f)
-                )
-            }
-
-            Spacer(Modifier.height(Spacing.xs))
-            HorizontalDivider(color = colors.glassBorder)
             Spacer(Modifier.height(Spacing.sm))
-            PriceLineRow(
-                label = stringResource(R.string.checkout_final_price),
-                value = "${Formatters.formatNumber(finalPrice, persianDigits)} $currency",
-                valueColor = colors.heroEnd,
-                bold = true
+            Text(
+                stringResource(R.string.checkout_card_amount_reservation),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.textSecondary
             )
-        }
-
-        // Discount code card
-        GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 22.dp) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.LocalOffer, contentDescription = null, tint = colors.heroEnd, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = stringResource(R.string.checkout_discount_title),
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    color = colors.textPrimary
-                )
-            }
-            Spacer(Modifier.height(Spacing.sm))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
-            ) {
-                OutlinedTextField(
-                    value = state.discountInput,
-                    onValueChange = onDiscountChange,
-                    placeholder = { Text("WELCOME15 / PASAR50") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.weight(1f)
-                )
-                if (applied != null) {
-                    TextButton(onClick = onClearDiscount) {
-                        Text(stringResource(R.string.action_remove), color = colors.statusDanger)
-                    }
-                } else {
-                    OutlinedButton(
-                        onClick = onApplyDiscount,
-                        enabled = !state.isValidatingDiscount && state.discountInput.isNotBlank()
-                    ) {
-                        if (state.isValidatingDiscount) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        } else {
-                            Text(stringResource(R.string.checkout_apply_code))
-                        }
-                    }
-                }
-            }
-            state.appliedDiscount?.let { res ->
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = if (isPersian) res.messageFa else res.messageEn,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (res.isValid) colors.statusConnected else colors.statusDanger
-                )
-            }
         }
 
         // Payment Method Selector
@@ -718,22 +350,7 @@ private fun SummaryAndMethodStep(
                 selected = true,
                 enabled = true
             )
-            Spacer(Modifier.height(Spacing.sm))
-            PaymentMethodRow(
-                icon = Icons.Rounded.Language,
-                title = stringResource(R.string.checkout_method_gateway),
-                subtitle = stringResource(R.string.coming_soon),
-                selected = false,
-                enabled = false
-            )
-            Spacer(Modifier.height(Spacing.sm))
-            PaymentMethodRow(
-                icon = Icons.Rounded.CurrencyBitcoin,
-                title = stringResource(R.string.checkout_method_crypto),
-                subtitle = stringResource(R.string.coming_soon),
-                selected = false,
-                enabled = false
-            )
+
         }
 
         if (state.errorMessage != null) {
@@ -751,6 +368,11 @@ private fun SummaryAndMethodStep(
             leadingIcon = Icons.Rounded.CreditCard,
             modifier = Modifier.fillMaxWidth()
         )
+        if ((state.walletBalance ?: 0L) >= plan.priceToman) {
+            OutlinedButton(onClick = onWallet, enabled = !state.isCreatingOrder, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.account_wallet_pay))
+            }
+        }
         Spacer(Modifier.height(Spacing.md))
     }
 }
@@ -766,8 +388,7 @@ private fun CardToCardStep(
     onCopyAmount: () -> Unit,
     onCardLast4Change: (String) -> Unit,
     onTrackingChange: (String) -> Unit,
-    onPickReceipt: () -> Unit,
-    onRemoveReceipt: () -> Unit,
+    receiptContent: @Composable () -> Unit,
     onSubmit: () -> Unit,
     onExpired: () -> Unit
 ) {
@@ -834,8 +455,10 @@ private fun CardToCardStep(
                     text = timerText,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = FontFamily.Monospace,
+                        textDirection = TextDirection.Ltr
                     ),
+                    modifier = Modifier.weight(1f),
                     color = timerColor
                 )
             }
@@ -867,8 +490,10 @@ private fun CardToCardStep(
             ) {
                 Text(
                     text = Formatters.toPersianDigitsIfNeeded(formattedCard, persianDigits),
+                    modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
+                        textDirection = TextDirection.Ltr,
                         fontFamily = FontFamily.Monospace
                     ),
                     color = colors.textPrimary
@@ -976,67 +601,15 @@ private fun CardToCardStep(
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(Spacing.md))
+            receiptContent()
 
-            // Receipt image picker & compressed preview
-            if (state.receiptPath != null) {
-                val preview = remember(state.receiptPath) {
-                    ReceiptImageUtils.decodePreviewBitmap(state.receiptPath)
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(colors.glassSurface)
-                        .padding(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (preview != null) {
-                        Image(
-                            bitmap = preview.asImageBitmap(),
-                            contentDescription = "Receipt preview",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(64.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                        )
-                        Spacer(Modifier.width(Spacing.sm))
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.checkout_receipt_attached),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = colors.statusConnected
-                        )
-                        if (state.receiptSizeBytes > 0L) {
-                            Text(
-                                text = Formatters.formatBytes(state.receiptSizeBytes, persianDigits),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = colors.textSecondary
-                            )
-                        }
-                    }
-                    IconButton(onClick = onPickReceipt) {
-                        Icon(Icons.Rounded.Image, contentDescription = null, tint = colors.heroEnd)
-                    }
-                    IconButton(onClick = onRemoveReceipt) {
-                        Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = colors.statusDanger)
-                    }
-                }
-            } else {
-                OutlinedButton(
-                    onClick = onPickReceipt,
-                    enabled = !state.isCompressingReceipt,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    if (state.isCompressingReceipt) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(Icons.Rounded.UploadFile, contentDescription = null, modifier = Modifier.size(18.dp))
-                    }
-                    Spacer(Modifier.width(Spacing.sm))
-                    Text(stringResource(R.string.checkout_upload_receipt))
-                }
-            }
+            Text(
+                text = if (state.language == AppLanguage.PERSIAN)
+                    "پس از واریز، عکس فیش یا شمارهٔ پیگیری را برای بررسی ارسال کنید."
+                else "After transferring, submit a receipt photo or the tracking number for review.",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.textSecondary
+            )
         }
 
         if (state.errorMessage != null) {
@@ -1051,7 +624,7 @@ private fun CardToCardStep(
             text = stringResource(R.string.checkout_submit_receipt_cta),
             onClick = onSubmit,
             isLoading = state.isSubmittingReceipt,
-            enabled = remainingMs > 0L && !state.isCompressingReceipt,
+            enabled = remainingMs > 0L && !state.isPreparingReceipt,
             leadingIcon = Icons.Rounded.CheckCircle,
             modifier = Modifier.fillMaxWidth()
         )
@@ -1060,14 +633,68 @@ private fun CardToCardStep(
 }
 
 @Composable
+private fun ReceiptAttachment(
+    state: CheckoutUiState,
+    onPick: () -> Unit,
+    onRemove: () -> Unit,
+    onSubmit: (() -> Unit)?
+) {
+    val order = state.order ?: return
+    val colors = PasarGuardTheme.colors
+    if (order.hasReceiptImage) {
+        Text(stringResource(R.string.checkout_receipt_image_saved), color = colors.statusConnected)
+        return
+    }
+    val path = state.selectedReceiptPath
+    val preview = remember(path) { path?.let { ReceiptImageUtils.decodePreviewBitmap(it)?.asImageBitmap() } }
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        if (preview != null) {
+            Image(
+                bitmap = preview,
+                contentDescription = stringResource(R.string.checkout_upload_receipt),
+                modifier = Modifier.fillMaxWidth().heightIn(max = 156.dp)
+            )
+        }
+        if (path != null) {
+            Text(stringResource(R.string.checkout_receipt_attached), color = colors.textSecondary)
+            TextButton(onClick = onRemove, enabled = !state.isSubmittingReceipt && !state.isPreparingReceipt) {
+                Text(stringResource(R.string.checkout_remove_receipt))
+            }
+        }
+        OutlinedButton(
+            onClick = onPick,
+            enabled = !state.isPreparingReceipt && !state.isSubmittingReceipt,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Rounded.Image, contentDescription = null)
+            Spacer(Modifier.width(Spacing.xs))
+            Text(stringResource(if (state.isPreparingReceipt) R.string.checkout_receipt_preparing else R.string.checkout_upload_receipt))
+        }
+        if (state.receiptImageError) {
+            Text(stringResource(R.string.checkout_receipt_image_problem), color = colors.statusDanger)
+        }
+        if (onSubmit != null && path != null) {
+            GradientButton(
+                text = stringResource(R.string.checkout_submit_receipt_cta),
+                onClick = onSubmit,
+                isLoading = state.isSubmittingReceipt,
+                enabled = !state.isPreparingReceipt,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
 private fun WaitingConfirmationStep(
     order: PaymentOrder,
     isPersian: Boolean,
     onCheckNow: () -> Unit,
-    onRetryRejected: () -> Unit,
     onStartNewOrder: () -> Unit,
-    onContactSupport: () -> Unit,
-    onTrackInOrders: () -> Unit
+    supportUrl: String,
+    onCopyOrder: () -> Unit,
+    onTrackInOrders: () -> Unit,
+    receiptContent: @Composable () -> Unit
 ) {
     val colors = PasarGuardTheme.colors
     val infinite = rememberInfiniteTransition(label = "waiting_pulse")
@@ -1130,6 +757,8 @@ private fun WaitingConfirmationStep(
                     Spacer(Modifier.width(Spacing.sm))
                     Text(stringResource(R.string.checkout_leave_and_track))
                 }
+                Spacer(Modifier.height(Spacing.md))
+                receiptContent()
             }
 
             OrderStatus.REJECTED -> {
@@ -1148,7 +777,7 @@ private fun WaitingConfirmationStep(
                 )
                 Spacer(Modifier.height(Spacing.sm))
                 Text(
-                    text = (if (isPersian) order.rejectionReasonFa else order.rejectionReasonEn)
+                    text = (if (isPersian) order.rejectionReasonFa else order.rejectionReasonEn ?: order.rejectionReasonFa)
                         ?: stringResource(R.string.checkout_rejected_default),
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.textSecondary,
@@ -1156,8 +785,8 @@ private fun WaitingConfirmationStep(
                 )
                 Spacer(Modifier.height(Spacing.lg))
                 GradientButton(
-                    text = stringResource(R.string.checkout_retry_receipt),
-                    onClick = onRetryRejected,
+                    text = stringResource(R.string.checkout_start_new_order),
+                    onClick = onStartNewOrder,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -1194,11 +823,17 @@ private fun WaitingConfirmationStep(
             else -> Unit
         }
 
+        Spacer(Modifier.height(Spacing.md))
+        OrderProgressTimeline(order, isPersian)
         Spacer(Modifier.height(Spacing.sm))
-        TextButton(onClick = onContactSupport) {
-            Icon(Icons.Rounded.SupportAgent, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(stringResource(R.string.sub_contact_support))
+        TextButton(onClick = onCopyOrder) { Text(stringResource(R.string.orders_copy_id)) }
+        if (supportUrl.isNotBlank()) {
+            val context = LocalContext.current
+            TextButton(onClick = { Formatters.openExternalUrl(context, supportUrl) }) {
+                Icon(Icons.Rounded.SupportAgent, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.sub_contact_support))
+            }
         }
     }
 }
@@ -1208,13 +843,19 @@ private fun SuccessCelebrationStep(
     order: PaymentOrder?,
     isRefreshingSub: Boolean,
     isPersian: Boolean,
+    purchaseImportFailed: Boolean,
+    needsActivation: Boolean,
+    receiptContent: @Composable () -> Unit,
+    onActivatePurchase: () -> Unit,
     onDoneHome: () -> Unit,
     onViewOrders: () -> Unit
 ) {
     val colors = PasarGuardTheme.colors
+    val awaitingApplication = order?.activationStatus == "PENDING"
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -1235,7 +876,11 @@ private fun SuccessCelebrationStep(
         }
         Spacer(Modifier.height(Spacing.lg))
         Text(
-            text = stringResource(R.string.renew_success_title),
+            text = stringResource(when {
+                awaitingApplication -> R.string.renew_payment_approved
+                order?.newSubscription == true -> R.string.renew_payment_approved
+                else -> R.string.renew_success_title
+            }),
             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
             color = colors.textPrimary,
             textAlign = TextAlign.Center
@@ -1251,22 +896,39 @@ private fun SuccessCelebrationStep(
             color = colors.textSecondary,
             textAlign = TextAlign.Center
         )
-        if (isRefreshingSub) {
+        if (awaitingApplication || isRefreshingSub || needsActivation && !purchaseImportFailed) {
             Spacer(Modifier.height(Spacing.md))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = colors.heroEnd)
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = stringResource(R.string.checkout_syncing_sub),
+                    text = stringResource(when {
+                        needsActivation -> R.string.purchase_preparing
+                        awaitingApplication -> R.string.renew_applying
+                        else -> R.string.checkout_syncing_sub
+                    }),
                     style = MaterialTheme.typography.labelMedium,
                     color = colors.heroEnd
                 )
             }
         }
+        if (purchaseImportFailed) {
+            Text(stringResource(R.string.purchase_activation_retry), color = colors.statusDanger, textAlign = TextAlign.Center)
+        }
         Spacer(Modifier.height(Spacing.xl))
+        order?.let { OrderProgressTimeline(it, isPersian) }
+        Spacer(Modifier.height(Spacing.md))
+        receiptContent()
+        Spacer(Modifier.height(Spacing.md))
         GradientButton(
-            text = stringResource(R.string.renew_done),
-            onClick = onDoneHome,
+            text = stringResource(when {
+                awaitingApplication -> R.string.renew_applying
+                needsActivation -> R.string.purchase_activate
+                order?.newSubscription == false -> R.string.checkout_view_subscription
+                else -> R.string.renew_done
+            }),
+            onClick = if (needsActivation) onActivatePurchase else onDoneHome,
+            enabled = !awaitingApplication && (!needsActivation || !isRefreshingSub),
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(Spacing.sm))

@@ -1,5 +1,6 @@
 package com.pasarguard.vpn.ui.screens.billing
 
+import com.pasarguard.vpn.ui.components.PasarSheetHandle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -61,6 +62,7 @@ import androidx.lifecycle.viewModelScope
 import com.pasarguard.vpn.R
 import com.pasarguard.vpn.domain.model.AppLanguage
 import com.pasarguard.vpn.domain.model.CatalogPlan
+import com.pasarguard.vpn.domain.model.OrderStatus
 import com.pasarguard.vpn.domain.model.PaymentOrder
 import com.pasarguard.vpn.domain.model.PlanCategory
 import com.pasarguard.vpn.domain.model.UsageForecastCalculator
@@ -90,6 +92,7 @@ data class PlansUiState(
     val selectedCategory: PlanCategory = PlanCategory.RENEW,
     val recommendedPlanId: String? = null,
     val activePendingOrder: PaymentOrder? = null,
+    val guestCheckout: Boolean = false,
     val language: AppLanguage = AppLanguage.PERSIAN,
     val error: String? = null
 )
@@ -112,6 +115,8 @@ class PlansViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             val settings = settingsRepository.getSnapshot()
+            val guestCheckout = subscriptionRepository.getSavedCredentials() == null
+            _uiState.update { it.copy(guestCheckout = guestCheckout, language = settings.language) }
             val sub = subscriptionRepository.observeSubscription().firstOrNull()
             val usage = subscriptionRepository.observeUsageHistory().firstOrNull().orEmpty()
             val pending = paymentRepository.getActivePendingOrder()
@@ -190,7 +195,7 @@ fun PlansScreen(
                         )
                     }
                     Text(
-                        text = stringResource(R.string.plans_title),
+                        text = stringResource(if (state.guestCheckout) R.string.purchase_new_subscription else R.string.plans_title),
                         style = MaterialTheme.typography.titleLarge,
                         color = colors.textPrimary
                     )
@@ -215,29 +220,28 @@ fun PlansScreen(
                 }
             }
 
-            // Category filter pills
-            Row(
+            if (!state.guestCheckout && state.plans.map { it.category }.distinct().size > 1) Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
-                CategoryChip(
+                if (state.plans.any { it.category == PlanCategory.RENEW }) CategoryChip(
                     selected = state.selectedCategory == PlanCategory.RENEW,
                     label = stringResource(R.string.plans_cat_renew),
                     onClick = { viewModel.selectCategory(PlanCategory.RENEW) }
                 )
-                CategoryChip(
+                if (state.plans.any { it.category == PlanCategory.UPGRADE }) CategoryChip(
                     selected = state.selectedCategory == PlanCategory.UPGRADE,
                     label = stringResource(R.string.plans_cat_upgrade),
                     onClick = { viewModel.selectCategory(PlanCategory.UPGRADE) }
                 )
-                CategoryChip(
+                if (state.plans.any { it.category == PlanCategory.EXTRA_TRAFFIC }) CategoryChip(
                     selected = state.selectedCategory == PlanCategory.EXTRA_TRAFFIC,
                     label = stringResource(R.string.plans_cat_extra_traffic),
                     onClick = { viewModel.selectCategory(PlanCategory.EXTRA_TRAFFIC) }
                 )
-                CategoryChip(
+                if (state.plans.any { it.category == PlanCategory.EXTRA_DAYS }) CategoryChip(
                     selected = state.selectedCategory == PlanCategory.EXTRA_DAYS,
                     label = stringResource(R.string.plans_cat_extra_days),
                     onClick = { viewModel.selectCategory(PlanCategory.EXTRA_DAYS) }
@@ -274,7 +278,11 @@ fun PlansScreen(
                             Spacer(Modifier.width(Spacing.sm))
                             Column {
                                 Text(
-                                    text = stringResource(R.string.plans_resume_order_title),
+                                    text = stringResource(
+                                        if (pending.newSubscription && pending.status == OrderStatus.APPROVED)
+                                            R.string.purchase_activate
+                                        else R.string.plans_resume_order_title
+                                    ),
                                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                     color = colors.statusWarning
                                 )
@@ -305,7 +313,7 @@ fun PlansScreen(
                 state.error != null -> {
                     EmptyStateView(
                         title = stringResource(R.string.plans_error_title),
-                        description = state.error.orEmpty(),
+                        description = if (state.guestCheckout) stringResource(R.string.purchase_unavailable) else state.error.orEmpty(),
                         actionLabel = stringResource(R.string.action_retry),
                         onAction = { viewModel.reload() }
                     )
@@ -340,7 +348,7 @@ fun PlansScreen(
     }
 
     if (showCompareSheet && visiblePlans.isNotEmpty()) {
-        ModalBottomSheet(onDismissRequest = { showCompareSheet = false }) {
+        ModalBottomSheet(dragHandle = { PasarSheetHandle() },onDismissRequest = { showCompareSheet = false }) {
             ComparePlansSheetContent(
                 plans = visiblePlans,
                 isPersian = isPersian,

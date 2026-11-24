@@ -1,5 +1,6 @@
 package com.pasarguard.vpn.ui.screens.servers
 
+import com.pasarguard.vpn.ui.components.PasarSheetHandle
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -48,7 +49,7 @@ import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.AlertDialog
+import com.pasarguard.vpn.ui.components.PasarDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -711,7 +712,7 @@ fun ServersScreen(
         val qrBitmap = remember(qrServer?.rawUri) {
             QrCodeGenerator.generateBitmap(qrServer?.rawUri.orEmpty(), 600)
         }
-        AlertDialog(
+        PasarDialog(
             onDismissRequest = { qrServer = null },
             title = { Text(qrServer?.name.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
             text = {
@@ -860,7 +861,7 @@ private fun ServerDetailBottomSheet(
     onDelete: (() -> Unit)?
 ) {
     val colors = PasarGuardTheme.colors
-    ModalBottomSheet(
+    ModalBottomSheet(dragHandle = { PasarSheetHandle() },
         onDismissRequest = onDismiss,
         containerColor = colors.backgroundCanvas,
         shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
@@ -1029,7 +1030,7 @@ private fun PingSettingsBottomSheet(
     val persianDigits = LocalPersianDigits.current
     var customUrlInput by remember { mutableStateOf("") }
 
-    ModalBottomSheet(
+    ModalBottomSheet(dragHandle = { PasarSheetHandle() },
         onDismissRequest = onDismiss,
         containerColor = colors.backgroundCanvas,
         shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
@@ -1218,7 +1219,7 @@ private fun ManualImportBottomSheet(
         }
     }
 
-    ModalBottomSheet(
+    ModalBottomSheet(dragHandle = { PasarSheetHandle() },
         onDismissRequest = onDismiss,
         containerColor = colors.backgroundCanvas,
         shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)

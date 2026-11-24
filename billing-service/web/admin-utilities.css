@@ -1,0 +1,2 @@
+/*! tailwindcss v4.3.5 | MIT License | https://tailwindcss.com */
+@layer theme{:root,:host{--spacing:.25rem}}@layer utilities{.visible{visibility:visible}.sr-only{clip-path:inset(50%);white-space:nowrap;border-width:0;width:1px;height:1px;margin:-1px;padding:0;position:absolute;overflow:hidden}.grid{display:grid}.gap-4{gap:calc(var(--spacing) * 4)}.bg-surface{background-color:var(--surface)}.text-muted{color:var(--muted)}.text-primary{color:var(--primary)}}

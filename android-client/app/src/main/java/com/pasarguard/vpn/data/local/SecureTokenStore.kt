@@ -6,6 +6,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.pasarguard.vpn.domain.model.SubscriptionCredentials
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.security.SecureRandom
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -62,12 +63,32 @@ class SecureTokenStore @Inject constructor(
     }
 
     fun clear() {
-        prefs.edit().clear().apply()
+        prefs.edit().remove(KEY_BASE_URL).remove(KEY_SUB_TOKEN).apply()
+    }
+
+    @Synchronized
+    fun purchaseToken(): String {
+        existingPurchaseToken()?.let { return it }
+        val token = ByteArray(32).apply { SecureRandom().nextBytes(this) }
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        check(prefs.edit().putString(KEY_PURCHASE_TOKEN, token).commit()) {
+            "Could not save the purchase credentials"
+        }
+        return token
+    }
+
+    fun existingPurchaseToken(): String? = prefs.getString(KEY_PURCHASE_TOKEN, null)
+
+    fun customerToken(): String? = prefs.getString("customer_token", null)
+
+    fun saveCustomerToken(token: String?) {
+        prefs.edit().putString("customer_token", token).apply()
     }
 
     companion object {
         private const val PREFS_FILE_NAME = "pasarguard_secure_prefs"
         private const val KEY_BASE_URL = "sub_base_url"
         private const val KEY_SUB_TOKEN = "sub_token"
+        private const val KEY_PURCHASE_TOKEN = "purchase_token"
     }
 }

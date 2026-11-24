@@ -24,6 +24,7 @@ import com.pasarguard.vpn.domain.model.RoutingMode
 import com.pasarguard.vpn.domain.model.ServerSortMode
 import com.pasarguard.vpn.domain.model.SplitTunnelMode
 import com.pasarguard.vpn.domain.model.SubscriptionFormatStrategy
+import com.pasarguard.vpn.domain.model.ThemePalette
 import com.pasarguard.vpn.domain.model.ThemeMode
 import com.pasarguard.vpn.domain.repository.SettingsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -47,6 +48,7 @@ private data class SettingsBackupPayload(
     val persianDigitsEnabled: Boolean = true,
     val calendarSystem: String = CalendarSystem.JALALI.name,
     val themeMode: String = ThemeMode.DARK.name,
+    val themePalette: String = ThemePalette.OCEAN.name,
     val dynamicColorEnabled: Boolean = false,
     val corePreference: String = CorePreference.AUTO.name,
     val subscriptionFormatStrategy: String = SubscriptionFormatStrategy.PREFER_XRAY_JSON.name,
@@ -107,6 +109,7 @@ class SettingsDataStore @Inject constructor(
             persianDigitsEnabled = prefs[KEY_PERSIAN_DIGITS] ?: true,
             calendarSystem = enumOrDefault(prefs[KEY_CALENDAR_SYSTEM], CalendarSystem.JALALI),
             themeMode = enumOrDefault(prefs[KEY_THEME_MODE], ThemeMode.DARK),
+            themePalette = enumOrDefault(prefs[KEY_THEME_PALETTE], ThemePalette.OCEAN),
             dynamicColorEnabled = prefs[KEY_DYNAMIC_COLOR] ?: false,
 
             corePreference = enumOrDefault(prefs[KEY_CORE_PREF], CorePreference.AUTO),
@@ -173,6 +176,11 @@ class SettingsDataStore @Inject constructor(
     override suspend fun setPersianDigitsEnabled(enabled: Boolean) = edit { it[KEY_PERSIAN_DIGITS] = enabled }
     override suspend fun setCalendarSystem(system: CalendarSystem) = edit { it[KEY_CALENDAR_SYSTEM] = system.name }
     override suspend fun setThemeMode(mode: ThemeMode) = edit { it[KEY_THEME_MODE] = mode.name }
+
+    override suspend fun setThemePalette(palette: ThemePalette) = edit {
+        it[KEY_THEME_PALETTE] = palette.name
+        it[KEY_DYNAMIC_COLOR] = false
+    }
     override suspend fun setDynamicColorEnabled(enabled: Boolean) = edit { it[KEY_DYNAMIC_COLOR] = enabled }
     override suspend fun setCorePreference(preference: CorePreference) = edit { it[KEY_CORE_PREF] = preference.name }
     override suspend fun setSubscriptionFormatStrategy(strategy: SubscriptionFormatStrategy) = edit { it[KEY_SUB_FORMAT_STRATEGY] = strategy.name }
@@ -237,6 +245,7 @@ class SettingsDataStore @Inject constructor(
             persianDigitsEnabled = s.persianDigitsEnabled,
             calendarSystem = s.calendarSystem.name,
             themeMode = s.themeMode.name,
+            themePalette = s.themePalette.name,
             dynamicColorEnabled = s.dynamicColorEnabled,
             corePreference = s.corePreference.name,
             subscriptionFormatStrategy = s.subscriptionFormatStrategy.name,
@@ -284,6 +293,7 @@ class SettingsDataStore @Inject constructor(
             prefs[KEY_PERSIAN_DIGITS] = p.persianDigitsEnabled
             prefs[KEY_CALENDAR_SYSTEM] = p.calendarSystem
             prefs[KEY_THEME_MODE] = p.themeMode
+            prefs[KEY_THEME_PALETTE] = p.themePalette
             prefs[KEY_DYNAMIC_COLOR] = p.dynamicColorEnabled
             prefs[KEY_CORE_PREF] = p.corePreference
             prefs[KEY_SUB_FORMAT_STRATEGY] = p.subscriptionFormatStrategy
@@ -336,6 +346,7 @@ class SettingsDataStore @Inject constructor(
         private val KEY_LANGUAGE = stringPreferencesKey("language")
         private val KEY_PERSIAN_DIGITS = booleanPreferencesKey("persian_digits")
         private val KEY_CALENDAR_SYSTEM = stringPreferencesKey("calendar_system")
+        private val KEY_THEME_PALETTE = stringPreferencesKey("theme_palette")
         private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         private val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         private val KEY_CORE_PREF = stringPreferencesKey("core_preference")

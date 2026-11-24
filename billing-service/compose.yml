@@ -1,0 +1,19 @@
+services:
+  billing:
+    build:
+      context: ..
+      dockerfile: billing-service/Dockerfile
+    env_file: .env
+    ports:
+      - "127.0.0.1:8087:8080"
+    volumes:
+      - billing-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8080/healthz', timeout=3).close()"]
+      interval: 5s
+      timeout: 4s
+      retries: 12
+
+volumes:
+  billing-data:

@@ -1,4 +1,4 @@
-name: Build PasarGuard Android VPN APK
+name: Build Donino Vpn Android VPN APK
 
 on:
   push:
@@ -15,10 +15,33 @@ on:
         description: 'PasarGuard Panel Base URL (optional override)'
         required: false
         default: 'https://panel.example.com'
+      billing_base_url:
+        description: 'PasarGuard Billing HTTPS origin (optional override)'
+        required: false
+        type: string
       app_name:
         description: 'Branded App Name (optional override)'
         required: false
-        default: 'PasarGuard VPN'
+        default: 'Donino Vpn'
+      app_version_code:
+        description: 'Increasing Android version code'
+        required: false
+        type: string
+      app_version_name:
+        description: 'Android release version, e.g. 1.4.0'
+        required: false
+        type: string
+      sign_release:
+        description: 'Sign release APKs for testing without publishing a GitHub Release'
+        default: false
+        type: boolean
+      publish_release:
+        description: 'Publish signed APKs and update metadata to GitHub Releases'
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
 
 jobs:
   build-apk:
@@ -43,40 +66,181 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Fetch latest Xray-core AndroidLibXrayLite (libv2ray.aar)
+      - name: Fetch the documented Xray-core AndroidLibXrayLite version
         run: |
           mkdir -p app/libs
           if [ ! -f app/libs/libv2ray.aar ]; then
-            AAR_URL=$(curl -sSL https://api.github.com/repos/2dust/AndroidLibXrayLite/releases/latest | grep -oE 'https://[^"]+libv2ray\.aar' | head -n 1)
-            curl -sSL "$AAR_URL" -o app/libs/libv2ray.aar
+            curl -fLSs --retry 3 --retry-all-errors \
+              https://github.com/2dust/AndroidLibXrayLite/releases/download/v26.11.9/libv2ray.aar \
+              -o app/libs/libv2ray.aar
+            printf '%s\n' 'cdfef146218233a31a8b52c8b1016557730d3b63fc121d4c84cacea50e669155  app/libs/libv2ray.aar' | sha256sum -c -
           fi
           ls -lh app/libs/libv2ray.aar
 
       - name: Run Unit Tests
         run: gradle :app:testDebugUnitTest --stacktrace
 
-      - name: Build Debug APKs (Universal + ABI Splits)
+      - name: Build optimized Debug APKs by ABI
         env:
+          PASARGUARD_VERSION_CODE: ${{ inputs.app_version_code || '14' }}
+          PASARGUARD_VERSION_NAME: ${{ inputs.app_version_name || '1.8.1' }}
           PASARGUARD_BASE_URL: ${{ github.event.inputs.panel_base_url || vars.PASARGUARD_BASE_URL || 'https://panel.example.com' }}
-          PASARGUARD_APP_NAME: ${{ github.event.inputs.app_name || vars.PASARGUARD_APP_NAME || 'PasarGuard VPN' }}
-        run: gradle :app:assembleDebug --stacktrace
+          PASARGUARD_BILLING_URL: ${{ inputs.billing_base_url || vars.PASARGUARD_BILLING_URL }}
+          PASARGUARD_APP_NAME: ${{ github.event.inputs.app_name || vars.PASARGUARD_APP_NAME || 'Donino Vpn' }}
+          PASARGUARD_SUPPORT_TELEGRAM: ${{ vars.PASARGUARD_SUPPORT_TELEGRAM }}
+          PASARGUARD_SUPPORT_WHATSAPP: ${{ vars.PASARGUARD_SUPPORT_WHATSAPP }}
+        run: gradle :app:assembleDebug -PpasarguardOptimizeDebug=true --stacktrace
 
-      - name: Build Release APKs (Unsigned)
+      - name: Restore the persistent release signing key
+        if: inputs.sign_release || inputs.publish_release
         env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          PASARGUARD_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+          PASARGUARD_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          PASARGUARD_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+          VERSION_CODE: ${{ inputs.app_version_code }}
+          VERSION_NAME: ${{ inputs.app_version_name }}
+          BILLING_URL: ${{ inputs.billing_base_url || vars.PASARGUARD_BILLING_URL }}
+        run: |
+          set -euo pipefail
+          [[ -n "$KEYSTORE_BASE64" && -n "$PASARGUARD_RELEASE_STORE_PASSWORD" && -n "$PASARGUARD_RELEASE_KEY_ALIAS" && -n "$PASARGUARD_RELEASE_KEY_PASSWORD" && -n "$BILLING_URL" ]] || {
+            echo "::error::Configure the existing Android release signing key, its credentials, and the billing URL before building a signed APK."
+            exit 1
+          }
+          [[ "$VERSION_CODE" =~ ^[1-9][0-9]{0,9}$ && "$VERSION_NAME" =~ ^[0-9]+[.][0-9]+([.][0-9]+){0,2}$ ]]
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/pasarguard-release.jks"
+          printf 'PASARGUARD_RELEASE_KEYSTORE=%s\n' "$RUNNER_TEMP/pasarguard-release.jks" >> "$GITHUB_ENV"
+
+      - name: Build Release APKs by ABI
+        env:
+          PASARGUARD_VERSION_CODE: ${{ inputs.app_version_code || '14' }}
+          PASARGUARD_VERSION_NAME: ${{ inputs.app_version_name || '1.8.1' }}
+          PASARGUARD_RELEASE_STORE_PASSWORD: ${{ (inputs.sign_release || inputs.publish_release) && secrets.ANDROID_RELEASE_STORE_PASSWORD || '' }}
+          PASARGUARD_RELEASE_KEY_ALIAS: ${{ (inputs.sign_release || inputs.publish_release) && secrets.ANDROID_RELEASE_KEY_ALIAS || '' }}
+          PASARGUARD_RELEASE_KEY_PASSWORD: ${{ (inputs.sign_release || inputs.publish_release) && secrets.ANDROID_RELEASE_KEY_PASSWORD || '' }}
           PASARGUARD_BASE_URL: ${{ github.event.inputs.panel_base_url || vars.PASARGUARD_BASE_URL || 'https://panel.example.com' }}
-          PASARGUARD_APP_NAME: ${{ github.event.inputs.app_name || vars.PASARGUARD_APP_NAME || 'PasarGuard VPN' }}
+          PASARGUARD_BILLING_URL: ${{ inputs.billing_base_url || vars.PASARGUARD_BILLING_URL }}
+          PASARGUARD_APP_NAME: ${{ github.event.inputs.app_name || vars.PASARGUARD_APP_NAME || 'Donino Vpn' }}
+          PASARGUARD_SUPPORT_TELEGRAM: ${{ vars.PASARGUARD_SUPPORT_TELEGRAM }}
+          PASARGUARD_SUPPORT_WHATSAPP: ${{ vars.PASARGUARD_SUPPORT_WHATSAPP }}
         run: gradle :app:assembleRelease --stacktrace
 
-      - name: Upload Debug APK Artifacts
-        uses: actions/upload-artifact@v4
+      - name: Remove the release signing file
+        if: always() && (inputs.sign_release || inputs.publish_release)
+        run: rm -f "$RUNNER_TEMP/pasarguard-release.jks"
+
+      - name: Verify APK architectures and report sizes
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          print("### Android installation files")
+          print("| Build | ABI | APK size (MB) |")
+          print("| --- | --- | ---: |")
+          for build in ("debug", "release"):
+              for abi in ("arm64-v8a", "armeabi-v7a", "x86_64"):
+                  apk = Path(f"app/build/outputs/apk/{build}/app-{abi}-{build}.apk")
+                  with ZipFile(apk) as archive:
+                      paths = archive.namelist()
+                      native_abis = {p.split("/")[1] for p in paths if p.startswith("lib/") and p.endswith(".so")}
+                      assert native_abis == {abi}, (apk.name, native_abis)
+                      assert f"lib/{abi}/libgojni.so" in paths, f"{apk.name} is missing the Xray VPN core"
+                      assert not any("barhopper" in path for path in paths), f"{apk.name} includes the old scanner"
+                  print(f"| {build} | {abi} | {apk.stat().st_size / 1_000_000:.2f} |")
+          PY
+
+      - uses: actions/upload-artifact@v4
         with:
-          name: PasarGuardVPN-debug-apks
-          path: android-client/app/build/outputs/apk/debug/*.apk
+          name: DoninoVpn-debug-arm64-v8a
+          path: android-client/app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
+          if-no-files-found: error
+          compression-level: 0
           retention-days: 30
 
-      - name: Upload Release APK Artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: PasarGuardVPN-release-apks
-          path: android-client/app/build/outputs/apk/release/*.apk
+          name: DoninoVpn-debug-armeabi-v7a
+          path: android-client/app/build/outputs/apk/debug/app-armeabi-v7a-debug.apk
+          if-no-files-found: error
+          compression-level: 0
           retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DoninoVpn-debug-x86_64
+          path: android-client/app/build/outputs/apk/debug/app-x86_64-debug.apk
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DoninoVpn-release-arm64-v8a
+          path: android-client/app/build/outputs/apk/release/app-arm64-v8a-release.apk
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DoninoVpn-release-armeabi-v7a
+          path: android-client/app/build/outputs/apk/release/app-armeabi-v7a-release.apk
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DoninoVpn-release-x86_64
+          path: android-client/app/build/outputs/apk/release/app-x86_64-release.apk
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+
+  publish:
+    if: inputs.publish_release
+    needs: build-apk
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION_CODE: ${{ inputs.app_version_code }}
+      VERSION_NAME: ${{ inputs.app_version_name }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: DoninoVpn-release-*
+          path: release-assets
+          merge-multiple: true
+      - name: Publish Android release
+        run: |
+          set -euo pipefail
+          python3 - <<'PYTHON'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          version = os.environ["VERSION_NAME"]
+          tag = f"android-v{version}"
+          release = Path("release-assets")
+          assets = []
+          for abi in ("arm64-v8a", "armeabi-v7a", "x86_64"):
+              file = release / f"app-{abi}-release.apk"
+              with file.open("rb") as payload:
+                  digest = hashlib.file_digest(payload, "sha256").hexdigest()
+              assets.append({"abi": abi, "sha256": digest,
+                             "download_url": f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/releases/download/{tag}/{file.name}"})
+          (release / "pasarguard-android.json").write_text(json.dumps({
+              "latest_version": version,
+              "latest_version_code": int(os.environ["VERSION_CODE"]),
+              "package_name": "com.pasarguard.vpn",
+              "visible": True,
+              "assets": assets,
+          }))
+          PYTHON
+          gh release create "android-v$VERSION_NAME" release-assets/* --repo "$GITHUB_REPOSITORY"             --target "$GITHUB_SHA" --title "Donino Vpn Android $VERSION_NAME" --generate-notes --latest

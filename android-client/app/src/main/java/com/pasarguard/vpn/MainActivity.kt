@@ -46,6 +46,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.pasarguard.vpn.domain.model.AppLanguage
 import com.pasarguard.vpn.domain.model.CalendarSystem
+import com.pasarguard.vpn.domain.model.ThemePalette
 import com.pasarguard.vpn.domain.model.ThemeMode
 import com.pasarguard.vpn.domain.repository.SettingsRepository
 import com.pasarguard.vpn.domain.repository.SubscriptionRepository
@@ -58,6 +59,8 @@ import com.pasarguard.vpn.ui.theme.PasarGuardTheme
 import com.pasarguard.vpn.ui.theme.PasarGuardVpnTheme
 import com.pasarguard.vpn.ui.theme.Spacing
 import com.pasarguard.vpn.util.Formatters
+import com.pasarguard.vpn.data.diagnostics.UpdateChecker
+import com.pasarguard.vpn.ui.updates.AppUpdateHost
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -71,6 +74,7 @@ data class RootUiState(
     val isReady: Boolean = false,
     val startDestination: String = Routes.ONBOARDING,
     val themeMode: ThemeMode = ThemeMode.DARK,
+    val themePalette: ThemePalette = ThemePalette.OCEAN,
     val dynamicColorEnabled: Boolean = false,
     val language: AppLanguage = AppLanguage.PERSIAN,
     val persianDigitsEnabled: Boolean = true,
@@ -112,6 +116,7 @@ class MainViewModel @Inject constructor(
                     isReady = true,
                     startDestination = start,
                     themeMode = initialSettings.themeMode,
+                    themePalette = initialSettings.themePalette,
                     dynamicColorEnabled = initialSettings.dynamicColorEnabled,
                     language = initialSettings.language,
                     persianDigitsEnabled = initialSettings.persianDigitsEnabled,
@@ -127,6 +132,7 @@ class MainViewModel @Inject constructor(
                 _state.update {
                     it.copy(
                         themeMode = updated.themeMode,
+                        themePalette = updated.themePalette,
                         dynamicColorEnabled = updated.dynamicColorEnabled,
                         language = updated.language,
                         persianDigitsEnabled = updated.persianDigitsEnabled,
@@ -189,6 +195,7 @@ class MainViewModel @Inject constructor(
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
+    @Inject lateinit var appUpdateChecker: UpdateChecker
 
     private val viewModel: MainViewModel by viewModels()
 
@@ -219,6 +226,7 @@ class MainActivity : AppCompatActivity() {
             if (rootState.isReady) {
                 PasarGuardVpnTheme(
                     themeMode = rootState.themeMode,
+                    themePalette = rootState.themePalette,
                     language = rootState.language,
                     dynamicColorEnabled = rootState.dynamicColorEnabled,
                     persianDigitsEnabled = rootState.persianDigitsEnabled,
@@ -230,17 +238,19 @@ class MainActivity : AppCompatActivity() {
                             onUnlocked = viewModel::unlock
                         )
                     } else {
-                        AppNavHost(
-                            startDestination = rootState.startDestination,
-                            prefilledSubscriptionUrl = rootState.prefilledSubUrl,
-                            paymentCallbackTimestamp = rootState.paymentCallbackTimestamp,
-                            toggleVpnTrigger = rootState.toggleVpnTrigger,
-                            openRouteTarget = rootState.openRouteTarget,
-                            onConsumePrefilledUrl = viewModel::consumePrefilledSubUrl,
-                            onConsumeToggleVpn = viewModel::consumeToggleVpnTrigger,
-                            onConsumeOpenRoute = viewModel::consumeOpenRouteTarget,
-                            onCompleteOnboarding = viewModel::completeOnboarding
-                        )
+                        AppUpdateHost(appUpdateChecker) {
+                            AppNavHost(
+                                startDestination = rootState.startDestination,
+                                prefilledSubscriptionUrl = rootState.prefilledSubUrl,
+                                paymentCallbackTimestamp = rootState.paymentCallbackTimestamp,
+                                toggleVpnTrigger = rootState.toggleVpnTrigger,
+                                openRouteTarget = rootState.openRouteTarget,
+                                onConsumePrefilledUrl = viewModel::consumePrefilledSubUrl,
+                                onConsumeToggleVpn = viewModel::consumeToggleVpnTrigger,
+                                onConsumeOpenRoute = viewModel::consumeOpenRouteTarget,
+                                onCompleteOnboarding = viewModel::completeOnboarding
+                            )
+                        }
                     }
                 }
             }

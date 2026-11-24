@@ -13,10 +13,9 @@ import com.pasarguard.vpn.data.db.ServerDao
 import com.pasarguard.vpn.data.db.SubscriptionDao
 import com.pasarguard.vpn.data.db.UsageDao
 import com.pasarguard.vpn.data.local.SettingsDataStore
-import com.pasarguard.vpn.data.repository.FakePaymentRepository
+import com.pasarguard.vpn.data.repository.RemotePaymentRepository
 import com.pasarguard.vpn.data.repository.ServerRepositoryImpl
 import com.pasarguard.vpn.data.repository.SubscriptionRepositoryImpl
-import com.pasarguard.vpn.domain.repository.AccountActionsRepository
 import com.pasarguard.vpn.domain.repository.PaymentRepository
 import com.pasarguard.vpn.domain.repository.ServerRepository
 import com.pasarguard.vpn.domain.repository.SettingsRepository
@@ -137,14 +136,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindPaymentRepository(
-        impl: FakePaymentRepository
+        impl: RemotePaymentRepository
     ): PaymentRepository
-
-    @Binds
-    @Singleton
-    abstract fun bindAccountActionsRepository(
-        impl: FakePaymentRepository
-    ): AccountActionsRepository
 
     @Binds
     @Singleton

@@ -77,9 +77,9 @@ class ValidateAndLoginUseCase @Inject constructor(
     private val parseInput: ParseSubscriptionInputUseCase,
     private val subscriptionRepository: SubscriptionRepository
 ) {
-    suspend operator fun invoke(rawInput: String): Result<SubscriptionInfo> {
+    suspend operator fun invoke(rawInput: String, requireServers: Boolean = false): Result<SubscriptionInfo> {
         val credentials = parseInput(rawInput).getOrElse { return Result.failure(it) }
-        return subscriptionRepository.validateAndSaveSubscription(credentials)
+        return subscriptionRepository.validateAndSaveSubscription(credentials, requireServers)
     }
 }
 
