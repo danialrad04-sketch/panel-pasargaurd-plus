@@ -426,7 +426,7 @@ fun SettingsScreen(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
                 Text(stringResource(R.string.settings_palette), style = MaterialTheme.typography.titleMedium)
-                FlowFlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     listOf(
                         ThemePalette.OCEAN to R.string.settings_palette_ocean,
                         ThemePalette.JADE to R.string.settings_palette_jade,
