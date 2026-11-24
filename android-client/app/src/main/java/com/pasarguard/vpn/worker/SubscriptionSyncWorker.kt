@@ -30,6 +30,7 @@ import com.pasarguard.vpn.ui.navigation.Routes
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -115,8 +116,8 @@ class NotificationHelper @Inject constructor(
         NotificationManagerCompat.from(context).notify(NOTIF_ID_VPN, notification)
     }
 
-    fun showExpiryWarning(daysLeft: Int) {
-        if (!canPostNotifications()) return
+    fun showExpiryWarning(daysLeft: Int): Boolean {
+        if (!canPostNotifications() || !NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
         ensureChannels()
         val renewIntent = PendingIntent.getActivity(
             context,
@@ -140,10 +141,11 @@ class NotificationHelper @Inject constructor(
             .setContentIntent(renewIntent)
             .build()
         NotificationManagerCompat.from(context).notify(NOTIF_ID_EXPIRY, notification)
+        return true
     }
 
-    fun showLowTrafficWarning(usedPercent: Int) {
-        if (!canPostNotifications()) return
+    fun showLowTrafficWarning(usedPercent: Int): Boolean {
+        if (!canPostNotifications() || !NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
         ensureChannels()
         val renewIntent = PendingIntent.getActivity(
             context,
@@ -167,6 +169,7 @@ class NotificationHelper @Inject constructor(
             .setContentIntent(renewIntent)
             .build()
         NotificationManagerCompat.from(context).notify(NOTIF_ID_TRAFFIC, notification)
+        return true
     }
 
     fun showOrderApprovedNotification(orderId: String, planTitle: String) {
@@ -231,30 +234,53 @@ class SubscriptionSyncWorker @AssistedInject constructor(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
-        if (subscriptionRepository.getSavedCredentials() == null) return Result.success()
-
-        val syncResult = subscriptionRepository.syncSubscription()
-        val sub = syncResult.getOrNull() ?: return Result.retry()
+        val credentials = subscriptionRepository.getSavedCredentials() ?: return Result.success()
+        val sub = subscriptionRepository.syncSubscription().getOrNull() ?: return Result.retry()
+        if (subscriptionRepository.getSavedCredentials() != credentials) return Result.success()
         val settings = settingsRepository.getSnapshot()
+        val alerts = applicationContext.getSharedPreferences("subscription_reminders", Context.MODE_PRIVATE)
+        val accountKey = MessageDigest.getInstance("SHA-256").digest(credentials.fullSubscriptionUrl.toByteArray())
+            .joinToString("") { "%02x".format(it) }
 
-        if (settings.expiryWarningEnabled) {
-            if (sub.status == SubscriptionStatus.EXPIRED) {
-                notificationHelper.showExpiryWarning(0)
-            } else {
-                val daysLeft = sub.remainingDays()
-                if (daysLeft != null && daysLeft in listOf(0, 1, 3, 7) || (daysLeft != null && daysLeft <= 7)) {
-                    notificationHelper.showExpiryWarning(daysLeft)
-                }
+        val expiry = sub.expireEpochSeconds
+        if (settings.expiryWarningEnabled && expiry != null &&
+            sub.status in setOf(SubscriptionStatus.ACTIVE, SubscriptionStatus.LIMITED, SubscriptionStatus.EXPIRED)) {
+            val seconds = (expiry - System.currentTimeMillis() / 1000L).coerceAtLeast(0L)
+            val days = ((seconds + 86_399L) / 86_400L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+            val stage = when {
+                sub.status == SubscriptionStatus.EXPIRED || days == 0 -> 0
+                days <= 1 -> 1
+                days <= 3 -> 3
+                days <= 7 -> 7
+                else -> null
+            }
+            val expiryKey = "$accountKey:expiry"
+            val stageKey = "$accountKey:expiry-stage"
+            val last = if (alerts.getLong(expiryKey, -1L) == expiry) alerts.getInt(stageKey, Int.MAX_VALUE)
+                else Int.MAX_VALUE
+            val daysToReport = if (sub.status == SubscriptionStatus.EXPIRED) 0 else days
+            if (stage != null && stage < last && notificationHelper.showExpiryWarning(daysToReport)) {
+                alerts.edit().putLong(expiryKey, expiry).putInt(stageKey, stage).apply()
             }
         }
 
-        if (settings.lowTrafficWarningEnabled && !sub.isUnlimitedTraffic) {
-            val usedPct = ((1f - sub.remainingTrafficFraction) * 100f).toInt().coerceIn(0, 100)
-            when {
-                sub.status == SubscriptionStatus.LIMITED || usedPct >= 100 ->
-                    notificationHelper.showLowTrafficWarning(100)
-                usedPct >= 90 -> notificationHelper.showLowTrafficWarning(90)
-                usedPct >= 80 -> notificationHelper.showLowTrafficWarning(80)
+        val quota = sub.dataLimitBytes
+        if (settings.lowTrafficWarningEnabled && quota != null && quota > 0L &&
+            sub.status in setOf(SubscriptionStatus.ACTIVE, SubscriptionStatus.LIMITED)) {
+            val used = (sub.usedTrafficBytes.toDouble() * 100 / quota).toInt().coerceIn(0, 100)
+            val stage = when {
+                sub.status == SubscriptionStatus.LIMITED || used >= 100 -> 100
+                used >= 90 -> 90
+                used >= 80 -> 80
+                else -> 0
+            }
+            val quotaKey = "$accountKey:quota"
+            val stageKey = "$accountKey:quota-stage"
+            val last = if (alerts.getLong(quotaKey, 0L) == quota) alerts.getInt(stageKey, 0) else 0
+            if (stage == 0) {
+                if (last != 0) alerts.edit().remove(stageKey).apply()
+            } else if (stage > last && notificationHelper.showLowTrafficWarning(if (stage == 100) 100 else used)) {
+                alerts.edit().putLong(quotaKey, quota).putInt(stageKey, stage).apply()
             }
         }
 

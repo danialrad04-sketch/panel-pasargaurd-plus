@@ -137,6 +137,8 @@ def initialize():
         db.execute("""CREATE TABLE IF NOT EXISTS decisions (
             order_id TEXT NOT NULL, decision TEXT NOT NULL, timestamp INTEGER NOT NULL
         )""")
+        if "reason" not in {row["name"] for row in db.execute("PRAGMA table_info(decisions)")}:
+            db.execute("ALTER TABLE decisions ADD COLUMN reason TEXT")
         db.execute("""CREATE TABLE IF NOT EXISTS destination_card (
             id INTEGER PRIMARY KEY CHECK (id = 1), number TEXT NOT NULL,
             holder TEXT NOT NULL, bank TEXT NOT NULL, updated INTEGER NOT NULL
@@ -345,7 +347,7 @@ def process_refund_job():
             db.execute("""INSERT INTO wallet_entries (order_id, customer_id, amount, created)
                           SELECT order_id, customer_id, amount, ? FROM customer_refunds WHERE order_id=?""",
                        (completed, order_id))
-            db.execute("INSERT INTO decisions VALUES (?, ?, ?)", (order_id, "CUSTOMER_CANCELLED", completed))
+            db.execute("INSERT INTO decisions(order_id, decision, timestamp) VALUES (?, ?, ?)", (order_id, "CUSTOMER_CANCELLED", completed))
 
 
 @app.on_event("startup")
@@ -550,6 +552,14 @@ def sale_plans(db, config):
 
 
 
+def reserved_amounts(db, price):
+    return {row[0] for row in db.execute(
+        """SELECT amount FROM orders WHERE amount BETWEEN ? AND ?
+           UNION SELECT amount FROM deposits WHERE amount BETWEEN ? AND ?""",
+        (price, price + 999, price, price + 999),
+    )}
+
+
 class OrderRequest(BaseModel):
     plan_id: str = Field(max_length=100)
     payment_method: str = "CARD_TO_CARD"
@@ -625,11 +635,7 @@ def create_order(body: OrderRequest, idempotency_key: Annotated[UUID, Header()],
             lowest = db.execute("SELECT MIN(amount) FROM orders").fetchone()[0]
             amount = min(lowest or 0, 0) - 1
         else:
-            used = {r[0] for r in db.execute(
-                """SELECT amount FROM orders WHERE amount BETWEEN ? AND ?
-                   UNION SELECT amount FROM deposits WHERE amount BETWEEN ? AND ?""",
-                (price, price + 999, price, price + 999),
-            )}
+            used = reserved_amounts(db, price)
             amount = next((n for n in range(price, price + 1000) if n not in used), None)
             if amount is None:
                 raise HTTPException(503, "Payment amount range exhausted")
@@ -787,7 +793,7 @@ def bank_webhook(body: BankMessage, x_webhook_secret: str = Header(default="")):
         return {"result": "matched" if order_id else "no_match"}
 
 
-def decide(db, order_id, status, audit):
+def decide(db, order_id, status, audit, reason=None):
     timestamp = now()
     row = db.execute("SELECT details FROM orders WHERE id=?", (order_id,)).fetchone()
     details = json.loads(row["details"])
@@ -796,7 +802,8 @@ def decide(db, order_id, status, audit):
         details["activation_status"] = "PENDING"
         db.execute("INSERT OR IGNORE INTO provisioning_jobs (order_id, next_run) VALUES (?, ?)", (order_id, timestamp))
     db.execute("UPDATE orders SET status=?, details=? WHERE id=?", (status, json.dumps(details), order_id))
-    db.execute("INSERT INTO decisions VALUES (?,?,?)", (order_id, audit, timestamp))
+    db.execute("INSERT INTO decisions(order_id, decision, timestamp, reason) VALUES (?,?,?,?)",
+               (order_id, audit, timestamp, reason))
 
 
 def receipt_jpeg(upload):
@@ -1194,7 +1201,11 @@ def admin_overview(days: int = 7):
         )]
         card = destination_card(db)
         activating = db.execute("SELECT count(*) FROM provisioning_jobs WHERE ready=0").fetchone()[0]
-        oldest = db.execute("SELECT MIN(created) FROM orders WHERE status='PENDING_REVIEW'").fetchone()[0]
+        oldest = db.execute("""SELECT MIN(COALESCE(json_extract(details, '$.submitted_at_ms'), created))
+                               FROM orders WHERE status='PENDING_REVIEW'""").fetchone()[0]
+        oldest_activation = db.execute("""SELECT MIN(COALESCE(json_extract(details, '$.reviewed_at_ms'), created))
+                                          FROM provisioning_jobs j JOIN orders o ON o.id=j.order_id
+                                          WHERE j.ready=0""").fetchone()[0]
         awaiting = db.execute(
             "SELECT count(*) FROM orders WHERE status='AWAITING_RECEIPT' AND expires>?", (current,),
         ).fetchone()[0]
@@ -1213,6 +1224,7 @@ def admin_overview(days: int = 7):
         "orders": recent_orders,
         "review_queue": review_queue,
         "oldest_pending_ms": oldest,
+        "oldest_activation_ms": oldest_activation,
         "awaiting_count": awaiting,
         "card_last4": card["number"][-4:],
         "bank": card["bank"],
@@ -1313,7 +1325,7 @@ def admin_order(order_id: str):
         if not row:
             raise HTTPException(404)
         decisions = db.execute(
-            "SELECT decision, timestamp FROM decisions WHERE order_id=? ORDER BY timestamp", (order_id,),
+            "SELECT decision, timestamp, reason FROM decisions WHERE order_id=? ORDER BY timestamp, rowid", (order_id,),
         )
         job = db.execute("SELECT attempts, next_run, lease_until, ready, last_error FROM provisioning_jobs WHERE order_id=?",
                          (order_id,)).fetchone()
@@ -1322,15 +1334,19 @@ def admin_order(order_id: str):
 
 
 @admin.post("/api/orders/{order_id}/expedite")
-def expedite_order(order_id: str, request: IncomingRequest):
+def expedite_order(order_id: str, request: IncomingRequest, reason: Annotated[str, Form(max_length=300)] = ""):
     verify_admin_origin(request)
+    reason = reason.strip() or None
+    if reason is not None and len(reason) < 5:
+        raise HTTPException(422, "MATCH_REASON_REQUIRED")
     timestamp = now()
     with transaction() as db:
         updated = db.execute("""UPDATE provisioning_jobs SET next_run=? WHERE order_id=?
                                 AND ready=0 AND lease_until<=? AND next_run>?""",
                              (timestamp, order_id, timestamp, timestamp)).rowcount
         if updated:
-            db.execute("INSERT INTO decisions VALUES (?, ?, ?)", (order_id, "ADMIN_EXPEDITED", timestamp))
+            db.execute("INSERT INTO decisions(order_id, decision, timestamp, reason) VALUES (?, ?, ?, ?)",
+                       (order_id, "ADMIN_EXPEDITED", timestamp, reason))
     return {"scheduled": bool(updated)}
 
 
@@ -1398,7 +1414,7 @@ def match_deposit(deposit_id: str, body: DepositMatch, request: IncomingRequest)
         details["reconciliation_reason"] = reason
         db.execute("UPDATE orders SET details=? WHERE id=?", (json.dumps(details), body.order_id))
         db.execute("UPDATE deposits SET order_id=? WHERE digest=?", (body.order_id, deposit_id))
-        decide(db, body.order_id, "APPROVED", "ADMIN_MATCHED")
+        decide(db, body.order_id, "APPROVED", "ADMIN_MATCHED", reason)
     return Response(status_code=204)
 
 
@@ -1670,7 +1686,10 @@ def admin_catalog():
         offered = [plan["id"] for plan in sale_plans(db, {"plans": [p for p in plans if p["visible"]]})]
         reasons = {p["id"]: ("hidden" if not p["visible"] else "category" if p["category"] != "RENEW" else "limit")
                    for p in plans if p["id"] not in offered}
-        return {"plans": plans, "maximum": display_limit(db), "offered": offered, "excluded": reasons}
+        prices = {plan["price_toman"] for plan in plans if plan["id"] in offered}
+        capacity = {price: 1000 - len(reserved_amounts(db, price)) for price in prices}
+        return {"plans": plans, "maximum": display_limit(db), "offered": offered, "excluded": reasons,
+                "amount_capacity": capacity}
 
 
 @admin.post("/api/catalog-display")

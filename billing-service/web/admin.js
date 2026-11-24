@@ -218,6 +218,8 @@ async function overview(signal) {
   const peak = data.series.reduce((best, day) => day.amount > (best?.amount || 0) ? day : best, null);
   get("peak-day").textContent = peak ? dayLabel.format(peak.start) + " · " + money(peak.amount) : "—";
   get("activation-count").textContent = fa.format(data.activating_count ?? 0);
+  get("oldest-activation").textContent = data.oldest_activation_ms ?
+    "قدیمی‌ترین تأیید منتظر فعال‌سازی " + date(data.oldest_activation_ms) : "";
   get("paid-metric").textContent = fa.format(data.approved_count);
   get("awaiting-metric").textContent = fa.format(data.awaiting_count);
   get("review-metric").textContent = fa.format(data.pending_count);
@@ -303,6 +305,9 @@ async function catalogList(signal) {
         facts.append(line);
       }
       card.append(heading, node("strong", money(plan.price_toman), "plan-price"), facts, button("ویرایش پلن", () => editPlan(plan), "subtle full"));
+      if (offered.has(plan.id) && data.amount_capacity?.[plan.price_toman] != null) {
+        card.append(node("p", fa.format(data.amount_capacity[plan.price_toman]) + " مبلغ قابل رزرو در بازهٔ این قیمت", "text-muted"));
+      }
       card.append(button("ساخت پلن مشابه", () => editPlan({...plan, id: "", title_fa: plan.title_fa + " (کپی)", visible: false}), "text-button"));
       return card;
     }));
@@ -625,7 +630,9 @@ async function showOrder(orderId) {
     errorNotice.hidden = true;
     const activity = node("ul", null, "activity");
     for (const event of data.decisions) {
-      activity.append(node("li", (decisionLabels[event.decision] || "بررسی سفارش") + " · " + date(event.timestamp)));
+      const entry = node("li", (decisionLabels[event.decision] || "بررسی سفارش") + " · " + date(event.timestamp));
+      if (event.reason) entry.append(node("p", event.reason));
+      activity.append(entry);
     }
     content.replaceChildren(errorNotice, detailList(data.order), node("h3", "سابقهٔ بررسی"),
       data.decisions.length ? activity : node("p", "هنوز تصمیمی ثبت نشده است."));
@@ -638,18 +645,29 @@ async function showOrder(orderId) {
       panel.append(node("h3", "فعال‌سازی"), node("p", timing + " · " + fa.format(job.attempts) +
         " تلاش · " + fa.format(elapsed) + " دقیقه انتظار"));
       if (job.last_error) panel.append(node("p", "تلاش قبلی با خطای ارتباط یا پاسخ پنل روبه‌رو شد."));
+      const reason = node("textarea");
+      reason.rows = 2;
+      reason.maxLength = 300;
+      const label = node("label", "دلیل تسریع", "field");
+      label.append(reason);
       const expedite = button("تسریع فعال‌سازی", async () => {
         expedite.disabled = true;
         try {
-          await request("/api/orders/" + encodeURIComponent(orderId) + "/expedite", { method: "POST" });
+          await request("/api/orders/" + encodeURIComponent(orderId) + "/expedite", {
+            method: "POST", body: new URLSearchParams({reason: reason.value.trim()}),
+          });
           if (dialog.open && version === detailVersion) await showOrder(orderId);
         } catch (error) {
           setNotice(error.message, true, errorNotice);
           expedite.disabled = false;
         }
       }, "subtle");
-      expedite.disabled = inFlight || job.next_run <= Date.now();
-      panel.append(expedite);
+      const canExpedite = !inFlight && job.next_run > Date.now();
+      if (canExpedite) {
+        expedite.disabled = true;
+        reason.addEventListener("input", () => { expedite.disabled = reason.value.trim().length < 5; });
+        panel.append(label, expedite);
+      }
       content.append(panel);
     }
     if (data.order.has_receipt_image) {
