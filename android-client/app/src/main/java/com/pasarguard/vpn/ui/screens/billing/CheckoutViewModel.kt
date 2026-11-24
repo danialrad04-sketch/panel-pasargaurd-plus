@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import com.pasarguard.vpn.data.api.CustomerApi
 import com.pasarguard.vpn.domain.model.AppLanguage
 import com.pasarguard.vpn.domain.model.CatalogPlan
-import com.pasarguard.vpn.domain.model.DiscountValidationResult
 import com.pasarguard.vpn.domain.model.OrderStateMachine
 import com.pasarguard.vpn.domain.model.OrderStatus
 import com.pasarguard.vpn.domain.model.PaymentMethodType
@@ -46,9 +45,6 @@ data class CheckoutUiState(
     val plan: CatalogPlan? = null,
     val paymentMethod: PaymentMethodType = PaymentMethodType.CARD_TO_CARD,
     val walletBalance: Long? = null,
-    val discountInput: String = "",
-    val isValidatingDiscount: Boolean = false,
-    val appliedDiscount: DiscountValidationResult? = null,
     val order: PaymentOrder? = null,
     val isCreatingOrder: Boolean = false,
     val payerCardLast4: String = "",
@@ -169,32 +165,6 @@ class CheckoutViewModel @Inject constructor(
         }
     }
 
-    fun updateDiscountInput(value: String) {
-        _uiState.update { it.copy(discountInput = value, errorMessage = null) }
-    }
-
-    fun applyDiscount() {
-        val plan = _uiState.value.plan ?: return
-        val code = _uiState.value.discountInput.trim()
-        if (code.isBlank() || _uiState.value.isValidatingDiscount) return
-        viewModelScope.launch {
-            _uiState.update { it.copy(isValidatingDiscount = true, errorMessage = null) }
-            paymentRepository.validateDiscountCode(plan.id, code)
-                .onSuccess { res ->
-                    _uiState.update { it.copy(isValidatingDiscount = false, appliedDiscount = res) }
-                }
-                .onFailure { err ->
-                    _uiState.update {
-                        it.copy(isValidatingDiscount = false, errorMessage = err.localizedMessage)
-                    }
-                }
-        }
-    }
-
-    fun clearDiscount() {
-        _uiState.update { it.copy(discountInput = "", appliedDiscount = null) }
-    }
-
     fun loadWallet() {
         if (!customer.signedIn) return
         viewModelScope.launch {
@@ -215,11 +185,10 @@ class CheckoutViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isCreatingOrder = true, errorMessage = null) }
-            val validCode = state.appliedDiscount?.takeIf { it.isValid }?.code
             paymentRepository.createOrder(
                 plan = plan,
                 paymentMethod = method,
-                discountCode = validCode,
+                discountCode = null,
                 idempotencyKey = if (method == PaymentMethodType.WALLET) {
                     UUID.nameUUIDFromBytes((idempotencyKey + ":wallet").toByteArray()).toString()
                 } else idempotencyKey

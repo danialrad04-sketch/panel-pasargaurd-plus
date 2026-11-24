@@ -82,8 +82,8 @@ jobs:
 
       - name: Build optimized Debug APKs by ABI
         env:
-          PASARGUARD_VERSION_CODE: ${{ inputs.app_version_code || '6' }}
-          PASARGUARD_VERSION_NAME: ${{ inputs.app_version_name || '1.5.0' }}
+          PASARGUARD_VERSION_CODE: ${{ inputs.app_version_code || '9' }}
+          PASARGUARD_VERSION_NAME: ${{ inputs.app_version_name || '1.5.3' }}
           PASARGUARD_BASE_URL: ${{ github.event.inputs.panel_base_url || vars.PASARGUARD_BASE_URL || 'https://panel.example.com' }}
           PASARGUARD_BILLING_URL: ${{ inputs.billing_base_url || vars.PASARGUARD_BILLING_URL }}
           PASARGUARD_APP_NAME: ${{ github.event.inputs.app_name || vars.PASARGUARD_APP_NAME || 'PasarGuard VPN' }}
@@ -114,8 +114,8 @@ jobs:
 
       - name: Build Release APKs by ABI
         env:
-          PASARGUARD_VERSION_CODE: ${{ inputs.app_version_code || '6' }}
-          PASARGUARD_VERSION_NAME: ${{ inputs.app_version_name || '1.5.0' }}
+          PASARGUARD_VERSION_CODE: ${{ inputs.app_version_code || '9' }}
+          PASARGUARD_VERSION_NAME: ${{ inputs.app_version_name || '1.5.3' }}
           PASARGUARD_RELEASE_STORE_PASSWORD: ${{ (inputs.sign_release || inputs.publish_release) && secrets.ANDROID_RELEASE_STORE_PASSWORD || '' }}
           PASARGUARD_RELEASE_KEY_ALIAS: ${{ (inputs.sign_release || inputs.publish_release) && secrets.ANDROID_RELEASE_KEY_ALIAS || '' }}
           PASARGUARD_RELEASE_KEY_PASSWORD: ${{ (inputs.sign_release || inputs.publish_release) && secrets.ANDROID_RELEASE_KEY_PASSWORD || '' }}

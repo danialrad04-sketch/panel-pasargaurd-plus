@@ -21,7 +21,7 @@ The implementation is the FastAPI service in [billing-service](../billing-servic
 | `POST /v1/billing/orders/{id}/transfer-ticket` | Obtain a one-time ticket for moving an eligible guest order into the signed-in account. |
 | `POST /v1/customer/claim` | Claim the order using that ticket. |
 
-The card payment window is 30 minutes. Payment states are `AWAITING_RECEIPT`, `PENDING_REVIEW`, `APPROVED`, `REJECTED` and `EXPIRED`. `APPROVED` can precede fulfillment. For orders with fulfillment, `activation_status` is `PENDING` or `READY`. The optional timeline fields are `submitted_at_ms`, `reviewed_at_ms` and `activation_ready_at_ms`. Historical orders can lack timeline dates. A reconciled order reports the actual recorded amount as `final_price_toman`.
+The card payment window is 30 minutes. Payment states are `AWAITING_RECEIPT`, `PENDING_REVIEW`, `APPROVED`, `REJECTED` and `EXPIRED`. `APPROVED` can precede fulfillment. For orders with fulfillment, `activation_status` is `PENDING` or `READY`. The optional timeline fields are `submitted_at_ms`, `reviewed_at_ms` and `activation_ready_at_ms`. Historical orders can lack timeline dates. Further receipt uploads on closed or expired orders return 409. A manual rejection can include `rejection_reason_fa`. A reconciled order reports the actual recorded amount as `final_price_toman`.
 
 ## Accounts and refunds
 

@@ -514,4 +514,5 @@
     <string name="order_last_checked">آخرین بررسی ساعت %1$s</string>
     <string name="order_status_stale">آخرین وضعیت دریافت‌شده نمایش داده می‌شود.</string>
     <string name="orders_copy_id">کپی شناسهٔ سفارش</string>
+    <string name="checkout_card_amount_reservation">مبلغ دقیق کارت‌به‌کارت پس از ثبت سفارش نمایش داده می‌شود.</string>
 </resources>

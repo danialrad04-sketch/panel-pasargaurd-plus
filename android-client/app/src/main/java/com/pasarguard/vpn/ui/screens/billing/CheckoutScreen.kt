@@ -42,7 +42,6 @@ import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.SupportAgent
@@ -196,9 +195,6 @@ fun CheckoutScreen(
                         isPersian = isPersian,
                         persianDigits = persianDigits,
                         currency = currency,
-                        onDiscountChange = viewModel::updateDiscountInput,
-                        onApplyDiscount = viewModel::applyDiscount,
-                        onClearDiscount = viewModel::clearDiscount,
                         onContinue = viewModel::proceedToCardToCard,
                         onWallet = viewModel::payWithWallet
                     )
@@ -264,17 +260,11 @@ private fun SummaryAndMethodStep(
     isPersian: Boolean,
     persianDigits: Boolean,
     currency: String,
-    onDiscountChange: (String) -> Unit,
-    onApplyDiscount: () -> Unit,
-    onClearDiscount: () -> Unit,
     onContinue: () -> Unit,
     onWallet: () -> Unit
 ) {
     val colors = PasarGuardTheme.colors
     val plan = state.plan ?: return
-    val applied = state.appliedDiscount?.takeIf { it.isValid }
-    val discountAmt = applied?.discountAmountToman ?: 0L
-    val finalPrice = (plan.priceToman - discountAmt).coerceAtLeast(1_000L)
 
     Column(
         modifier = Modifier
@@ -295,80 +285,18 @@ private fun SummaryAndMethodStep(
                 label = stringResource(R.string.checkout_base_price),
                 value = "${Formatters.formatNumber(plan.priceToman, persianDigits)} $currency"
             )
-            if (discountAmt > 0L) {
-                PriceLineRow(
-                    label = "${stringResource(R.string.checkout_discount)} (${applied?.code.orEmpty()})",
-                    value = "-${Formatters.formatNumber(discountAmt, persianDigits)} $currency",
-                    valueColor = colors.statusConnected
-                )
-            }
             state.walletBalance?.let { balance ->
                 PriceLineRow(
                     label = stringResource(R.string.account_wallet),
                     value = "${Formatters.formatNumber(balance, persianDigits)} $currency"
                 )
             }
-            Spacer(Modifier.height(Spacing.xs))
-            HorizontalDivider(color = colors.glassBorder)
             Spacer(Modifier.height(Spacing.sm))
-            PriceLineRow(
-                label = stringResource(R.string.checkout_final_price),
-                value = "${Formatters.formatNumber(finalPrice, persianDigits)} $currency",
-                valueColor = colors.heroEnd,
-                bold = true
+            Text(
+                stringResource(R.string.checkout_card_amount_reservation),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.textSecondary
             )
-        }
-
-        // Discount code card
-        GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 22.dp) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.LocalOffer, contentDescription = null, tint = colors.heroEnd, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = stringResource(R.string.checkout_discount_title),
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    color = colors.textPrimary
-                )
-            }
-            Spacer(Modifier.height(Spacing.sm))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
-            ) {
-                OutlinedTextField(
-                    value = state.discountInput,
-                    onValueChange = onDiscountChange,
-                    placeholder = { Text("WELCOME15 / PASAR50") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.weight(1f)
-                )
-                if (applied != null) {
-                    TextButton(onClick = onClearDiscount) {
-                        Text(stringResource(R.string.action_remove), color = colors.statusDanger)
-                    }
-                } else {
-                    OutlinedButton(
-                        onClick = onApplyDiscount,
-                        enabled = !state.isValidatingDiscount && state.discountInput.isNotBlank()
-                    ) {
-                        if (state.isValidatingDiscount) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        } else {
-                            Text(stringResource(R.string.checkout_apply_code))
-                        }
-                    }
-                }
-            }
-            state.appliedDiscount?.let { res ->
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = if (isPersian) res.messageFa else res.messageEn,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (res.isValid) colors.statusConnected else colors.statusDanger
-                )
-            }
         }
 
         // Payment Method Selector
