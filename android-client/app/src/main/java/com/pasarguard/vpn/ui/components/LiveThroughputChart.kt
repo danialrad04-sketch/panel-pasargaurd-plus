@@ -27,12 +27,12 @@ import kotlinx.coroutines.delay
 internal data class ThroughputSample(val download: Long, val upload: Long)
 
 @Composable
-internal fun rememberThroughput(sessionStartedAt: Long?, download: Long, upload: Long): List<ThroughputSample> {
-    val samples = remember(sessionStartedAt) { mutableStateListOf<ThroughputSample>() }
+internal fun rememberThroughput(sessionStartedAt: Long?, download: Long, upload: Long, capacity: Int = 60): List<ThroughputSample> {
+    val samples = remember(sessionStartedAt, capacity) { mutableStateListOf<ThroughputSample>() }
     val current: State<ThroughputSample> = rememberUpdatedState(ThroughputSample(download, upload))
-    LaunchedEffect(sessionStartedAt) {
+    LaunchedEffect(sessionStartedAt, capacity) {
         while (true) {
-            if (samples.size == 60) samples.removeAt(0)
+            if (samples.size == capacity) samples.removeAt(0)
             samples.add(current.value)
             delay(1_000)
         }
@@ -41,7 +41,7 @@ internal fun rememberThroughput(sessionStartedAt: Long?, download: Long, upload:
 }
 
 @Composable
-internal fun LiveThroughputChart(samples: List<ThroughputSample>, description: String) {
+internal fun LiveThroughputChart(samples: List<ThroughputSample>, description: String, windowSeconds: Int = 60) {
     val grid = MaterialTheme.colorScheme.outlineVariant
     val download = MaterialTheme.colorScheme.primary
     val upload = MaterialTheme.colorScheme.tertiary
@@ -49,18 +49,19 @@ internal fun LiveThroughputChart(samples: List<ThroughputSample>, description: S
         Modifier.fillMaxWidth().height(112.dp)
             .semantics { contentDescription = description }
             .drawWithCache {
-                val peak = samples.maxOfOrNull { maxOf(it.download, it.upload) } ?: 0L
+                val visible = samples.takeLast(windowSeconds)
+                val peak = visible.maxOfOrNull { maxOf(it.download, it.upload) } ?: 0L
                 val ceiling = (peak.toFloat() * 1.2f).coerceAtLeast(1024f)
                 val stroke = 2.dp.toPx()
                 val dash = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx()))
                 val chartHeight = (size.height - stroke * 2).coerceAtLeast(0f)
-                val step = (size.width - stroke * 2).coerceAtLeast(0f) / 59f
+                val step = (size.width - stroke * 2).coerceAtLeast(0f) / (windowSeconds - 1)
                 val endX = size.width - stroke
                 fun series(read: (ThroughputSample) -> Long): Pair<Path, Offset> {
                     val path = Path()
                     var last = Offset(endX, size.height - stroke)
-                    samples.forEachIndexed { index, sample ->
-                        last = Offset(endX - (samples.lastIndex - index) * step,
+                    visible.forEachIndexed { index, sample ->
+                        last = Offset(endX - (visible.lastIndex - index) * step,
                             stroke + chartHeight * (1f - (read(sample) / ceiling).coerceIn(0f, 1f)))
                         if (index == 0) path.moveTo(last.x, last.y) else path.lineTo(last.x, last.y)
                     }
@@ -71,7 +72,7 @@ internal fun LiveThroughputChart(samples: List<ThroughputSample>, description: S
                 val area = Path().apply {
                     addPath(down)
                     lineTo(endX, size.height)
-                    lineTo(endX - samples.lastIndex * step, size.height)
+                    lineTo(endX - visible.lastIndex * step, size.height)
                     close()
                 }
                 val fill = Brush.verticalGradient(listOf(download.copy(alpha = .25f), Color.Transparent))
@@ -80,7 +81,7 @@ internal fun LiveThroughputChart(samples: List<ThroughputSample>, description: S
                         val y = size.height * fraction
                         drawLine(grid, Offset(0f, y), Offset(size.width, y))
                     }
-                    if (samples.isNotEmpty()) {
+                    if (visible.isNotEmpty()) {
                         drawPath(area, fill)
                         drawPath(down, download, style = Stroke(stroke, cap = StrokeCap.Round))
                         drawPath(up, upload, style = Stroke(stroke, cap = StrokeCap.Round, pathEffect = dash))

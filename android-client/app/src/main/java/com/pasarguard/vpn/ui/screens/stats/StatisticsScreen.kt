@@ -1,6 +1,20 @@
 package com.pasarguard.vpn.ui.screens.stats
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import com.pasarguard.vpn.domain.model.ConnectionStatus
+import com.pasarguard.vpn.domain.repository.VpnController
+import com.pasarguard.vpn.ui.components.LiveThroughputChart
+import com.pasarguard.vpn.ui.components.rememberThroughput
+import java.time.LocalDate
+import java.time.ZoneId
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,8 +71,11 @@ import javax.inject.Inject
 
 @HiltViewModel
 class StatisticsViewModel @Inject constructor(
-    private val serverRepository: ServerRepository
+    private val serverRepository: ServerRepository,
+    vpnController: VpnController
 ) : ViewModel() {
+
+    val liveSession = vpnController.sessionState
 
     val sessions: StateFlow<List<SessionStatRecord>> = serverRepository.observeSessionStats()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -68,12 +85,23 @@ class StatisticsViewModel @Inject constructor(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun StatisticsScreen(
     onBack: () -> Unit,
     viewModel: StatisticsViewModel = hiltViewModel()
 ) {
-    val sessions by viewModel.sessions.collectAsStateWithLifecycle()
+    val history by viewModel.sessions.collectAsStateWithLifecycle()
+    val live by viewModel.liveSession.collectAsStateWithLifecycle()
+    var rangeDays by rememberSaveable { mutableStateOf(7) }
+    var windowSeconds by rememberSaveable { mutableStateOf(60) }
+    var confirmClear by rememberSaveable { mutableStateOf(false) }
+    val cutoff = LocalDate.now().minusDays(rangeDays - 1L)
+        .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    val sessions = history.filter { it.startedAtMs >= cutoff }
+    val liveSamples = if (live.status == ConnectionStatus.CONNECTED) {
+        rememberThroughput(live.connectedSinceEpochMs, live.downloadBytesPerSec, live.uploadBytesPerSec, 900)
+    } else null
     val colors = PasarGuardTheme.colors
     val persianDigits = LocalPersianDigits.current
 
@@ -88,6 +116,21 @@ fun StatisticsScreen(
         .take(5)
     val maxServerBytes = (topServers.maxOfOrNull { it.second } ?: 1L).coerceAtLeast(1L)
 
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text(stringResource(R.string.stats_clear_history)) },
+            text = { Text(stringResource(R.string.stats_clear_history_body)) },
+            confirmButton = {
+                TextButton(onClick = { confirmClear = false; viewModel.clearAll() }) {
+                    Text(stringResource(R.string.action_delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.action_cancel)) }
+            }
+        )
+    }
     DeepSpaceBackground {
         LazyColumn(
             modifier = Modifier
@@ -119,14 +162,36 @@ fun StatisticsScreen(
                             color = colors.textPrimary
                         )
                     }
-                    if (sessions.isNotEmpty()) {
-                        IconButton(onClick = viewModel::clearAll) {
+                    if (history.isNotEmpty()) {
+                        IconButton(onClick = { confirmClear = true }) {
                             Icon(
                                 imageVector = Icons.Rounded.DeleteSweep,
-                                contentDescription = null,
+                                contentDescription = stringResource(R.string.stats_clear_history),
                                 tint = colors.statusDanger
                             )
                         }
+                    }
+                }
+            }
+
+            if (liveSamples != null) item(key = "live") {
+                GlassCard(Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.stats_live_title), style = MaterialTheme.typography.titleMedium)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        listOf(60, 300, 900).forEach { seconds ->
+                            FilterChip(selected = windowSeconds == seconds, onClick = { windowSeconds = seconds },
+                                label = { Text(stringResource(R.string.stats_minutes, Formatters.formatNumber(seconds / 60L, persianDigits))) })
+                        }
+                    }
+                    LiveThroughputChart(liveSamples, stringResource(R.string.stats_live_title), windowSeconds)
+                }
+            }
+            item(key = "range") {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                    listOf(1, 7, 30, 90).forEach { days ->
+                        FilterChip(selected = rangeDays == days, onClick = { rangeDays = days },
+                            label = { Text(if (days == 1) stringResource(R.string.stats_today)
+                                else stringResource(R.string.stats_days, Formatters.formatNumber(days.toLong(), persianDigits))) })
                     }
                 }
             }

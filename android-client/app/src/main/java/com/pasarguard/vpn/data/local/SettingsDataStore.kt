@@ -108,7 +108,7 @@ class SettingsDataStore @Inject constructor(
             language = AppLanguage.fromCode(prefs[KEY_LANGUAGE] ?: BrandConfig.defaultLanguageCode),
             persianDigitsEnabled = prefs[KEY_PERSIAN_DIGITS] ?: true,
             calendarSystem = enumOrDefault(prefs[KEY_CALENDAR_SYSTEM], CalendarSystem.JALALI),
-            themeMode = enumOrDefault(prefs[KEY_THEME_MODE], ThemeMode.DARK),
+            themeMode = enumOrDefault(prefs[KEY_THEME_MODE], ThemeMode.LIGHT),
             themePalette = enumOrDefault(prefs[KEY_THEME_PALETTE], ThemePalette.OCEAN),
             dynamicColorEnabled = prefs[KEY_DYNAMIC_COLOR] ?: false,
 

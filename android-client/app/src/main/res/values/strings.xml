@@ -537,4 +537,10 @@
     <string name="servers_group_open">%1$s · %2$s  −</string>
     <string name="settings_search_groups">Find a settings section</string>
     <string name="settings_advanced">Advanced options</string>
+    <string name="stats_clear_history">Clear connection history</string>
+    <string name="stats_clear_history_body">All saved session records will be removed.</string>
+    <string name="stats_live_title">Live connection traffic</string>
+    <string name="stats_minutes">%1$s min</string>
+    <string name="stats_today">Today</string>
+    <string name="stats_days">%1$s days</string>
 </resources>

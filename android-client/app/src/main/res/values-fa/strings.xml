@@ -537,4 +537,10 @@
     <string name="servers_group_open">%1$s · %2$s  −</string>
     <string name="settings_search_groups">جست‌وجوی بخش تنظیمات</string>
     <string name="settings_advanced">گزینه‌های پیشرفته</string>
+    <string name="stats_clear_history">پاک‌کردن تاریخچهٔ اتصال</string>
+    <string name="stats_clear_history_body">همهٔ نشست‌های ذخیره‌شده پاک می‌شوند.</string>
+    <string name="stats_live_title">ترافیک زندهٔ اتصال</string>
+    <string name="stats_minutes">%1$s دقیقه</string>
+    <string name="stats_today">امروز</string>
+    <string name="stats_days">%1$s روز</string>
 </resources>
