@@ -51,6 +51,11 @@ android {
             "PASARGUARD_BILLING_URL must be an HTTPS origin"
         }
         buildConfigField("String", "BILLING_BASE_URL", "\"$billingUrl\"")
+        for (field in listOf("FCM_APP_ID", "FCM_API_KEY", "FCM_PROJECT_ID", "FCM_SENDER_ID")) {
+            val value = resolveConfig("DONINO_$field", "")
+            require(Regex("[A-Za-z0-9:_-]*").matches(value))
+            buildConfigField("String", field, "\"$value\"")
+        }
         val appName = resolveConfig("PASARGUARD_APP_NAME", "Donino Vpn")
         val telegramUrl = resolveConfig("PASARGUARD_SUPPORT_TELEGRAM", "")
         val whatsappUrl = resolveConfig("PASARGUARD_SUPPORT_WHATSAPP", "")
@@ -183,6 +188,7 @@ dependencies {
 
     // WorkManager
     implementation(libs.work.runtime.ktx)
+    implementation("com.google.firebase:firebase-messaging:24.1.2")
 
     // QR Code Scanner
     implementation(libs.camerax.core)

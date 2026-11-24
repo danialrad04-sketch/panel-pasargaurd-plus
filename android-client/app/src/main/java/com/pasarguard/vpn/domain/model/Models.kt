@@ -141,6 +141,7 @@ enum class PingTestMode {
 }
 
 enum class AutoSelectMode {
+    SMART,
     LOWEST_PING,
     MOST_STABLE,
     ROUND_ROBIN_TOP_N
@@ -484,7 +485,7 @@ data class AppSettings(
     val pingSamplesPerServer: Int = 2, // 1..5
     val pingTimeoutSec: Int = 5, // 2..10
     val pingMaxConcurrency: Int = 5, // 1..10
-    val autoSelectMode: AutoSelectMode = AutoSelectMode.LOWEST_PING,
+    val autoSelectMode: AutoSelectMode = AutoSelectMode.SMART,
     val autoTestOnAppOpen: Boolean = false,
     val autoTestBeforeAutoSelect: Boolean = true,
     val hideDeadServers: Boolean = false,

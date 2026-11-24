@@ -3,6 +3,7 @@ package com.pasarguard.vpn.ui.screens.home
 import android.app.Activity
 import android.net.VpnService
 import androidx.activity.compose.rememberLauncherForActivityResult
+import com.pasarguard.vpn.ui.screens.support.ServiceIncidentBanner
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
@@ -142,12 +143,14 @@ class HomeViewModel @Inject constructor(
     )
 
     init {
-        refreshSubscription()
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(1200)
+            refreshSubscription()
+            val settings = settingsRepository.getSnapshot()
+            if (settings.autoTestOnAppOpen) serverRepository.pingAllServers()
+        }
         viewModelScope.launch {
             val settings = settingsRepository.getSnapshot()
-            if (settings.autoTestOnAppOpen) {
-                launch { serverRepository.pingAllServers() }
-            }
             if (settings.autoConnect &&
                 vpnController.hasVpnPermission() &&
                 vpnController.sessionState.value.status == ConnectionStatus.DISCONNECTED
@@ -448,6 +451,8 @@ fun HomeScreen(
 
                 Spacer(Modifier.height(Spacing.lg))
 
+                ServiceIncidentBanner("connection", state.session.activeServer?.id ?: state.settings.selectedServerId)
+
                 // Adaptive Layout: 2-pane on wide tablets, single column on phones
                 if (isWide) {
                     Row(
@@ -462,6 +467,7 @@ fun HomeScreen(
                             HeroConnectSection(
                                 status = state.session.status,
                                 errorMessage = state.session.errorMessage,
+                                onOpenDiagnostics = onOpenDiagnostics,
                                 onConnectTap = handleConnectTap
                             )
                         }
@@ -486,6 +492,7 @@ fun HomeScreen(
                     HeroConnectSection(
                         status = state.session.status,
                         errorMessage = state.session.errorMessage,
+                        onOpenDiagnostics = onOpenDiagnostics,
                         onConnectTap = handleConnectTap
                     )
                     Spacer(Modifier.height(Spacing.lg))
@@ -510,6 +517,7 @@ fun HomeScreen(
 private fun HeroConnectSection(
     status: ConnectionStatus,
     errorMessage: String?,
+    onOpenDiagnostics: () -> Unit,
     onConnectTap: () -> Unit
 ) {
     val colors = PasarGuardTheme.colors
@@ -523,6 +531,11 @@ private fun HeroConnectSection(
         style = MaterialTheme.typography.bodyMedium,
         color = colors.textSecondary
     )
+    if (status == ConnectionStatus.ERROR) {
+        androidx.compose.material3.TextButton(onClick = onOpenDiagnostics) {
+            Text(stringResource(R.string.support_check_connection))
+        }
+    }
     if (errorMessage != null) {
         Spacer(Modifier.height(Spacing.xs))
         Text(

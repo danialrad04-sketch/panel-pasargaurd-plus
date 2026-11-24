@@ -21,6 +21,7 @@
       <nav class="navigation" aria-label="منوی مدیریت">
         <a href="#overview" data-tab="overview" aria-current="page"><i class="icon i-grid" aria-hidden="true"></i>نمای کلی</a>
         <a href="#orders" data-tab="orders"><i class="icon i-order" aria-hidden="true"></i>سفارش‌ها</a>
+        <a href="#operations" data-tab="operations"><i class="icon i-grid" aria-hidden="true"></i>عملیات و پشتیبانی</a>
         <a href="#deposits" data-tab="deposits"><i class="icon i-deposit" aria-hidden="true"></i>واریزی‌ها</a>
         <a href="#catalog" data-tab="catalog"><i class="icon i-card" aria-hidden="true"></i>پلن‌ها</a>
         <a href="#activity" data-tab="activity"><i class="icon i-activity" aria-hidden="true"></i>فعالیت‌ها</a>
@@ -121,6 +122,27 @@
             <div id="orders-pages" class="pagination"></div>
           </article>
         </section>
+        <section id="operations" data-view hidden>
+          <div class="panel">
+            <h2>صف رسیدگی</h2>
+            <label class="field">دستهٔ کار
+              <select id="operations-kind">
+                <option value="">همهٔ موارد</option><option value="receipt">رسید بررسی‌نشده</option>
+                <option value="deposit">واریز بدون تطبیق</option><option value="activation">فعال‌سازی معطل</option>
+                <option value="support">گفت‌وگوی منتظر پاسخ</option>
+              </select>
+            </label>
+            <p id="operations-count" aria-live="polite"></p>
+            <div id="operations-list" class="table-area"></div>
+            <div id="operations-pages" class="pagination"></div>
+          </div>
+          <div class="panel"><h2>گفت‌وگوهای مشتریان</h2><div id="support-threads"></div></div>
+          <div class="panel">
+            <h2>اطلاعیه‌های سرویس</h2>
+            <button id="new-incident" type="button" class="button primary">ثبت اطلاعیه</button>
+            <div id="incidents-list"></div>
+          </div>
+        </section>
         <section id="deposits" data-view hidden>
           <div class="page-heading"><h1>واریزی‌ها</h1><p>واریزهای پیامکی و وضعیت تطبیق آن‌ها</p></div>
           <article class="surface listing">
@@ -218,6 +240,23 @@
     <div class="switcher"><label class="field">جست‌وجوی بخش<input id="section-query" type="search" autofocus></label><nav id="section-links" aria-label="انتخاب بخش"></nav><p id="no-section" hidden>بخشی پیدا نشد.</p></div>
   </dialog>
   <dialog id="source-dialog" aria-labelledby="source-title"><header class="dialog-head"><h2 id="source-title">تغییر منبع نسخهٔ اندروید</h2></header><form method="dialog" class="switcher"><p>تنظیم دستی نسخه حذف می‌شود و برنامه نسخهٔ منتشرشده در GitHub را پیشنهاد می‌دهد.</p><div class="dialog-actions"><button value="cancel" class="button subtle" autofocus>انصراف</button><button class="button primary" value="apply">استفاده از GitHub</button></div></form></dialog>
+  <dialog id="support-dialog" aria-labelledby="support-title">
+    <header class="dialog-head"><h2 id="support-title">گفت‌وگو</h2><form method="dialog"><button class="button subtle">بستن</button></form></header>
+    <div id="support-content" class="switcher"></div>
+  </dialog>
+  <dialog id="incident-dialog" aria-labelledby="incident-title">
+    <header class="dialog-head"><h2 id="incident-title">اطلاعیهٔ سرویس</h2><form method="dialog"><button class="button subtle">بستن</button></form></header>
+    <form id="incident-form" class="switcher">
+      <label class="field">عنوان<input name="title" required maxlength="140"></label>
+      <label class="field">شرح<textarea name="body" required maxlength="2000"></textarea></label>
+      <label class="field">اقدام پیشنهادی<input name="guidance" maxlength="500"></label>
+      <label class="field">بخش<select name="scope"><option value="connection">اتصال</option><option value="payment">پرداخت</option><option value="update">به‌روزرسانی</option></select></label>
+      <label class="field">شناسهٔ سرورهای درگیر (با کاما جدا کنید)<input name="server_ids"></label>
+      <label class="field">وضعیت<select name="status"><option value="investigating">در حال بررسی</option><option value="resolved">رفع‌شده</option></select></label>
+      <p class="notice" id="incident-notice" role="status" hidden></p>
+      <button class="button primary">ذخیره و انتشار</button>
+    </form>
+  </dialog>
   <dialog id="deposit-dialog" aria-labelledby="deposit-title">
     <header class="dialog-head"><h2 id="deposit-title">تطبیق دستی واریز</h2><form method="dialog"><button class="button subtle">بستن</button></form></header>
     <form id="deposit-match-form" class="switcher">

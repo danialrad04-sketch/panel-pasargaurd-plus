@@ -1,6 +1,7 @@
 package com.pasarguard.vpn.ui.screens.billing
 
 import android.content.ClipData
+import com.pasarguard.vpn.ui.screens.support.ServiceIncidentBanner
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
@@ -109,6 +110,7 @@ fun CheckoutScreen(
     onOpenOrders: () -> Unit,
     onDoneHome: () -> Unit,
     onViewSubscription: () -> Unit,
+    onSupport: (String?) -> Unit = {},
     viewModel: CheckoutViewModel = hiltViewModel()
 ) {
     LaunchedEffect(planId, orderId) {
@@ -164,6 +166,7 @@ fun CheckoutScreen(
                 .padding(horizontal = Spacing.md)
         ) {
             Spacer(Modifier.height(Spacing.sm))
+            ServiceIncidentBanner("payment")
 
             // Top bar
             Row(
@@ -185,8 +188,12 @@ fun CheckoutScreen(
                         CheckoutStep.SUCCESS -> stringResource(R.string.checkout_success_title)
                     },
                     style = MaterialTheme.typography.titleLarge,
-                    color = colors.textPrimary
+                    color = colors.textPrimary,
+                    modifier = Modifier.weight(1f)
                 )
+                TextButton(onClick = { onSupport(state.order?.id ?: orderId) }) {
+                    Text(stringResource(R.string.support_center))
+                }
             }
 
             if (!state.isLoading && (state.plan != null || state.order != null)) {

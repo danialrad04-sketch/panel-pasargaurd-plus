@@ -598,6 +598,7 @@ fun ServersScreen(
                                     )
                                     Text(
                                         text = when (state.settings.autoSelectMode) {
+                                            AutoSelectMode.SMART -> stringResource(R.string.auto_mode_smart)
                                             AutoSelectMode.LOWEST_PING -> stringResource(R.string.auto_mode_lowest_ping)
                                             AutoSelectMode.MOST_STABLE -> stringResource(R.string.auto_mode_most_stable)
                                             AutoSelectMode.ROUND_ROBIN_TOP_N -> stringResource(R.string.auto_mode_round_robin)
@@ -1164,6 +1165,7 @@ private fun PingSettingsBottomSheet(
             Text(stringResource(R.string.auto_select_mode_label), style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 listOf(
+                    AutoSelectMode.SMART to R.string.auto_mode_smart,
                     AutoSelectMode.LOWEST_PING to R.string.auto_mode_lowest_ping,
                     AutoSelectMode.MOST_STABLE to R.string.auto_mode_most_stable,
                     AutoSelectMode.ROUND_ROBIN_TOP_N to R.string.auto_mode_round_robin

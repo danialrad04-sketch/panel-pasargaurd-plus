@@ -6,7 +6,7 @@ const compact = new Intl.NumberFormat("fa-IR", { notation: "compact", maximumFra
 const fullDate = new Intl.DateTimeFormat("fa-IR", { timeZone: "Asia/Tehran", dateStyle: "medium", timeStyle: "short" });
 const dayLabel = new Intl.DateTimeFormat("fa-IR", { timeZone: "Asia/Tehran", month: "numeric", day: "numeric" });
 const today = new Intl.DateTimeFormat("fa-IR", { timeZone: "Asia/Tehran", dateStyle: "full" });
-const titles = { overview: "نمای کلی", orders: "سفارش‌ها", deposits: "واریزی‌ها", activity: "فعالیت‌ها", catalog: "پلن‌ها", settings: "تنظیمات" };
+const titles = { operations: "عملیات و پشتیبانی", overview: "نمای کلی", orders: "سفارش‌ها", deposits: "واریزی‌ها", activity: "فعالیت‌ها", catalog: "پلن‌ها", settings: "تنظیمات" };
 const statusLabels = {
   AWAITING_RECEIPT: "در انتظار واریز", PENDING_REVIEW: "در انتظار بررسی",
   APPROVED: "تأییدشده", REJECTED: "ردشده", EXPIRED: "منقضی",
@@ -14,7 +14,7 @@ const statusLabels = {
 };
 const decisionLabels = { ADMIN_MATCHED: "تطبیق دستی واریز و تأیید پرداخت", ADMIN_EXPEDITED: "تسریع فعال‌سازی توسط مدیر", ADMIN_CANCEL: "لغو سفارش پرداخت‌نشده توسط مدیر", SMS_APPROVED: "تأیید خودکار با پیامک بانک", ADMIN_APPROVED: "تأیید دستی مدیر", ADMIN_REJECTED: "رد دستی مدیر" };
 const activityLabels = {
-  ...decisionLabels, LOGIN: "ورود به پنل", LOGOUT: "خروج از پنل",
+  ...decisionLabels, SUPPORT_REPLY: "پاسخ پشتیبان", SUPPORT_STATUS: "تغییر وضعیت گفت‌وگو", SERVICE_INCIDENT: "انتشار اطلاعیه", LOGIN: "ورود به پنل", LOGOUT: "خروج از پنل",
   RELEASE_UPDATED: "تغییر نسخهٔ برنامه", WALLET_PAID: "پرداخت از کیف پول", CUSTOMER_CANCELLED: "لغو اشتراک و ثبت اعتبار کیف پول", CATALOG_UPDATED: "تغییر پلن فروش", CARD_UPDATED: "تغییر کارت مقصد", PROVISIONING_UPDATED: "تغییر تنظیمات ساخت اشتراک",
 };
 const date = (value) => value ? fullDate.format(value) : "—";
@@ -550,7 +550,140 @@ async function saveProvisionRequest(path, data) {
   return request(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
 }
 
-const loaders = { overview, orders: orderList, deposits: depositList, activity: activityList, catalog: catalogList, settings };
+const operationKinds = {receipt: "رسید بررسی‌نشده", deposit: "واریز بدون تطبیق", activation: "فعال‌سازی معطل", support: "منتظر پاسخ"};
+const supportStatuses = {waiting: "منتظر پاسخ", investigating: "در حال بررسی", resolved: "حل‌شده"};
+const incidentScopes = {connection: "اتصال", payment: "پرداخت", update: "به‌روزرسانی"};
+let operationPage = 1;
+let incidentEditing;
+let supportVersion = 0;
+
+async function operationsPage(signal) {
+  const kind = get("operations-kind").value;
+  const offset = (operationPage - 1) * 50;
+  const [queue, threads, incidents] = await Promise.all([
+    request("/api/operations?" + new URLSearchParams({kind, offset}), {signal}),
+    request("/api/operations/support", {signal}),
+    request("/api/operations/incidents?active=false", {signal}),
+  ]);
+  if (signal.aborted) return;
+  get("operations-count").textContent = Object.entries(operationKinds)
+    .map(([key, label]) => label + " " + fa.format(queue.counts[key] || 0)).join(" · ");
+  const total = kind ? queue.counts[kind] || 0 : Object.values(queue.counts).reduce((sum, count) => sum + count, 0);
+  table(get("operations-list"), [["نوع"], ["شناسه یا موضوع"], ["زمان انتظار"], ["اقدام"]], queue.items.map(item => [
+    operationKinds[item.kind],
+    item.subject || item.id,
+    fa.format(Math.max(0, Math.floor((Date.now() - item.created) / 60000))) + " دقیقه",
+    button("بررسی", () => {
+      if (item.kind === "support") showSupport(item.id);
+      else if (item.kind === "deposit") openDepositMatch({id:item.id, amount:item.amount, received:item.created});
+      else showOrder(item.id);
+    }),
+  ]));
+  pages(get("operations-pages"), total, 50, operationPage, page => { operationPage = page; load(); });
+  get("support-threads").replaceChildren(...threads.map(thread =>
+    button(thread.subject + " · " + supportStatuses[thread.status], () => showSupport(thread.id))
+  ));
+  get("incidents-list").replaceChildren(...incidents.map(incident =>
+    button(incident.title + " · " + incidentScopes[incident.scope] + " · " +
+      (incident.status === "resolved" ? "رفع‌شده" : "در حال بررسی"), () => editIncident(incident))
+  ));
+}
+
+async function showSupport(id) {
+  const version = ++supportVersion;
+  const dialog = get("support-dialog");
+  const content = get("support-content");
+  const path = "/api/operations/support/" + encodeURIComponent(id);
+  content.replaceChildren(node("p", "در حال دریافت گفت‌وگو…"));
+  if (!dialog.open) dialog.showModal();
+  try {
+    const thread = await request(path);
+    if (version !== supportVersion || !dialog.open) return;
+    get("support-title").textContent = thread.subject;
+    const status = node("select");
+    status.setAttribute("aria-label", "وضعیت گفت‌وگو");
+    for (const [value, label] of Object.entries(supportStatuses)) {
+      const option = node("option", label);
+      option.value = value;
+      status.append(option);
+    }
+    status.value = thread.status;
+    const notice = node("p", "", "notice");
+    notice.hidden = true;
+    const report = error => setNotice(error.message, true, notice);
+    status.onchange = async () => {
+      status.disabled = true;
+      try { await operationWrite(path + "/status", "PUT", {status:status.value}); load(); }
+      catch (error) { status.value = thread.status; report(error); }
+      finally { status.disabled = false; }
+    };
+    const threadMessages = thread.messages.map(message => {
+      const messageRow = node("article", null, "panel");
+      messageRow.append(node("strong", (message.sender === "staff" ? "پشتیبان" : "کاربر") + " · " + date(message.created)),
+        node("p", message.body));
+      if (message.diagnostic) messageRow.append(node("p", Object.values(message.diagnostic).join(" · ")));
+      return messageRow;
+    });
+    const reply = node("textarea");
+    reply.maxLength = 4000;
+    reply.placeholder = "متن پاسخ پشتیبان";
+    reply.setAttribute("aria-label", "پاسخ پشتیبان");
+    let requestId = crypto.randomUUID();
+    const send = button("ارسال پاسخ", async () => {
+      if (!reply.value.trim() || send.disabled) return;
+      reply.disabled = send.disabled = true;
+      try {
+        await operationWrite(path + "/messages", "POST", {request_id: requestId, body: reply.value.trim()});
+        if (version === supportVersion && dialog.open) await showSupport(id);
+        if (active === "operations") load();
+      } catch (error) { report(error); }
+      finally { reply.disabled = send.disabled = false; }
+    }, "primary");
+    const contentRows = [status, ...threadMessages, reply, send, notice];
+    if (thread.order_id) contentRows.unshift(button("باز کردن سفارش", () => { dialog.close(); showOrder(thread.order_id); }));
+    content.replaceChildren(...contentRows);
+  } catch (error) {
+    if (version === supportVersion) content.replaceChildren(node("p", error.message));
+  }
+}
+
+function operationWrite(path, method, data) {
+  return request(path, {method, headers: {"Content-Type": "application/json"}, body: JSON.stringify(data)});
+}
+
+function editIncident(incident = null) {
+  incidentEditing = incident;
+  const fields = get("incident-form").elements;
+  get("incident-form").reset();
+  if (incident) {
+    for (const name of ["title","body","guidance","scope","status"]) fields[name].value = incident[name];
+    fields.server_ids.value = incident.server_ids.join(", ");
+  }
+  setNotice("", false, get("incident-notice"));
+  get("incident-dialog").showModal();
+}
+
+get("operations-kind").addEventListener("change", () => { operationPage = 1; load(); });
+get("new-incident").addEventListener("click", () => editIncident());
+get("incident-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const fields = new FormData(event.currentTarget);
+  const submit = event.submitter;
+  if (submit?.disabled) return;
+  if (submit) submit.disabled = true;
+  const id = incidentEditing?.id || crypto.randomUUID().replaceAll("-", "");
+  const data = Object.fromEntries(fields);
+  data.server_ids = data.server_ids.split(/[,،]/).map(value => value.trim()).filter(Boolean);
+  data.expected_revision = incidentEditing?.revision || 0;
+  try {
+    await operationWrite("/api/operations/incidents/" + id, "PUT", data);
+    get("incident-dialog").close();
+    load();
+  } catch (error) { setNotice(error.message, true, get("incident-notice")); }
+  finally { if (submit) submit.disabled = false; }
+});
+
+const loaders = { operations: operationsPage, overview, orders: orderList, deposits: depositList, activity: activityList, catalog: catalogList, settings };
 
 async function load() {
   activeLoad?.abort();

@@ -39,6 +39,9 @@ import com.pasarguard.vpn.vpn.core.XrayCore
 import com.pasarguard.vpn.widget.PasarGuardWidgetProvider
 import com.pasarguard.vpn.worker.NotificationHelper
 import dagger.hilt.android.AndroidEntryPoint
+import com.pasarguard.vpn.data.local.ConnectionHistory
+import com.pasarguard.vpn.domain.model.AutoSelectMode
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -71,6 +74,7 @@ class PasarGuardVpnService : VpnService() {
     @Inject lateinit var xrayCore: XrayCore
     @Inject lateinit var singBoxCore: SingBoxCore
     @Inject lateinit var notificationHelper: NotificationHelper
+    @Inject lateinit var connectionHistory: ConnectionHistory
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -195,6 +199,7 @@ class PasarGuardVpnService : VpnService() {
             subtitle = selectedEngine.label
         )
 
+        val networkType = connectionHistory.networkType()
         runCatching {
             stopActiveCoreAndTun()
 
@@ -238,6 +243,7 @@ class PasarGuardVpnService : VpnService() {
                     errorMessage = null
                 )
             }
+            serviceScope.launch { connectionHistory.record(server.id, networkType, true) }
             syncExternalSurfaces(ConnectionStatus.CONNECTED, server.name, selectedEngine.label)
             SanitizedLogBuffer.info(TAG, "Tunnel connected: ${server.name} (${selectedEngine.label})")
 
@@ -272,18 +278,21 @@ class PasarGuardVpnService : VpnService() {
                 }
             }
         }.onFailure { err ->
+            if (err is CancellationException || manualDisconnectRequested) return
+            connectionHistory.record(server.id, networkType, false)
             stopActiveCoreAndTun()
             SanitizedLogBuffer.error(TAG, "Connection failed on ${server.name}: ${err.message}")
 
             // Optional Auto-Failover to next-best reachable server
             if (allowFailover && settings.autoFailover && !manualDisconnectRequested) {
-                val backup = serverRepository.getCachedServers()
-                    .filter { it.id != server.id && (it.pingMs ?: -1) > 0 }
-                    .sortedWith(
-                        compareByDescending<VpnServer> { it.stabilityScore }
-                            .thenBy { it.pingMs ?: Int.MAX_VALUE }
-                    )
-                    .firstOrNull()
+                val alternatives = serverRepository.getCachedServers().filter { it.id != server.id }
+                val backup = if (settings.autoSelectMode == AutoSelectMode.SMART) {
+                    connectionHistory.rank(alternatives).firstOrNull()
+                } else {
+                    alternatives.filter { (it.pingMs ?: -1) > 0 }
+                        .sortedWith(compareByDescending<VpnServer> { it.stabilityScore }.thenBy { it.pingMs })
+                        .firstOrNull()
+                }
 
                 if (backup != null) {
                     SanitizedLogBuffer.warn(TAG, "Auto-failover switching to ${backup.name}")

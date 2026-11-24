@@ -36,6 +36,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.TextButton
+import com.pasarguard.vpn.data.repository.SupportDiagnostic
+import com.pasarguard.vpn.ui.screens.support.ConnectionCheck
+import com.pasarguard.vpn.ui.screens.support.failureLabel
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -88,11 +92,33 @@ data class DiagnosticsUiState(
 @HiltViewModel
 class DiagnosticsViewModel @Inject constructor(
     private val diagnosticsEngine: DiagnosticsEngine,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val connectionCheck: ConnectionCheck
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DiagnosticsUiState())
     val uiState: StateFlow<DiagnosticsUiState> = _uiState.asStateFlow()
+
+    private val _connectionReport = MutableStateFlow<SupportDiagnostic?>(null)
+    val connectionReport = _connectionReport.asStateFlow()
+    private val _checkingConnection = MutableStateFlow(false)
+    val checkingConnection = _checkingConnection.asStateFlow()
+
+    fun checkConnection() {
+        if (_checkingConnection.value) return
+        _checkingConnection.value = true
+        viewModelScope.launch {
+            try {
+                _connectionReport.value = connectionCheck.run()
+            } catch (cancel: kotlinx.coroutines.CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                _connectionReport.value = SupportDiagnostic("other", "unknown")
+            } finally {
+                _checkingConnection.value = false
+            }
+        }
+    }
 
     private var speedJob: Job? = null
 
@@ -164,9 +190,14 @@ class DiagnosticsViewModel @Inject constructor(
 @Composable
 fun DiagnosticsScreen(
     onBack: () -> Unit,
+    onSupport: (SupportDiagnostic) -> Unit = {},
+    onServers: () -> Unit = {},
+    onSubscription: () -> Unit = {},
     viewModel: DiagnosticsViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val report by viewModel.connectionReport.collectAsStateWithLifecycle()
+    val checking by viewModel.checkingConnection.collectAsStateWithLifecycle()
     val colors = PasarGuardTheme.colors
     val persianDigits = LocalPersianDigits.current
 
@@ -212,6 +243,20 @@ fun DiagnosticsScreen(
                         contentDescription = stringResource(R.string.servers_refresh),
                         tint = colors.heroEnd
                     )
+                }
+            }
+
+            GlassCard(Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.support_check_connection), style = MaterialTheme.typography.titleMedium)
+                GradientButton(text = stringResource(R.string.support_check_connection),
+                    onClick = viewModel::checkConnection, isLoading = checking, enabled = !checking)
+                report?.takeUnless { checking }?.let { result ->
+                    Text(stringResource(failureLabel(result.failure)))
+                    when (result.failure) {
+                        "server" -> TextButton(onClick = onServers) { Text(stringResource(R.string.servers_title)) }
+                        "subscription" -> TextButton(onClick = onSubscription) { Text(stringResource(R.string.nav_subscription)) }
+                    }
+                    TextButton(onClick = { onSupport(result) }) { Text(stringResource(R.string.support_attach)) }
                 }
             }
 

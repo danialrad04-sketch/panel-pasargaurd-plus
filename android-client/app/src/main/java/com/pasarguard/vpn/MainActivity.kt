@@ -67,6 +67,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -100,8 +101,10 @@ class MainViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val initialSettings = settingsRepository.getSnapshot()
-            val hasCredentials = subscriptionRepository.getSavedCredentials() != null
+            val settingsTask = async { settingsRepository.getSnapshot() }
+            val credentialsTask = async(kotlinx.coroutines.Dispatchers.IO) { subscriptionRepository.getSavedCredentials() }
+            val initialSettings = settingsTask.await()
+            val hasCredentials = credentialsTask.await() != null
             val start = when {
                 hasCredentials -> Routes.HOME
                 initialSettings.onboardingCompleted -> Routes.LOGIN
@@ -210,8 +213,6 @@ class MainActivity : AppCompatActivity() {
 
         splashScreen.setKeepOnScreenCondition { !viewModel.state.value.isReady }
         viewModel.handleIncomingIntent(intent)
-        requestNotificationPermissionIfNeeded()
-
         setContent {
             val rootState by viewModel.state.collectAsStateWithLifecycle()
 
@@ -223,6 +224,12 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
+            LaunchedEffect(rootState.isReady) {
+                if (rootState.isReady) {
+                    kotlinx.coroutines.delay(1200)
+                    requestNotificationPermissionIfNeeded()
+                }
+            }
             if (rootState.isReady) {
                 PasarGuardVpnTheme(
                     themeMode = rootState.themeMode,

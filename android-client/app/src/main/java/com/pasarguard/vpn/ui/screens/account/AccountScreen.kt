@@ -139,7 +139,8 @@ class AccountViewModel @Inject constructor(
 @Composable
 fun AccountScreen(
     onBack: () -> Unit, onPlans: () -> Unit, onSettings: () -> Unit, onOrder: (String) -> Unit,
-    onConnect: () -> Unit, viewModel: AccountViewModel = hiltViewModel()
+    onConnect: () -> Unit, onSupport: () -> Unit = {}, onServiceStatus: () -> Unit = {},
+    viewModel: AccountViewModel = hiltViewModel()
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -159,6 +160,8 @@ fun AccountScreen(
                 Column(modifier = Modifier.padding(vertical = 10.dp)) {
                     TextButton(onClick = onBack) { Text(stringResource(R.string.action_back)) }
                     Text(stringResource(R.string.customer_portal), style = MaterialTheme.typography.headlineMedium)
+                    if (viewModel.email != null) TextButton(onClick = onSupport) { Text(stringResource(R.string.support_center)) }
+                    TextButton(onClick = onServiceStatus) { Text(stringResource(R.string.service_status)) }
                 }
             }
             if (viewModel.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }

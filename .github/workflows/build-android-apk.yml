@@ -89,6 +89,10 @@ jobs:
           PASARGUARD_APP_NAME: ${{ github.event.inputs.app_name || vars.PASARGUARD_APP_NAME || 'Donino Vpn' }}
           PASARGUARD_SUPPORT_TELEGRAM: ${{ vars.PASARGUARD_SUPPORT_TELEGRAM }}
           PASARGUARD_SUPPORT_WHATSAPP: ${{ vars.PASARGUARD_SUPPORT_WHATSAPP }}
+          DONINO_FCM_APP_ID: ${{ vars.DONINO_FCM_APP_ID }}
+          DONINO_FCM_API_KEY: ${{ vars.DONINO_FCM_API_KEY }}
+          DONINO_FCM_PROJECT_ID: ${{ vars.DONINO_FCM_PROJECT_ID }}
+          DONINO_FCM_SENDER_ID: ${{ vars.DONINO_FCM_SENDER_ID }}
         run: gradle :app:assembleDebug -PpasarguardOptimizeDebug=true --stacktrace
 
       - name: Restore the persistent release signing key
@@ -124,6 +128,10 @@ jobs:
           PASARGUARD_APP_NAME: ${{ github.event.inputs.app_name || vars.PASARGUARD_APP_NAME || 'Donino Vpn' }}
           PASARGUARD_SUPPORT_TELEGRAM: ${{ vars.PASARGUARD_SUPPORT_TELEGRAM }}
           PASARGUARD_SUPPORT_WHATSAPP: ${{ vars.PASARGUARD_SUPPORT_WHATSAPP }}
+          DONINO_FCM_APP_ID: ${{ vars.DONINO_FCM_APP_ID }}
+          DONINO_FCM_API_KEY: ${{ vars.DONINO_FCM_API_KEY }}
+          DONINO_FCM_PROJECT_ID: ${{ vars.DONINO_FCM_PROJECT_ID }}
+          DONINO_FCM_SENDER_ID: ${{ vars.DONINO_FCM_SENDER_ID }}
         run: gradle :app:assembleRelease --stacktrace
 
       - name: Remove the release signing file

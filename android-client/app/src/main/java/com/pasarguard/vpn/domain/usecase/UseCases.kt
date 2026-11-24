@@ -1,6 +1,7 @@
 package com.pasarguard.vpn.domain.usecase
 
 import android.net.Uri
+import com.pasarguard.vpn.data.local.ConnectionHistory
 import com.pasarguard.vpn.BrandConfig
 import com.pasarguard.vpn.domain.model.AutoSelectMode
 import com.pasarguard.vpn.domain.model.SubscriptionCredentials
@@ -98,7 +99,8 @@ class SyncSubscriptionUseCase @Inject constructor(
  */
 class SelectBestServerUseCase @Inject constructor(
     private val serverRepository: ServerRepository,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val history: ConnectionHistory
 ) {
     suspend operator fun invoke(preferredServerId: String?): Pair<VpnServer?, Boolean> {
         val cached = serverRepository.getCachedServers()
@@ -110,6 +112,9 @@ class SelectBestServerUseCase @Inject constructor(
         }
 
         val settings = settingsRepository.getSnapshot()
+        if (settings.autoSelectMode == AutoSelectMode.SMART) {
+            return history.rank(cached).firstOrNull() to true
+        }
         val hasAnyPing = cached.any { (it.pingMs ?: -1) > 0 }
         val pool = if (settings.autoTestBeforeAutoSelect || !hasAnyPing) {
             serverRepository.pingAllServers()
@@ -123,6 +128,7 @@ class SelectBestServerUseCase @Inject constructor(
         }
 
         val chosen = when (settings.autoSelectMode) {
+            AutoSelectMode.SMART -> error("Handled before probing")
             AutoSelectMode.LOWEST_PING ->
                 reachable.minByOrNull { it.pingMs ?: Int.MAX_VALUE }
 

@@ -73,6 +73,13 @@
         </activity>
 
         <!-- Native Android VpnService powered by Xray-core (primary) + sing-box (secondary) -->
+        <meta-data android:name="firebase_messaging_auto_init_enabled" android:value="false" />
+        <service android:name=".worker.ServiceMessaging" android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
         <service
             android:name=".vpn.service.PasarGuardVpnService"
             android:exported="false"

@@ -126,7 +126,8 @@ class SettingsDataStore @Inject constructor(
             pingSamplesPerServer = (prefs[KEY_PING_SAMPLES] ?: 2).coerceIn(1, 5),
             pingTimeoutSec = (prefs[KEY_PING_TIMEOUT_SEC] ?: 5).coerceIn(2, 10),
             pingMaxConcurrency = (prefs[KEY_PING_CONCURRENCY] ?: 5).coerceIn(1, 10),
-            autoSelectMode = enumOrDefault(prefs[KEY_AUTO_SELECT_MODE], AutoSelectMode.LOWEST_PING),
+            autoSelectMode = enumOrDefault(prefs[KEY_AUTO_SELECT_MODE],
+                if (prefs[KEY_ONBOARDING_DONE] == true) AutoSelectMode.LOWEST_PING else AutoSelectMode.SMART),
             autoTestOnAppOpen = prefs[KEY_AUTO_TEST_APP_OPEN] ?: false,
             autoTestBeforeAutoSelect = prefs[KEY_AUTO_TEST_BEFORE_SELECT] ?: true,
             hideDeadServers = prefs[KEY_HIDE_DEAD] ?: false,
@@ -170,7 +171,12 @@ class SettingsDataStore @Inject constructor(
 
     override suspend fun getSnapshot(): AppSettings = settings.first()
 
-    override suspend fun setOnboardingCompleted(completed: Boolean) = edit { it[KEY_ONBOARDING_DONE] = completed }
+    override suspend fun setOnboardingCompleted(completed: Boolean) = edit {
+        if (completed && it[KEY_ONBOARDING_DONE] != true && it[KEY_AUTO_SELECT_MODE] == null) {
+            it[KEY_AUTO_SELECT_MODE] = AutoSelectMode.SMART.name
+        }
+        it[KEY_ONBOARDING_DONE] = completed
+    }
     override suspend fun setCoachTipsDismissed(dismissed: Boolean) = edit { it[KEY_COACH_TIPS_DISMISSED] = dismissed }
     override suspend fun setLanguage(language: AppLanguage) = edit { it[KEY_LANGUAGE] = language.code }
     override suspend fun setPersianDigitsEnabled(enabled: Boolean) = edit { it[KEY_PERSIAN_DIGITS] = enabled }

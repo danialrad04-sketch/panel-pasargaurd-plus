@@ -1,5 +1,6 @@
 """Independent PasarGuard billing service."""
 import asyncio
+import operations
 import base64
 import csv
 import fcntl
@@ -206,6 +207,7 @@ def initialize():
         db.execute("""CREATE TABLE IF NOT EXISTS billing_plan_overrides (
             id TEXT PRIMARY KEY, config TEXT NOT NULL
         )""")
+        operations.initialize(db)
 
 
 def key_cipher():
@@ -363,9 +365,24 @@ async def start_provisioning_worker():
 
     app.state.provisioning_worker = asyncio.create_task(run())
 
+    async def deliver_notifications():
+        while True:
+            try:
+                await asyncio.to_thread(operations_service.deliver_push)
+            except Exception:
+                # Delivery can be retried without blocking provisioning.
+                pass
+            await asyncio.sleep(3)
+
+    app.state.notification_worker = asyncio.create_task(deliver_notifications())
+
 
 @app.on_event("shutdown")
 async def stop_provisioning_worker():
+    notification_worker = getattr(app.state, "notification_worker", None)
+    if notification_worker:
+        notification_worker.cancel()
+        await asyncio.gather(notification_worker, return_exceptions=True)
     worker = getattr(app.state, "provisioning_worker", None)
     if worker:
         worker.cancel()
@@ -1827,4 +1844,6 @@ def review(order_id: str, request: IncomingRequest, decision: str = Form(),
     return RedirectResponse("/admin", status_code=303)
 
 
+operations_service = operations.Operations(transaction, now, customers, account_owner, verify_admin_origin, log_admin_activity)
+operations.mount(app, admin, operations_service)
 app.include_router(admin)
