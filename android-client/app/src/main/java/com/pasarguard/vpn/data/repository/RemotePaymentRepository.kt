@@ -13,6 +13,7 @@ import com.pasarguard.vpn.domain.model.DestinationCardInfo
 import com.pasarguard.vpn.domain.model.DiscountValidationResult
 import com.pasarguard.vpn.domain.model.OrderStatus
 import com.pasarguard.vpn.domain.model.PaymentMethodType
+import com.pasarguard.vpn.domain.model.newestPaymentStatus
 import com.pasarguard.vpn.domain.model.PaymentOrder
 import com.pasarguard.vpn.domain.model.PlanCategory
 import com.pasarguard.vpn.domain.model.PlansCatalogConfig
@@ -180,11 +181,7 @@ class RemotePaymentRepository @Inject constructor(
         if (owner !in allowed) return
         orders.update { cache ->
             val known = cache[owner].orEmpty()
-            val prior = known.firstOrNull { it.id == order.id }
-            val newest = if (prior?.status == OrderStatus.APPROVED &&
-                (order.status != OrderStatus.APPROVED ||
-                    prior.activationStatus == "READY" && order.activationStatus != "READY")
-            ) prior else order
+            val newest = newestPaymentStatus(known.firstOrNull { it.id == order.id }, order)
             cache.filterKeys { it in allowed } + (owner to (known.filterNot { it.id == order.id } + newest))
         }
     }
@@ -204,7 +201,15 @@ class RemotePaymentRepository @Inject constructor(
                         check(active == owner)
                         api.listOrders(source.headers()).orders.map { order -> order.toDomain() }
                     }.onSuccess { remote ->
-                        orders.update { cached -> cached + (source to remote) }
+                        val current = runCatching(::auth).getOrNull()
+                        if (current == owner) {
+                            val allowed = accessibleOrders(current)
+                            orders.update { cached ->
+                                val previous = cached[source].orEmpty().associateBy { it.id }
+                                cached.filterKeys { it in allowed } +
+                                    (source to remote.map { newestPaymentStatus(previous[it.id], it) })
+                            }
+                        }
                     }
                 }
             }

@@ -437,7 +437,7 @@
     <string name="checkout_pending_desc">سفارش %1$s ثبت شد. وضعیت به‌طور خودکار بروز می‌شود؛ می‌توانید صفحه را ببندید و بعداً از بخش سفارش‌ها پیگیری کنید.</string>
     <string name="checkout_leave_and_track">پیگیری در تاریخچه سفارش‌ها</string>
     <string name="checkout_rejected_heading">رسید تأیید نشد</string>
-    <string name="checkout_rejected_default">رسید ارسال‌شده قابل تأیید نبود. لطفاً مجدداً ارسال کنید.</string>
+    <string name="checkout_rejected_default">این سفارش بسته شده است. اگر مبلغ را واریز کرده‌اید، قبل از پرداخت دوباره شناسهٔ سفارش را به پشتیبانی بدهید.</string>
     <string name="checkout_retry_receipt">ارسال مجدد رسید</string>
     <string name="checkout_expired_heading">مهلت پرداخت به پایان رسید</string>
     <string name="checkout_expired_desc">مهلت ۳۰ دقیقه‌ای این سفارش منقضی شد. برای پرداخت، سفارش جدیدی ثبت کنید.</string>
@@ -513,4 +513,5 @@
     <string name="refund_credited">واریز به کیف پول: %1$s تومان</string>
     <string name="order_last_checked">آخرین بررسی ساعت %1$s</string>
     <string name="order_status_stale">آخرین وضعیت دریافت‌شده نمایش داده می‌شود.</string>
+    <string name="orders_copy_id">کپی شناسهٔ سفارش</string>
 </resources>

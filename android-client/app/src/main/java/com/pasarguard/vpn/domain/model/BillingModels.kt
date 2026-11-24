@@ -100,10 +100,10 @@ enum class OrderStatus {
     EXPIRED;
 
     val isTerminal: Boolean
-        get() = this == APPROVED || this == EXPIRED
+        get() = this == APPROVED || this == REJECTED || this == EXPIRED
 
     val canSubmitReceipt: Boolean
-        get() = this == AWAITING_RECEIPT || this == REJECTED
+        get() = this == AWAITING_RECEIPT
 }
 
 @Serializable
@@ -225,15 +225,39 @@ data class PaymentOrder(
 }
 
 /**
+ * A list response can arrive after a newer detail response. Reconciliation can
+ * advance an expired order to approved, while approved fulfillment cannot regress.
+ */
+internal fun newestPaymentStatus(previous: PaymentOrder?, incoming: PaymentOrder): PaymentOrder {
+    if (previous == null) return incoming
+    val previousRank = previous.status.confirmationRank()
+    val incomingRank = incoming.status.confirmationRank()
+    return when {
+        previousRank > incomingRank -> previous
+        previous.status == OrderStatus.REJECTED && incoming.status == OrderStatus.EXPIRED -> previous
+        previous.activationStatus == "READY" && incoming.activationStatus != "READY" -> previous
+        previous.hasReceiptImage && !incoming.hasReceiptImage -> incoming.copy(hasReceiptImage = true)
+        else -> incoming
+    }
+}
+
+private fun OrderStatus.confirmationRank(): Int = when (this) {
+    OrderStatus.AWAITING_RECEIPT -> 0
+    OrderStatus.PENDING_REVIEW -> 1
+    OrderStatus.EXPIRED, OrderStatus.REJECTED -> 2
+    OrderStatus.APPROVED -> 3
+}
+
+/**
  * Pure Kotlin state machine for card-to-card order lifecycle, expiry checks, and polling backoff.
  */
 object OrderStateMachine {
 
     fun canTransition(from: OrderStatus, to: OrderStatus): Boolean = when (from) {
-        OrderStatus.AWAITING_RECEIPT -> to == OrderStatus.PENDING_REVIEW || to == OrderStatus.EXPIRED
-        OrderStatus.PENDING_REVIEW -> to == OrderStatus.APPROVED || to == OrderStatus.REJECTED || to == OrderStatus.EXPIRED
-        OrderStatus.REJECTED -> to == OrderStatus.PENDING_REVIEW || to == OrderStatus.EXPIRED
-        OrderStatus.APPROVED, OrderStatus.EXPIRED -> false
+        OrderStatus.AWAITING_RECEIPT -> to != OrderStatus.AWAITING_RECEIPT
+        OrderStatus.PENDING_REVIEW -> to == OrderStatus.APPROVED || to == OrderStatus.REJECTED
+        OrderStatus.EXPIRED -> to == OrderStatus.APPROVED
+        OrderStatus.APPROVED, OrderStatus.REJECTED -> false
     }
 
     fun evaluateEffectiveStatus(order: PaymentOrder, nowMs: Long = System.currentTimeMillis()): OrderStatus {

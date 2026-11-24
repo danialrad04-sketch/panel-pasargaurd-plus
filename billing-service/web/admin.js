@@ -689,15 +689,26 @@ async function showOrder(orderId) {
       const confirmation = node("div", null, "confirmation");
       confirmation.hidden = true;
       const question = node("p");
+      const reason = node("textarea");
+      reason.maxLength = 300;
+      reason.rows = 2;
+      const reasonField = node("label", "", "field");
+      const reasonCaption = node("span");
+      reasonField.append(reasonCaption, reason);
       const choices = node("div", null, "dialog-actions");
       let decision;
       let trigger;
       const confirm = button("ثبت تصمیم", async () => {
+        if (decision !== "APPROVED" && reason.value.trim().length < 5) {
+          setNotice("دلیل را در دست‌کم پنج نویسه بنویسید.", true, errorNotice);
+          reason.focus();
+          return;
+        }
         confirm.disabled = true;
         cancel.disabled = true;
         setNotice("", false, errorNotice);
         try {
-          await request("/orders/" + encodeURIComponent(orderId), { method: "POST", body: new URLSearchParams({ decision }) });
+          await request("/orders/" + encodeURIComponent(orderId), { method: "POST", body: new URLSearchParams({ decision, reason: reasonField.hidden ? "" : reason.value.trim() }) });
           if (version === detailVersion && dialog.open) {
             await showOrder(orderId);
             dialog.querySelector("button").focus();
@@ -720,6 +731,9 @@ async function showOrder(orderId) {
         trigger = event.currentTarget;
         decision = value;
         question.textContent = text;
+        reason.value = "";
+        reasonField.hidden = value === "APPROVED";
+        reasonCaption.textContent = value === "REJECTED" ? "دلیل قابل نمایش به مشتری" : "دلیل داخلی لغو";
         confirm.className = value === "APPROVED" ? "button primary" : "button danger";
         actions.hidden = true;
         confirmation.hidden = false;
@@ -732,7 +746,7 @@ async function showOrder(orderId) {
         button("رد رسید", (event) => ask(event, "REJECTED", "رسید این سفارش رد شود؟"), "danger"),
       );
       choices.append(confirm, cancel);
-      confirmation.append(question, choices);
+      confirmation.append(question, reasonField, choices);
       content.append(actions, confirmation);
     }
   } catch (error) {

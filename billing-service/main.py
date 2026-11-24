@@ -798,6 +798,8 @@ def decide(db, order_id, status, audit, reason=None):
     row = db.execute("SELECT details FROM orders WHERE id=?", (order_id,)).fetchone()
     details = json.loads(row["details"])
     details["reviewed_at_ms"] = timestamp
+    if audit == "ADMIN_REJECTED" and reason:
+        details["rejection_reason_fa"] = reason
     if status == "APPROVED" and (details.get("new_subscription") or details.get("renewal_target")):
         details["activation_status"] = "PENDING"
         db.execute("INSERT OR IGNORE INTO provisioning_jobs (order_id, next_run) VALUES (?, ?)", (order_id, timestamp))
@@ -829,8 +831,10 @@ def receipt_order(db, order_id, owner):
     row = db.execute("SELECT * FROM orders WHERE id=? AND owner=?", (order_id, owner)).fetchone()
     if not row:
         raise HTTPException(404)
+    if row["status"] == "REJECTED":
+        raise HTTPException(409, "ORDER_CLOSED")
     if row["status"] == "AWAITING_RECEIPT" and row["expires"] <= now():
-        raise HTTPException(409)
+        raise HTTPException(409, "PAYMENT_WINDOW_EXPIRED")
     return row
 
 
@@ -845,14 +849,14 @@ def submit_reference(order_id: str, tracking_number: str = Form(default="", max_
         raise HTTPException(400, "RECEIPT_DETAILS_REQUIRED")
     with transaction(write=False) as db:
         row = receipt_order(db, order_id, actor.owner)
-        if row["status"] == "REJECTED" or (row["status"] != "AWAITING_RECEIPT" and receipt_image is None):
+        if row["status"] != "AWAITING_RECEIPT" and receipt_image is None:
             return present(row)
         if receipt_image is not None and json.loads(row["details"]).get("has_receipt_image"):
             return present(row)
     image = receipt_jpeg(receipt_image) if receipt_image is not None else None
     with transaction() as db:
         row = receipt_order(db, order_id, actor.owner)
-        if row["status"] == "REJECTED" or (row["status"] != "AWAITING_RECEIPT" and image is None):
+        if row["status"] != "AWAITING_RECEIPT" and image is None:
             return present(row)
         data = json.loads(row["details"])
         current = now()
@@ -1806,7 +1810,8 @@ def update_admin_card(body: CardUpdate, request: IncomingRequest):
 
 
 @admin.post("/orders/{order_id}")
-def review(order_id: str, request: IncomingRequest, decision: str = Form()):
+def review(order_id: str, request: IncomingRequest, decision: str = Form(),
+           reason: Annotated[str, Form(max_length=300)] = ""):
     verify_admin_origin(request)
     if decision not in ("APPROVED", "REJECTED", "CANCEL"):
         raise HTTPException(422)
@@ -1815,7 +1820,8 @@ def review(order_id: str, request: IncomingRequest, decision: str = Form()):
         required = "AWAITING_RECEIPT" if decision == "CANCEL" else "PENDING_REVIEW"
         if not row or row["status"] != required or (decision == "CANCEL" and row["expires"] <= now()):
             raise HTTPException(409)
-        decide(db, order_id, "REJECTED" if decision == "CANCEL" else decision, "ADMIN_" + decision)
+        decide(db, order_id, "REJECTED" if decision == "CANCEL" else decision, "ADMIN_" + decision,
+               reason.strip() or None)
     if request.headers.get("accept") == "application/json":
         return Response(status_code=204)
     return RedirectResponse("/admin", status_code=303)

@@ -52,8 +52,8 @@ android {
         }
         buildConfigField("String", "BILLING_BASE_URL", "\"$billingUrl\"")
         val appName = resolveConfig("PASARGUARD_APP_NAME", "PasarGuard VPN")
-        val telegramUrl = resolveConfig("PASARGUARD_SUPPORT_TELEGRAM", "https://t.me/your_support_channel")
-        val whatsappUrl = resolveConfig("PASARGUARD_SUPPORT_WHATSAPP", "https://wa.me/15550000000")
+        val telegramUrl = resolveConfig("PASARGUARD_SUPPORT_TELEGRAM", "")
+        val whatsappUrl = resolveConfig("PASARGUARD_SUPPORT_WHATSAPP", "")
         val paymentScheme = resolveConfig("PASARGUARD_PAYMENT_SCHEME", "pasarguardvpn")
 
         buildConfigField("String", "DEFAULT_BASE_URL", "\"$baseUrl\"")

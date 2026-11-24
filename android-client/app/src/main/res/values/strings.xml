@@ -437,7 +437,7 @@
     <string name="checkout_pending_desc">Order %1$s has been received. Status updates automatically — you may safely leave this screen and track it in Orders.</string>
     <string name="checkout_leave_and_track">Track in Orders History</string>
     <string name="checkout_rejected_heading">Receipt Rejected</string>
-    <string name="checkout_rejected_default">Your receipt could not be verified. Please submit again.</string>
+    <string name="checkout_rejected_default">This order was closed. If you already transferred money, contact support with the order ID before paying again.</string>
     <string name="checkout_retry_receipt">Re-submit Receipt</string>
     <string name="checkout_expired_heading">Payment Window Expired</string>
     <string name="checkout_expired_desc">The 30-minute window for this order elapsed. Start a new order to get a fresh window.</string>
@@ -513,4 +513,5 @@
     <string name="refund_credited">Credited to wallet: %1$s toman</string>
     <string name="order_last_checked">Last checked at %1$s</string>
     <string name="order_status_stale">Showing the last known status.</string>
+    <string name="orders_copy_id">Copy order ID</string>
 </resources>

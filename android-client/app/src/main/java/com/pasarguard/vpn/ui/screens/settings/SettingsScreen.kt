@@ -804,20 +804,24 @@ fun SettingsScreen(
             // Support & Version
             SectionLabel(stringResource(R.string.settings_section_support))
             GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
-                SettingsActionRow(
-                    icon = Icons.AutoMirrored.Rounded.Send,
-                    title = stringResource(R.string.settings_telegram),
-                    subtitle = BrandConfig.supportTelegramUrl,
-                    onClick = { Formatters.openExternalUrl(context, BrandConfig.supportTelegramUrl) }
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
-                SettingsActionRow(
-                    icon = Icons.Rounded.SupportAgent,
-                    title = stringResource(R.string.settings_whatsapp),
-                    subtitle = BrandConfig.supportWhatsappUrl,
-                    onClick = { Formatters.openExternalUrl(context, BrandConfig.supportWhatsappUrl) }
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                if (BrandConfig.supportTelegramUrl.isNotBlank()) {
+                    SettingsActionRow(
+                        icon = Icons.AutoMirrored.Rounded.Send,
+                        title = stringResource(R.string.settings_telegram),
+                        subtitle = BrandConfig.supportTelegramUrl,
+                        onClick = { Formatters.openExternalUrl(context, BrandConfig.supportTelegramUrl) }
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                }
+                if (BrandConfig.supportWhatsappUrl.isNotBlank()) {
+                    SettingsActionRow(
+                        icon = Icons.Rounded.SupportAgent,
+                        title = stringResource(R.string.settings_whatsapp),
+                        subtitle = BrandConfig.supportWhatsappUrl,
+                        onClick = { Formatters.openExternalUrl(context, BrandConfig.supportWhatsappUrl) }
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

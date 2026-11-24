@@ -66,6 +66,7 @@ import com.pasarguard.vpn.data.api.CustomerApi
 import com.pasarguard.vpn.R
 import com.pasarguard.vpn.domain.model.AppLanguage
 import com.pasarguard.vpn.domain.model.OrderStatus
+import com.pasarguard.vpn.domain.model.PaymentMethodType
 import com.pasarguard.vpn.domain.model.PaymentOrder
 import com.pasarguard.vpn.domain.repository.PaymentRepository
 import com.pasarguard.vpn.domain.repository.SettingsRepository
@@ -253,7 +254,8 @@ fun OrdersScreen(
                     updatedAt = System.currentTimeMillis()
                 }
                 val current = latest ?: selectedOrder ?: break
-                if (latest != null && current.status.isTerminal && current.activationStatus != "PENDING") break
+                if (latest != null && current.status.isTerminal &&
+                    current.activationStatus != "PENDING") break
                 kotlinx.coroutines.delay(8_000)
             } while (true)
         }
@@ -476,13 +478,14 @@ private fun OrderDetailSheetContent(
 
         HorizontalDivider(color = colors.glassBorder)
 
-        if (!order.status.isTerminal || order.status == OrderStatus.APPROVED && (order.newSubscription && order.activationStatus == "READY" || !order.hasReceiptImage)) {
+        val canAddSubscription = order.newSubscription && order.activationStatus == "READY"
+        val canAttachReceipt = order.status == OrderStatus.APPROVED && !order.hasReceiptImage &&
+            order.paymentMethod == PaymentMethodType.CARD_TO_CARD
+        if (!order.status.isTerminal || canAddSubscription || canAttachReceipt) {
             GradientButton(
-                text = if (order.status == OrderStatus.REJECTED) {
-                    stringResource(R.string.checkout_retry_receipt)
-                } else if (order.newSubscription && order.activationStatus == "READY") {
+                text = if (canAddSubscription) {
                     stringResource(R.string.purchase_activate)
-                } else if (order.status == OrderStatus.APPROVED && !order.hasReceiptImage) {
+                } else if (canAttachReceipt) {
                     stringResource(R.string.checkout_upload_receipt)
                 } else {
                     stringResource(R.string.plans_resume_cta)
