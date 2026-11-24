@@ -501,4 +501,16 @@
     <string name="update_auto_download">دانلود خودکار نسخه‌های جدید</string>
     <string name="renew_payment_approved">پرداخت تأیید شد</string>
     <string name="renew_applying">در حال اعمال روی اشتراک…</string>
+    <string name="refund_renewal_conflict">به‌دلیل وضعیت تمدید، لغو در حال حاضر ممکن نیست.</string>
+    <string name="refund_expired">این اشتراک منقضی شده است.</string>
+    <string name="refund_preview_error">بررسی اعتبار ممکن نبود. دوباره تلاش کنید.</string>
+    <string name="refund_loading">در حال بررسی اعتبار باقی‌مانده…</string>
+    <string name="refund_estimate">اعتبار برآوردی: %1$s تومان</string>
+    <string name="refund_after">موجودی برآوردی بعد از لغو: %1$s تومان</string>
+    <string name="refund_changed">برآورد تغییر کرده یا منقضی شده است. دوباره بررسی کنید.</string>
+    <string name="refund_refresh">بررسی مجدد</string>
+    <string name="activation_delayed">فعال‌سازی بیشتر از معمول طول کشیده است. شناسهٔ سفارش را برای پیگیری نگه دارید.</string>
+    <string name="refund_credited">واریز به کیف پول: %1$s تومان</string>
+    <string name="order_last_checked">آخرین بررسی ساعت %1$s</string>
+    <string name="order_status_stale">آخرین وضعیت دریافت‌شده نمایش داده می‌شود.</string>
 </resources>

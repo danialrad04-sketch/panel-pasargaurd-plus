@@ -38,6 +38,7 @@ import androidx.lifecycle.viewModelScope
 import com.pasarguard.vpn.R
 import com.pasarguard.vpn.data.api.CustomerApi
 import com.pasarguard.vpn.data.api.CustomerRequestException
+import com.pasarguard.vpn.data.api.CancelQuote
 import com.pasarguard.vpn.data.api.CustomerWallet
 import com.pasarguard.vpn.data.api.OrderDto
 import com.pasarguard.vpn.domain.usecase.ValidateAndLoginUseCase
@@ -89,9 +90,11 @@ class AccountViewModel @Inject constructor(
         validate(api.subscription(id), requireServers = true).getOrThrow()
         done()
     }
-    fun cancel(id: String) = run {
-        api.cancel(id)
-        load()
+    suspend fun preview(id: String) = api.cancelPreview(id)
+
+    suspend fun cancel(id: String, quote: String) {
+        api.cancel(id, quote)
+        reload()
     }
 
     private suspend fun load() {
@@ -206,7 +209,12 @@ fun AccountScreen(
                     GlassCard(Modifier.fillMaxWidth(), cornerRadius = 18.dp) {
                         Text(if (persian) order.planTitleFa else order.planTitleEn, style = MaterialTheme.typography.titleMedium)
                         when {
-                            refund != null -> Text(stringResource(if (refund.finished == null) R.string.account_cancelling else R.string.account_cancelled))
+                            refund != null -> {
+                                Text(stringResource(if (refund.finished == null) R.string.account_cancelling else R.string.account_cancelled))
+                                refund.amount?.let {
+                                    Text(stringResource(R.string.refund_credited, Formatters.formatNumber(it, persian)))
+                                }
+                            }
                             order.newSubscription && order.activationStatus == "READY" -> {
                                 TextButton(enabled = !viewModel.busy, onClick = { viewModel.connect(order.id, onConnect) }) {
                                     Text(stringResource(R.string.login_connect_cta))
@@ -238,11 +246,77 @@ fun AccountScreen(
         }
     }
 
+    val pendingRefund = viewModel.wallet?.refunds?.any { it.finished == null } == true
+    LaunchedEffect(pendingRefund) {
+        while (pendingRefund) {
+            kotlinx.coroutines.delay(8_000)
+            viewModel.reload()
+        }
+    }
+
     cancelId?.let { id ->
-        PasarDialog(onDismissRequest = { cancelId = null },
+        var quote by remember(id) { mutableStateOf<CancelQuote?>(null) }
+        var error by remember(id) { mutableStateOf<Int?>(null) }
+        var attempt by remember(id) { mutableStateOf(0) }
+        var sending by remember(id) { mutableStateOf(false) }
+        val scope = androidx.compose.runtime.rememberCoroutineScope()
+        LaunchedEffect(id, attempt) {
+            try {
+                quote = viewModel.preview(id)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                error = when ((failure as? CustomerRequestException)?.code) {
+                    "RENEWAL_IN_PROGRESS", "RENEWAL_OWNER_MISMATCH" -> R.string.refund_renewal_conflict
+                    "SUBSCRIPTION_EXPIRED" -> R.string.refund_expired
+                    "REFUND_IN_PROGRESS" -> R.string.account_cancelling
+                    else -> R.string.refund_preview_error
+                }
+            }
+        }
+        PasarDialog(onDismissRequest = { if (!sending) cancelId = null },
             title = { Text(stringResource(R.string.account_cancel)) },
-            text = { Text(stringResource(R.string.account_cancel_confirm)) },
-            confirmButton = { TextButton(onClick = { cancelId = null; viewModel.cancel(id) }) { Text(stringResource(R.string.action_confirm)) } },
-            dismissButton = { TextButton(onClick = { cancelId = null }) { Text(stringResource(R.string.action_cancel)) } })
+            text = {
+                Column {
+                    Text(stringResource(R.string.account_cancel_confirm))
+                    val current = quote
+                    when {
+                        sending -> Text(stringResource(R.string.account_cancelling))
+                        error != null -> Text(stringResource(error ?: R.string.refund_preview_error))
+                        current == null -> Text(stringResource(R.string.refund_loading))
+                        else -> {
+                            Text(stringResource(R.string.refund_estimate, Formatters.formatNumber(current.amount, persian)))
+                            Text(stringResource(R.string.account_wallet_amount, Formatters.formatNumber(current.balance, persian)))
+                            Text(stringResource(R.string.refund_after, Formatters.formatNumber(current.balance + current.amount, persian)))
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                val current = quote
+                TextButton(enabled = !sending && (current != null || error != null), onClick = {
+                    if (current == null) {
+                        error = null
+                        attempt++
+                    } else {
+                        sending = true
+                        scope.launch {
+                            try {
+                                viewModel.cancel(id, current.quote)
+                                cancelId = null
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (failure: Exception) {
+                                quote = null
+                                error = if ((failure as? CustomerRequestException)?.code == "REFUND_QUOTE_CHANGED")
+                                    R.string.refund_changed else R.string.refund_preview_error
+                            } finally {
+                                sending = false
+                            }
+                        }
+                    }
+                }) { Text(stringResource(if (error != null) R.string.refund_refresh else R.string.action_confirm)) }
+            },
+            dismissButton = { TextButton(enabled = !sending, onClick = { cancelId = null }) { Text(stringResource(R.string.action_cancel)) } })
     }
 }

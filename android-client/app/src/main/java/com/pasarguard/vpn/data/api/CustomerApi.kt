@@ -30,6 +30,9 @@ data class CustomerWallet(
 @Serializable
 data class CustomerRefund(@SerialName("order_id") val orderId: String, val amount: Long? = null, val finished: Long? = null)
 
+@Serializable
+data class CancelQuote(val quote: String, val amount: Long, val balance: Long)
+
 class CustomerRequestException(val status: Int, val code: String?) : Exception()
 
 @Singleton
@@ -65,7 +68,12 @@ class CustomerApi @Inject constructor(private val store: SecureTokenStore, priva
         PurchasedSubscriptionDto.serializer(), request("/v1/billing/orders/$orderId/subscription", auth = true)
     ).subscriptionUrl
 
-    suspend fun cancel(orderId: String) = request("/v1/customer/orders/$orderId/cancel", emptyMap(), auth = true)
+    suspend fun cancelPreview(orderId: String) = json.decodeFromJsonElement(
+        CancelQuote.serializer(), request("/v1/customer/orders/$orderId/cancel-preview", auth = true)
+    )
+
+    suspend fun cancel(orderId: String, quote: String) =
+        request("/v1/customer/orders/$orderId/cancel", mapOf("quote" to quote), auth = true)
 
     suspend fun transfer(orderId: String) {
         val purchase = store.existingPurchaseToken() ?: throw CustomerRequestException(404, null)

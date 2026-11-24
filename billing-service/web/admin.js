@@ -12,7 +12,7 @@ const statusLabels = {
   APPROVED: "تأییدشده", REJECTED: "ردشده", EXPIRED: "منقضی",
   matched: "دارای سفارش", unmatched: "بدون سفارش",
 };
-const decisionLabels = { ADMIN_CANCEL: "لغو سفارش پرداخت‌نشده توسط مدیر", SMS_APPROVED: "تأیید خودکار با پیامک بانک", ADMIN_APPROVED: "تأیید دستی مدیر", ADMIN_REJECTED: "رد دستی مدیر" };
+const decisionLabels = { ADMIN_EXPEDITED: "تسریع فعال‌سازی توسط مدیر", ADMIN_CANCEL: "لغو سفارش پرداخت‌نشده توسط مدیر", SMS_APPROVED: "تأیید خودکار با پیامک بانک", ADMIN_APPROVED: "تأیید دستی مدیر", ADMIN_REJECTED: "رد دستی مدیر" };
 const activityLabels = {
   ...decisionLabels, LOGIN: "ورود به پنل", LOGOUT: "خروج از پنل",
   RELEASE_UPDATED: "تغییر نسخهٔ برنامه", WALLET_PAID: "پرداخت از کیف پول", CUSTOMER_CANCELLED: "لغو اشتراک و ثبت اعتبار کیف پول", CATALOG_UPDATED: "تغییر پلن فروش", CARD_UPDATED: "تغییر کارت مقصد", PROVISIONING_UPDATED: "تغییر تنظیمات ساخت اشتراک",
@@ -209,6 +209,7 @@ async function overview(signal) {
   get("average-order").textContent = data.approved_count ? money(Math.round(data.approved_amount / data.approved_count)) : "—";
   const peak = data.series.reduce((best, day) => day.amount > (best?.amount || 0) ? day : best, null);
   get("peak-day").textContent = peak ? dayLabel.format(peak.start) + " · " + money(peak.amount) : "—";
+  get("activation-count").textContent = fa.format(data.activating_count ?? 0);
   get("paid-metric").textContent = fa.format(data.approved_count);
   get("awaiting-metric").textContent = fa.format(data.awaiting_count);
   get("review-metric").textContent = fa.format(data.pending_count);
@@ -232,7 +233,7 @@ async function overview(signal) {
 
 function orderFilters() {
   return new URLSearchParams({
-    q: get("search").value.trim(), status: get("order-status").value, receipt: get("receipt-filter").value,
+    q: get("search").value.trim(), status: get("order-status").value, receipt: get("receipt-filter").value, activation: get("activation-filter").value,
   });
 }
 
@@ -260,8 +261,23 @@ async function catalogList(signal) {
   const data = await request("/api/catalog", { signal });
   if (signal.aborted) return;
   get("display-limit").value = data.maximum;
-  const available = data.plans.filter(plan => plan.visible && plan.category === "RENEW");
-  const offered = new Set(available.slice(0, data.maximum || available.length).map(plan => plan.id));
+  const offered = new Set(data.offered);
+  const reasons = { hidden: "مخفی", category: "نوع پلن قابل فروش نیست", limit: "خارج از سقف نمایش" };
+  function renderPreview() {
+    get("preview-title").textContent = get("preview-mode").value === "new" ? "خرید اشتراک" : "تمدید اشتراک";
+    const cards = data.offered.map(id => {
+      const plan = data.plans.find(item => item.id === id);
+      const card = node("article", null, "preview-plan");
+      card.append(node("strong", plan.title_fa), node("span", money(plan.price_toman)),
+        node("span", fa.format(plan.duration_days) + " روز · " +
+          (plan.data_limit_gb == null ? "نامحدود" : fa.format(plan.data_limit_gb) + " گیگابایت")),
+        button("ویرایش پلن", () => editPlan(plan), "text-button"));
+      return card;
+    });
+    get("preview-plans").replaceChildren(...(cards.length ? cards : [node("p", "پلن قابل خرید وجود ندارد.")]));
+  }
+  get("preview-mode").onchange = renderPreview;
+  renderPreview();
   function renderPlans() {
     const query = get("plan-search").value.trim().toLocaleLowerCase();
     const plans = data.plans.filter(plan => [plan.title_fa, plan.title_en, plan.id].join(" ").toLocaleLowerCase().includes(query));
@@ -269,7 +285,7 @@ async function catalogList(signal) {
     shelf.replaceChildren(...plans.map(plan => {
       const card = node("article", null, "surface plan-tile");
       const heading = node("div", null, "section-head");
-      heading.append(node("h2", plan.title_fa), node("small", offered.has(plan.id) ? "در حال فروش" : "خارج از فهرست فروش"));
+      heading.append(node("h2", plan.title_fa), node("small", offered.has(plan.id) ? "در حال فروش" : (reasons[data.excluded[plan.id]] || "خارج از فهرست فروش")));
       const facts = node("dl", null, "details-list");
       for (const [label, value] of [["حجم", plan.data_limit_gb == null ? "نامحدود" : fa.format(plan.data_limit_gb) + " گیگابایت"],
         ["مدت", fa.format(plan.duration_days) + " روز"], ["ترتیب نمایش", fa.format(plan.sort_order)]]) {
@@ -568,6 +584,9 @@ function detailList(order) {
     ["پلن", order.plan_title_fa], ["مبلغ دقیق", money(order.final_price_toman)],
     ["شماره پیگیری", order.tracking_number], ["چهار رقم کارت پرداخت‌کننده", order.payer_card_last4],
     ["کارت مقصد هنگام ثبت", order.destination_card?.card_number ? last4(order.destination_card.card_number.slice(-4)) : "—"],
+    ["زمان ثبت رسید", order.submitted_at_ms ? date(order.submitted_at_ms) : "—"],
+    ["زمان تصمیم", order.reviewed_at_ms ? date(order.reviewed_at_ms) : "—"],
+    ["آماده‌شدن اشتراک", order.activation_ready_at_ms ? date(order.activation_ready_at_ms) : "—"],
     ["زمان ثبت", date(order.created_at_ms)], ["مهلت پرداخت", date(order.expires_at_ms)],
   ];
   for (const [title, value] of fields) {
@@ -600,6 +619,29 @@ async function showOrder(orderId) {
     }
     content.replaceChildren(errorNotice, detailList(data.order), node("h3", "سابقهٔ بررسی"),
       data.decisions.length ? activity : node("p", "هنوز تصمیمی ثبت نشده است."));
+    if (data.activation && !data.activation.ready) {
+      const job = data.activation;
+      const inFlight = job.lease_until > Date.now();
+      const elapsed = Math.max(0, Math.floor((Date.now() - (data.order.reviewed_at_ms || data.order.created_at_ms)) / 60000));
+      const panel = node("section", null, "confirmation");
+      const timing = inFlight ? "در حال اجرا" : job.next_run <= Date.now() ? "در صف اجرا" : "تلاش بعدی " + date(job.next_run);
+      panel.append(node("h3", "فعال‌سازی"), node("p", timing + " · " + fa.format(job.attempts) +
+        " تلاش · " + fa.format(elapsed) + " دقیقه انتظار"));
+      if (job.last_error) panel.append(node("p", "تلاش قبلی با خطای ارتباط یا پاسخ پنل روبه‌رو شد."));
+      const expedite = button("تسریع فعال‌سازی", async () => {
+        expedite.disabled = true;
+        try {
+          await request("/api/orders/" + encodeURIComponent(orderId) + "/expedite", { method: "POST" });
+          if (dialog.open && version === detailVersion) await showOrder(orderId);
+        } catch (error) {
+          setNotice(error.message, true, errorNotice);
+          expedite.disabled = false;
+        }
+      }, "subtle");
+      expedite.disabled = inFlight || job.next_run <= Date.now();
+      panel.append(expedite);
+      content.append(panel);
+    }
     if (data.order.has_receipt_image) {
       const receipt = node("a", null, "receipt-preview");
       receipt.href = "/admin/api/orders/" + encodeURIComponent(orderId) + "/receipt";
@@ -689,6 +731,7 @@ get("global-search-form").addEventListener("submit", (event) => {
   get("search").value = get("global-search").value.trim();
   get("order-status").value = "";
   get("receipt-filter").value = "";
+  get("activation-filter").value = "";
   orderPage = 1;
   if (active === "orders") load();
   else location.hash = "orders";
@@ -722,6 +765,7 @@ function applyStatus(status) {
   get("search").value = "";
   get("order-status").value = status;
   get("receipt-filter").value = "";
+  get("activation-filter").value = "";
   orderPage = 1;
 }
 for (const id of ["pending-link", "review-metric-link"]) {
@@ -882,4 +926,9 @@ document.addEventListener("keydown", event => {
 get("clear-order-filters").addEventListener("click", () => {
   get("order-filters").reset();
   get("order-filters").requestSubmit();
+});
+
+get("activation-link").addEventListener("click", () => {
+  applyStatus("APPROVED");
+  get("activation-filter").value = "pending";
 });

@@ -193,9 +193,8 @@ def apply_renewal(username, config, account, changes):
         if key in remaining and (account.get(key) or 0) >= remaining[key] > 0:
             remaining.pop(key)
     if remaining:
-        result = panel_request(f"/api/user/by-username/{username}", config[0], method="PUT", payload=remaining)
-        if result.get("username") != username:
-            raise PanelError()
+        panel_request(f"/api/user/by-username/{username}", config[0], method="PUT", payload=remaining)
+        result = renewal_account(username, config)
         for key, expected in remaining.items():
             actual = result.get(key)
             if key == "expire":

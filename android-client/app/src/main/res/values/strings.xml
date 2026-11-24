@@ -501,4 +501,16 @@
     <string name="update_auto_download">Download updates automatically</string>
     <string name="renew_payment_approved">Payment approved</string>
     <string name="renew_applying">Applying changes to your subscription…</string>
+    <string name="refund_renewal_conflict">A renewal prevents cancellation right now.</string>
+    <string name="refund_expired">This subscription has expired.</string>
+    <string name="refund_preview_error">Could not check the refund. Try again.</string>
+    <string name="refund_loading">Checking remaining credit…</string>
+    <string name="refund_estimate">Estimated refund: %1$s toman</string>
+    <string name="refund_after">Estimated wallet after refund: %1$s toman</string>
+    <string name="refund_changed">The quote changed or expired. Check again before confirming.</string>
+    <string name="refund_refresh">Check again</string>
+    <string name="activation_delayed">Activation is taking longer than usual. Keep your order ID for follow-up.</string>
+    <string name="refund_credited">Credited to wallet: %1$s toman</string>
+    <string name="order_last_checked">Last checked at %1$s</string>
+    <string name="order_status_stale">Showing the last known status.</string>
 </resources>

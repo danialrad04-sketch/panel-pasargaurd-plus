@@ -193,6 +193,7 @@ data class OrderDto(
     @SerialName("reviewed_at_ms") val reviewedAtMs: Long? = null,
     @SerialName("new_subscription") val newSubscription: Boolean = false,
     @SerialName("activation_status") val activationStatus: String? = null,
+    @SerialName("activation_ready_at_ms") val activationReadyAtMs: Long? = null,
     @SerialName("has_receipt_image") val hasReceiptImage: Boolean = false
 )
 

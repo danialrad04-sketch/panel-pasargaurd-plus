@@ -60,6 +60,7 @@
             <a class="metric" href="#orders" id="awaiting-link"><div><span>در انتظار پرداخت</span><strong id="awaiting-metric">—</strong></div><i class="icon i-order" aria-hidden="true"></i></a>
             <a class="metric" href="#orders" id="review-metric-link"><div><span>در صف بررسی</span><strong id="review-metric">—</strong></div><i class="icon i-activity" aria-hidden="true"></i></a>
           <a href="#deposits" class="metric" id="unmatched-link"><div><span>واریز بدون سفارش</span><strong id="unmatched">—</strong></div><i class="icon i-deposit" aria-hidden="true"></i></a></div>
+          <a class="button subtle activation-link" href="#orders" id="activation-link">در انتظار فعال‌سازی <strong id="activation-count">—</strong></a>
           <div class="lead-grid">
             <article class="surface queue-surface">
               <div class="section-head"><div><h2>صف بررسی</h2><p>رسیدهای در انتظار تصمیم</p></div><strong class="count-pill" id="pending" aria-label="تعداد رسیدهای در انتظار">—</strong></div>
@@ -113,6 +114,7 @@
               <label class="field field-grow">جست‌وجو<input id="search" name="q" type="search" autocomplete="off" placeholder="اشتراک، پلن، شناسه یا شمارهٔ پیگیری…" maxlength="100"></label>
               <label class="field">وضعیت<select id="order-status" name="status"><option value="">همهٔ وضعیت‌ها</option><option value="PENDING_REVIEW">در انتظار بررسی</option><option value="AWAITING_RECEIPT">در انتظار واریز</option><option value="APPROVED">تأییدشده</option><option value="REJECTED">ردشده</option><option value="EXPIRED">منقضی</option></select></label>
               <label class="field">فیش تصویری<select id="receipt-filter" name="receipt"><option value="">همهٔ سفارش‌ها</option><option value="image">دارای عکس فیش</option></select></label>
+              <label class="field">فعال‌سازی<select id="activation-filter"><option value="">همهٔ سفارش‌ها</option><option value="pending">در انتظار فعال‌سازی</option></select></label>
               <button type="submit" class="button primary">جست‌وجو</button><button type="button" id="clear-order-filters" class="button subtle">پاک‌کردن فیلترها</button>
             </form>
             <div id="orders-table" class="table-area"></div>
@@ -132,6 +134,10 @@
             <button type="button" id="new-plan" class="button primary">افزودن پلن</button>
           </div>
           <form id="display-form" class="surface filters"><label class="field">حداکثر پلن‌های قابل خرید و تمدید<input type="number" id="display-limit" min="0" max="10000" required></label><button class="button primary">ذخیرهٔ تعداد</button><small>صفر یعنی همهٔ پلن‌های فعالِ «اشتراک یا تمدید»، به ترتیب نمایش.</small></form>
+          <details class="surface store-preview"><summary>پیش‌نمایش فروشگاه موبایل</summary>
+            <label class="field">نمای اپ<select id="preview-mode"><option value="new">خرید اول</option><option value="renew">تمدید</option></select></label>
+            <section class="preview-phone"><h2 id="preview-title"></h2><div id="preview-plans"></div></section>
+          </details>
           <label class="field catalog-search">جست‌وجوی پلن<input type="search" id="plan-search" placeholder="نام یا شناسهٔ پلن"></label><div id="catalog-table" class="plan-shelf"></div>
         </section>
         <section id="activity" data-view hidden>

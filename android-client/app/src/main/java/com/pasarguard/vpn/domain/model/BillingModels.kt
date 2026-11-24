@@ -110,7 +110,7 @@ enum class OrderStatus {
 data class OrderTimelineEvent(
     val titleFa: String,
     val titleEn: String,
-    val timestampMs: Long,
+    val timestampMs: Long?,
     val completed: Boolean = true
 )
 
@@ -143,7 +143,8 @@ data class PaymentOrder(
     val reviewedAtMs: Long? = null,
     val newSubscription: Boolean = false,
     val activationStatus: String? = null,
-    val hasReceiptImage: Boolean = false
+    val hasReceiptImage: Boolean = false,
+    val activationReadyAtMs: Long? = null
 ) {
     fun remainingPaymentWindowMs(nowMs: Long = System.currentTimeMillis()): Long =
         max(0L, expiresAtMs - nowMs)
@@ -172,13 +173,13 @@ data class PaymentOrder(
             OrderStatus.APPROVED -> events += OrderTimelineEvent(
                 titleFa = "تأیید پرداخت",
                 titleEn = "Payment approved",
-                timestampMs = reviewedAtMs ?: System.currentTimeMillis(),
+                timestampMs = reviewedAtMs,
                 completed = true
             )
             OrderStatus.REJECTED -> events += OrderTimelineEvent(
-                titleFa = "رد رسید توسط پشتیبانی (قابل ارسال مجدد)",
-                titleEn = "Receipt rejected (retry available)",
-                timestampMs = reviewedAtMs ?: System.currentTimeMillis(),
+                titleFa = "پرداخت تأیید نشد",
+                titleEn = "Payment was not approved",
+                timestampMs = reviewedAtMs,
                 completed = true
             )
             OrderStatus.EXPIRED -> events += OrderTimelineEvent(
@@ -200,7 +201,26 @@ data class PaymentOrder(
                 completed = false
             )
         }
-        return events
+        if (activationStatus == "READY" || activationStatus == "PENDING") {
+            val ready = activationStatus == "READY"
+            events += OrderTimelineEvent(
+                titleFa = when {
+                    ready && newSubscription -> "اشتراک آماده است"
+                    ready -> "تمدید اعمال شد"
+                    newSubscription -> "در انتظار ساخت اشتراک"
+                    else -> "در انتظار اعمال تمدید"
+                },
+                titleEn = when {
+                    ready && newSubscription -> "Subscription ready"
+                    ready -> "Renewal applied"
+                    newSubscription -> "Preparing subscription"
+                    else -> "Applying renewal"
+                },
+                timestampMs = activationReadyAtMs,
+                completed = ready
+            )
+        }
+        return events.sortedBy { it.timestampMs ?: Long.MAX_VALUE }
     }
 }
 

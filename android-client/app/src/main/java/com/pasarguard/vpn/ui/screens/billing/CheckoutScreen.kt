@@ -1328,12 +1328,18 @@ private fun SuccessCelebrationStep(
             Text(stringResource(R.string.purchase_activation_retry), color = colors.statusDanger, textAlign = TextAlign.Center)
         }
         Spacer(Modifier.height(Spacing.xl))
+        order?.let { OrderProgressTimeline(it, isPersian) }
+        Spacer(Modifier.height(Spacing.md))
         receiptContent()
         Spacer(Modifier.height(Spacing.md))
         GradientButton(
-            text = stringResource(if (needsActivation) R.string.purchase_activate else R.string.renew_done),
+            text = stringResource(when {
+                awaitingApplication -> R.string.renew_applying
+                needsActivation -> R.string.purchase_activate
+                else -> R.string.renew_done
+            }),
             onClick = if (needsActivation) onActivatePurchase else onDoneHome,
-            enabled = !needsActivation || !isRefreshingSub,
+            enabled = !awaitingApplication && (!needsActivation || !isRefreshingSub),
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(Spacing.sm))

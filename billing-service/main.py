@@ -149,6 +149,11 @@ def initialize():
             order_id TEXT PRIMARY KEY REFERENCES orders(id), next_run INTEGER NOT NULL,
             attempts INTEGER NOT NULL DEFAULT 0, ready INTEGER NOT NULL DEFAULT 0
         )""")
+        job_columns = {row["name"] for row in db.execute("PRAGMA table_info(provisioning_jobs)")}
+        if "lease_until" not in job_columns:
+            db.execute("ALTER TABLE provisioning_jobs ADD COLUMN lease_until INTEGER NOT NULL DEFAULT 0")
+        if "last_error" not in job_columns:
+            db.execute("ALTER TABLE provisioning_jobs ADD COLUMN last_error TEXT")
         db.execute("""CREATE TABLE IF NOT EXISTS guest_reservations (
             order_id TEXT PRIMARY KEY REFERENCES orders(id), source TEXT NOT NULL, created INTEGER NOT NULL
         )""")
@@ -221,17 +226,17 @@ def process_provisioning_job():
     with transaction() as db:
         job = db.execute(
             """SELECT j.order_id, j.attempts, o.details FROM provisioning_jobs j
-               JOIN orders o ON o.id=j.order_id WHERE j.ready=0 AND j.next_run<=? AND o.status='APPROVED'
+               JOIN orders o ON o.id=j.order_id WHERE j.ready=0 AND j.next_run<=? AND j.lease_until<=? AND o.status='APPROVED'
                AND NOT EXISTS (
                  SELECT 1 FROM provisioning_jobs prior JOIN orders p ON p.id=prior.order_id
                  WHERE prior.ready=0 AND p.status='APPROVED'
                    AND json_extract(p.details,'$.renewal_target')=json_extract(o.details,'$.renewal_target')
                    AND (p.created < o.created OR (p.created=o.created AND p.id<o.id))
-               ) ORDER BY j.next_run LIMIT 1""", (current,),
+               ) ORDER BY j.next_run LIMIT 1""", (current, current),
         ).fetchone()
         if not job:
             return
-        db.execute("UPDATE provisioning_jobs SET attempts=attempts+1, next_run=? WHERE order_id=?",
+        db.execute("UPDATE provisioning_jobs SET attempts=attempts+1, lease_until=? WHERE order_id=?",
                    (current + 120_000, job["order_id"]))
     order_id = job["order_id"]
     try:
@@ -251,14 +256,15 @@ def process_provisioning_job():
     except provisioning.PanelError:
         delay = min(300_000, 10_000 * 2**min(job["attempts"], 5))
         with transaction() as db:
-            db.execute("UPDATE provisioning_jobs SET next_run=? WHERE order_id=? AND ready=0",
+            db.execute("UPDATE provisioning_jobs SET next_run=?, lease_until=0, last_error='PANEL_UNAVAILABLE' WHERE order_id=? AND ready=0",
                        (now() + delay, order_id))
         return
     with transaction() as db:
-        db.execute("UPDATE provisioning_jobs SET ready=1 WHERE order_id=?", (order_id,))
+        db.execute("UPDATE provisioning_jobs SET ready=1, lease_until=0, last_error=NULL WHERE order_id=?", (order_id,))
         row = db.execute("SELECT details FROM orders WHERE id=?", (order_id,)).fetchone()
         details = json.loads(row["details"])
         details["activation_status"] = "READY"
+        details["activation_ready_at_ms"] = now()
         details.setdefault("activation_started_at_ms", now())
         db.execute("UPDATE orders SET details=? WHERE id=?", (json.dumps(details), order_id))
 
@@ -268,20 +274,23 @@ def refundable_amount(amount, purchased, request_time, panel_expire):
     if duration <= 0:
         return 0
     starts = purchased.get("activation_started_at_ms") or purchased["reviewed_at_ms"]
+    expire_ms = expiration_ms(panel_expire)
+    remaining = max(0, min(duration, min(starts + duration, expire_ms) - request_time))
+    return amount * remaining // duration
+
+
+def expiration_ms(panel_expire):
     try:
         if isinstance(panel_expire, str):
             expiration = datetime.fromisoformat(panel_expire)
             if expiration.tzinfo is None:
                 raise ValueError
-            expire_ms = int(expiration.timestamp() * 1000)
-        elif type(panel_expire) is int:
-            expire_ms = panel_expire if panel_expire >= 1_000_000_000_000 else panel_expire * 1000
-        else:
-            raise ValueError
+            return int(expiration.timestamp() * 1000)
+        if type(panel_expire) is int:
+            return panel_expire if panel_expire >= 1_000_000_000_000 else panel_expire * 1000
+        raise ValueError
     except (ValueError, OverflowError):
         raise provisioning.PanelError() from None
-    remaining = max(0, min(duration, min(starts + duration, expire_ms) - request_time))
-    return amount * remaining // duration
 
 
 def subscription_renewals(db, order_id):
@@ -923,45 +932,108 @@ def claim_customer_order(body: TransferRequest, request: IncomingRequest):
     return Response(status_code=204)
 
 
+def cancellation_orders(db, order_id, customer_id, current):
+    order = db.execute(
+        """SELECT o.owner, o.status, o.details, o.amount, j.ready FROM orders o
+           LEFT JOIN provisioning_jobs j ON j.order_id=o.id WHERE o.id=? AND o.owner=?""",
+        (order_id, account_owner(customer_id)),
+    ).fetchone()
+    if not order:
+        raise HTTPException(404)
+    if order["status"] != "APPROVED" or not order["ready"]:
+        raise HTTPException(409, "SUBSCRIPTION_NOT_READY")
+    details = json.loads(order["details"])
+    if not details.get("new_subscription"):
+        raise HTTPException(404)
+    started = details.get("activation_started_at_ms") or details["reviewed_at_ms"]
+    if db.execute("SELECT 1 FROM customer_refunds WHERE order_id=?", (order_id,)).fetchone():
+        return None
+    end = started + details["purchased_plan"]["duration_days"] * 86_400_000
+    renewals = subscription_renewals(db, order_id)
+    for renewal in renewals:
+        item = json.loads(renewal["details"])
+        if (renewal["status"] == "PENDING_REVIEW"
+                or (renewal["status"] == "AWAITING_RECEIPT" and renewal["expires"] > current)):
+            raise HTTPException(409, "RENEWAL_IN_PROGRESS")
+        if renewal["status"] == "APPROVED":
+            if item.get("activation_status") != "READY":
+                raise HTTPException(409, "RENEWAL_IN_PROGRESS")
+            renewal_end = item["activation_started_at_ms"] + item["purchased_plan"]["duration_days"] * 86_400_000
+            if renewal_end > current and renewal["owner"] != order["owner"]:
+                raise HTTPException(409, "RENEWAL_OWNER_MISMATCH")
+            end = max(end, renewal_end)
+    if end <= current:
+        raise HTTPException(409, "SUBSCRIPTION_EXPIRED")
+    return order, details, renewals
+
+
+def estimate_refund(order_id, records, timestamp):
+    order, details, renewals = records
+    try:
+        expire = provisioning.refund_account(order_id, provision_config()).get("expire")
+        if expiration_ms(expire) <= now():
+            raise HTTPException(409, "SUBSCRIPTION_EXPIRED")
+        total = refundable_amount(details.get("wallet_paid_toman", order["amount"]), details, timestamp, expire)
+        for renewal in renewals:
+            if renewal["status"] == "APPROVED":
+                total += refundable_amount(renewal["amount"], json.loads(renewal["details"]), timestamp, expire)
+        return total
+    except provisioning.PanelError:
+        raise HTTPException(503, "PANEL_UNAVAILABLE") from None
+
+
+def quote_signature(customer_id, order_id, timestamp, amount):
+    return secret_digest(f"refund-quote:{customer_id}:{order_id}:{timestamp}:{amount}")
+
+
+@app.get("/v1/customer/orders/{order_id}/cancel-preview")
+def cancel_preview(order_id: str, request: IncomingRequest):
+    account = customers.require(request)
+    timestamp = now()
+    with transaction(write=False) as db:
+        records = cancellation_orders(db, order_id, account["id"], timestamp)
+        balance = wallet_balance(db, account["id"])
+    if records is None:
+        raise HTTPException(409, "REFUND_IN_PROGRESS")
+    amount = estimate_refund(order_id, records, timestamp)
+    token = f"{timestamp}.{amount}.{quote_signature(account['id'], order_id, timestamp, amount)}"
+    return {"quote": token, "amount": amount, "balance": balance}
+
+
+class CancellationRequest(BaseModel):
+    quote: str | None = Field(default=None, max_length=110)
+
+
 @app.post("/v1/customer/orders/{order_id}/cancel")
-def cancel_customer_subscription(order_id: str, request: IncomingRequest):
+def cancel_customer_subscription(order_id: str, request: IncomingRequest, body: CancellationRequest | None = None):
     customers.protect(request)
     account = customers.require(request)
+    current = now()
+    amount = None
+    with transaction(write=False) as db:
+        records = cancellation_orders(db, order_id, account["id"], current)
+    if records is None:
+        return Response(status_code=202)
+    if body and body.quote is not None:
+        match = re.fullmatch(r"(\d{13})\.(\d{1,15})\.([a-f0-9]{64})", body.quote)
+        if not match:
+            raise HTTPException(409, "REFUND_QUOTE_CHANGED")
+        timestamp, quoted = map(int, match.group(1, 2))
+        expected = quote_signature(account["id"], order_id, timestamp, quoted)
+        if not 0 <= current - timestamp <= 120_000 or not hmac.compare_digest(match[3], expected):
+            raise HTTPException(409, "REFUND_QUOTE_CHANGED")
+        if estimate_refund(order_id, records, timestamp) != quoted:
+            raise HTTPException(409, "REFUND_QUOTE_CHANGED")
+        amount = quoted
     with transaction() as db:
-        order = db.execute(
-            """SELECT o.owner, o.status, o.details, j.ready FROM orders o
-               LEFT JOIN provisioning_jobs j ON j.order_id=o.id WHERE o.id=? AND o.owner=?""",
-            (order_id, account_owner(account["id"])),
-        ).fetchone()
-        if not order:
-            raise HTTPException(404)
-        if order["status"] != "APPROVED" or not order["ready"]:
-            raise HTTPException(409, "SUBSCRIPTION_NOT_READY")
-        current = now()
-        details = json.loads(order["details"])
-        if not details.get("new_subscription"):
-            raise HTTPException(404)
-        started = details.get("activation_started_at_ms") or details["reviewed_at_ms"]
-        if db.execute("SELECT 1 FROM customer_refunds WHERE order_id=?", (order_id,)).fetchone():
+        latest = cancellation_orders(db, order_id, account["id"], now())
+        if latest is None:
             return Response(status_code=202)
-        end = started + details["purchased_plan"]["duration_days"] * 86_400_000
-        for renewal in subscription_renewals(db, order_id):
-            item = json.loads(renewal["details"])
-            if (renewal["status"] == "PENDING_REVIEW"
-                    or (renewal["status"] == "AWAITING_RECEIPT" and renewal["expires"] > current)):
-                raise HTTPException(409, "RENEWAL_IN_PROGRESS")
-            if renewal["status"] == "APPROVED":
-                if item.get("activation_status") != "READY":
-                    raise HTTPException(409, "RENEWAL_IN_PROGRESS")
-                renewal_end = item["activation_started_at_ms"] + item["purchased_plan"]["duration_days"] * 86_400_000
-                if renewal_end > current and renewal["owner"] != order["owner"]:
-                    raise HTTPException(409, "RENEWAL_OWNER_MISMATCH")
-                end = max(end, renewal_end)
-        if end <= current:
-            raise HTTPException(409, "SUBSCRIPTION_EXPIRED")
-        db.execute("""INSERT INTO customer_refunds (order_id, customer_id, requested, next_run)
-                      VALUES (?, ?, ?, ?) ON CONFLICT(order_id) DO NOTHING""",
-                   (order_id, account["id"], current, current))
+        if latest != records:
+            raise HTTPException(409, "REFUND_QUOTE_CHANGED")
+        db.execute("""INSERT INTO customer_refunds (order_id, customer_id, requested, next_run, amount)
+                      VALUES (?, ?, ?, ?, ?) ON CONFLICT(order_id) DO NOTHING""",
+                   (order_id, account["id"], current, current, amount))
     return Response(status_code=202)
 
 
@@ -1118,6 +1190,7 @@ def admin_overview(days: int = 7):
             "SELECT * FROM orders WHERE status='PENDING_REVIEW' ORDER BY created, id LIMIT 4"
         )]
         card = destination_card(db)
+        activating = db.execute("SELECT count(*) FROM provisioning_jobs WHERE ready=0").fetchone()[0]
         oldest = db.execute("SELECT MIN(created) FROM orders WHERE status='PENDING_REVIEW'").fetchone()[0]
         awaiting = db.execute(
             "SELECT count(*) FROM orders WHERE status='AWAITING_RECEIPT' AND expires>?", (current,),
@@ -1132,6 +1205,7 @@ def admin_overview(days: int = 7):
         "approved_count": len(approved),
         "automatic_count": sum(row["decision"] in ("SMS_APPROVED", "WALLET_PAID") for row in approved),
         "pending_count": pending,
+        "activating_count": activating,
         "unmatched_count": unmatched,
         "orders": recent_orders,
         "review_queue": review_queue,
@@ -1144,8 +1218,8 @@ def admin_overview(days: int = 7):
     }
 
 
-def filtered_orders(status, q, receipt):
-    if (status and status not in ORDER_STATES) or receipt not in ("", "image"):
+def filtered_orders(status, q, receipt, activation=""):
+    if (status and status not in ORDER_STATES) or receipt not in ("", "image") or activation not in ("", "pending"):
         raise HTTPException(422)
     search = q.strip().translate(DIGITS).lower()
     query = """
@@ -1153,33 +1227,35 @@ def filtered_orders(status, q, receipt):
             SELECT *, CASE WHEN status='AWAITING_RECEIPT' AND expires<=?
                 THEN 'EXPIRED' ELSE status END AS shown_status
             FROM orders
-        )
+        ) AS shown_orders
         WHERE (?='' OR shown_status=?)
         AND (?='' OR json_extract(details, '$.has_receipt_image')=1)
+        AND (?='' OR EXISTS (SELECT 1 FROM provisioning_jobs j WHERE j.order_id=shown_orders.id AND j.ready=0))
         AND (?='' OR instr(lower(id), ?)>0
             OR instr(lower(json_extract(details, '$.subscriber')), ?)>0
             OR instr(lower(json_extract(details, '$.plan_title_fa')), ?)>0
             OR instr(json_extract(details, '$.tracking_number'), ?)>0)
     """
-    return query, (now(), status, status, receipt, search, search, search, search, search)
+    return query, (now(), status, status, receipt, activation, search, search, search, search, search)
 
 
 @admin.get("/api/orders")
 def admin_orders(status: str = "", q: str = Query(default="", max_length=100), receipt: str = "",
-                 page: int = Query(default=1, ge=1, le=1_000_000)):
-    query, values = filtered_orders(status, q, receipt)
+                 page: int = Query(default=1, ge=1, le=1_000_000), activation: str = ""):
+    query, values = filtered_orders(status, q, receipt, activation)
     with transaction(write=False) as db:
         total = db.execute("SELECT count(*) " + query, values).fetchone()[0]
+        ordering = "created, id" if activation else "created DESC, id DESC"
         rows = db.execute(
-            "SELECT * " + query + " ORDER BY created DESC, id DESC LIMIT ? OFFSET ?",
+            "SELECT * " + query + f" ORDER BY {ordering} LIMIT ? OFFSET ?",
             (*values, PAGE_SIZE, (page - 1) * PAGE_SIZE),
         )
         return {"total": total, "page_size": PAGE_SIZE, "orders": [present(row, admin=True) for row in rows]}
 
 
 @admin.get("/api/exports/orders")
-def export_orders(status: str = "", q: str = Query(default="", max_length=100), receipt: str = ""):
-    query, values = filtered_orders(status, q, receipt)
+def export_orders(status: str = "", q: str = Query(default="", max_length=100), receipt: str = "", activation: str = ""):
+    query, values = filtered_orders(status, q, receipt, activation)
     output = StringIO()
     writer = csv.writer(output)
     writer.writerow(("order_id", "amount_toman", "status", "created_at_utc", "has_receipt_image"))
@@ -1236,7 +1312,23 @@ def admin_order(order_id: str):
         decisions = db.execute(
             "SELECT decision, timestamp FROM decisions WHERE order_id=? ORDER BY timestamp", (order_id,),
         )
-        return {"order": present(row, admin=True), "decisions": [dict(item) for item in decisions]}
+        job = db.execute("SELECT attempts, next_run, lease_until, ready, last_error FROM provisioning_jobs WHERE order_id=?",
+                         (order_id,)).fetchone()
+        return {"order": present(row, admin=True), "decisions": [dict(item) for item in decisions],
+                "activation": dict(job) if job else None}
+
+
+@admin.post("/api/orders/{order_id}/expedite")
+def expedite_order(order_id: str, request: IncomingRequest):
+    verify_admin_origin(request)
+    timestamp = now()
+    with transaction() as db:
+        updated = db.execute("""UPDATE provisioning_jobs SET next_run=? WHERE order_id=?
+                                AND ready=0 AND lease_until<=? AND next_run>?""",
+                             (timestamp, order_id, timestamp, timestamp)).rowcount
+        if updated:
+            db.execute("INSERT INTO decisions VALUES (?, ?, ?)", (order_id, "ADMIN_EXPEDITED", timestamp))
+    return {"scheduled": bool(updated)}
 
 
 @admin.get("/api/orders/{order_id}/receipt")
@@ -1513,7 +1605,11 @@ class BillingPlanUpdate(BaseModel):
 @admin.get("/api/catalog")
 def admin_catalog():
     with transaction(write=False) as db:
-        return {"plans": configured_plans(db, include_hidden=True), "maximum": display_limit(db)}
+        plans = configured_plans(db, include_hidden=True)
+        offered = [plan["id"] for plan in sale_plans(db, {"plans": [p for p in plans if p["visible"]]})]
+        reasons = {p["id"]: ("hidden" if not p["visible"] else "category" if p["category"] != "RENEW" else "limit")
+                   for p in plans if p["id"] not in offered}
+        return {"plans": plans, "maximum": display_limit(db), "offered": offered, "excluded": reasons}
 
 
 @admin.post("/api/catalog-display")

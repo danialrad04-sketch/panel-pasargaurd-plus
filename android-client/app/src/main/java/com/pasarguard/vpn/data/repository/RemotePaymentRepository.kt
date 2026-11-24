@@ -243,6 +243,6 @@ class RemotePaymentRepository @Inject constructor(
         payerCardLast4 = payerCardLast4, trackingNumber = trackingNumber,
         rejectionReasonFa = rejectionReasonFa, rejectionReasonEn = rejectionReasonEn,
         createdAtMs = createdAtMs, expiresAtMs = expiresAtMs, submittedAtMs = submittedAtMs, reviewedAtMs = reviewedAtMs,
-        newSubscription = newSubscription, activationStatus = activationStatus, hasReceiptImage = hasReceiptImage
+        newSubscription = newSubscription, activationStatus = activationStatus, activationReadyAtMs = activationReadyAtMs, hasReceiptImage = hasReceiptImage
     )
 }
