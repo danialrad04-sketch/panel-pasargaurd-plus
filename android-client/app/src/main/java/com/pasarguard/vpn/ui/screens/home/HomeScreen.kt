@@ -1,5 +1,15 @@
 package com.pasarguard.vpn.ui.screens.home
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.rounded.PowerSettingsNew
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Surface
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import android.app.Activity
 import android.net.VpnService
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -77,12 +87,10 @@ import com.pasarguard.vpn.domain.repository.VpnController
 import com.pasarguard.vpn.domain.usecase.SelectBestServerUseCase
 import com.pasarguard.vpn.domain.usecase.SyncSubscriptionUseCase
 import com.pasarguard.vpn.ui.components.CoachTipBanner
-import com.pasarguard.vpn.ui.components.ConnectHeroButton
 import com.pasarguard.vpn.ui.components.ServerLocationMark
 import com.pasarguard.vpn.ui.components.serverCountryLabel
 import com.pasarguard.vpn.ui.components.DeepSpaceBackground
 import com.pasarguard.vpn.ui.components.GlassCard
-import com.pasarguard.vpn.ui.components.ProgressRingCard
 import com.pasarguard.vpn.ui.theme.LocalCalendarSystem
 import com.pasarguard.vpn.ui.theme.LocalPersianDigits
 import com.pasarguard.vpn.ui.theme.PasarGuardTheme
@@ -303,32 +311,25 @@ fun HomeScreen(
                 Spacer(Modifier.height(Spacing.sm))
 
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.foundation.Image(
-                        painter = androidx.compose.ui.res.painterResource(R.drawable.donino_mark),
-                        contentDescription = null, modifier = Modifier.size(38.dp)
-                    )
-                    Spacer(Modifier.width(Spacing.sm))
                     Text(BrandConfig.appName, style = MaterialTheme.typography.headlineSmall,
                         modifier = Modifier.weight(1f), color = colors.textPrimary)
                     IconButton(onClick = viewModel::refreshSubscription) {
                         Icon(Icons.Rounded.Refresh, contentDescription = stringResource(R.string.servers_refresh))
                     }
                 }
-                GlassCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(Spacing.lg)) {
-                    HeroConnectSection(
-                        status = state.session.status,
-                        errorMessage = if (permissionDenied) stringResource(R.string.connection_permission_denied)
-                            else state.session.errorMessage,
-                        onConnectTap = handleConnectTap
-                    )
-                }
-                Spacer(Modifier.height(Spacing.sm))
+                HeroConnectSection(
+                    status = state.session.status,
+                    errorMessage = if (permissionDenied) stringResource(R.string.connection_permission_denied)
+                        else state.session.errorMessage,
+                    onConnectTap = handleConnectTap
+                )
+                Spacer(Modifier.height(Spacing.md))
                 SelectedServerCard(state, persianDigits, onOpenServers)
-                if (sub != null) {
-                    TextButton(onClick = onOpenRenewal, modifier = Modifier.align(Alignment.Start)) {
-                        Text(stringResource(R.string.sub_renew_cta))
-                    }
+                if (state.session.status == ConnectionStatus.CONNECTED) {
+                    Spacer(Modifier.height(Spacing.sm))
+                    ConnectionTelemetry(state, elapsedMs, persianDigits)
                 }
+                Spacer(Modifier.height(Spacing.md))
 
                 // Dismissible Panel Announcement Banner
                 if (announceText != null) {
@@ -414,7 +415,8 @@ fun HomeScreen(
                 Spacer(Modifier.height(Spacing.lg))
 
                 HomeDashboardBody(
-                    state = state, elapsedMs = elapsedMs, persianDigits = persianDigits,
+                    state = state, persianDigits = persianDigits,
+                    onOpenRenewal = onOpenRenewal,
                     calendarSystem = calendarSystem, isPersian = isPersian,
                     onOpenDiagnostics = onOpenDiagnostics, onOpenProfiles = onOpenProfiles,
                     onOpenStatistics = onOpenStatistics
@@ -438,31 +440,52 @@ private fun HeroConnectSection(
         ConnectionStatus.ERROR -> R.string.status_error
         ConnectionStatus.DISCONNECTED -> R.string.status_disconnected
     })
-    androidx.compose.foundation.Image(
-        painter = androidx.compose.ui.res.painterResource(
-            if (status == ConnectionStatus.CONNECTED) R.drawable.atlas_connected else R.drawable.atlas_idle
-        ),
-        contentDescription = null,
-        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-        modifier = Modifier.fillMaxWidth().height(154.dp).clip(RoundedCornerShape(18.dp))
-    )
-    Spacer(Modifier.height(Spacing.sm))
-    Text(statusText, style = MaterialTheme.typography.titleLarge,
-        color = when (status) {
-            ConnectionStatus.CONNECTED -> colors.statusConnected
-            ConnectionStatus.ERROR -> colors.statusDanger
-            else -> colors.textPrimary
-        })
-    Spacer(Modifier.height(Spacing.md))
-    ConnectHeroButton(status = status, onClick = onConnectTap, modifier = Modifier.fillMaxWidth())
-    if (errorMessage != null) {
-        Spacer(Modifier.height(Spacing.xs))
-        Text(
-            text = errorMessage,
-            style = MaterialTheme.typography.labelSmall,
-            color = colors.statusDanger,
-            modifier = Modifier.padding(horizontal = Spacing.md)
-        )
+    val connected = status == ConnectionStatus.CONNECTED
+    val pending = status == ConnectionStatus.CONNECTING || status == ConnectionStatus.DISCONNECTING
+    val scheme = MaterialTheme.colorScheme
+    val action = stringResource(when (status) {
+        ConnectionStatus.CONNECTED -> R.string.connection_disconnect
+        ConnectionStatus.CONNECTING -> R.string.connection_cancel
+        ConnectionStatus.DISCONNECTING -> R.string.status_disconnecting
+        ConnectionStatus.ERROR -> R.string.connection_retry
+        ConnectionStatus.DISCONNECTED -> R.string.connection_connect
+    })
+    GlassCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(Spacing.lg)) {
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(statusText, style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                color = when {
+                    connected -> colors.statusConnected
+                    status == ConnectionStatus.ERROR -> colors.statusDanger
+                    else -> scheme.onSurface
+                })
+            Spacer(Modifier.height(Spacing.md))
+            Surface(
+                modifier = Modifier.size(100.dp).clip(CircleShape)
+                    .clickable(enabled = status != ConnectionStatus.DISCONNECTING, role = Role.Button,
+                        onClick = onConnectTap)
+                    .semantics { contentDescription = action },
+                shape = CircleShape,
+                color = if (connected) scheme.surfaceVariant else scheme.primaryContainer,
+                border = androidx.compose.foundation.BorderStroke(1.dp,
+                    if (connected) colors.statusConnected else scheme.outline)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    val tint = if (connected) colors.statusConnected else scheme.onPrimaryContainer
+                    if (pending) {
+                        CircularProgressIndicator(Modifier.size(36.dp), color = tint, strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Rounded.PowerSettingsNew, null, tint = tint, modifier = Modifier.size(36.dp))
+                    }
+                }
+            }
+            Spacer(Modifier.height(Spacing.sm))
+            Text(action, style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
+            if (errorMessage != null) {
+                Spacer(Modifier.height(Spacing.sm))
+                Text(errorMessage, style = MaterialTheme.typography.bodySmall, color = colors.statusDanger)
+            }
+        }
     }
 }
 
@@ -523,7 +546,7 @@ private fun SelectedServerCard(state: HomeUiState, persianDigits: Boolean, onOpe
 @Composable
 private fun HomeDashboardBody(
     state: HomeUiState,
-    elapsedMs: Long,
+    onOpenRenewal: () -> Unit,
     persianDigits: Boolean,
     calendarSystem: com.pasarguard.vpn.domain.model.CalendarSystem,
     isPersian: Boolean,
@@ -534,99 +557,21 @@ private fun HomeDashboardBody(
     val colors = PasarGuardTheme.colors
     val sub = state.subscription
 
-    // Bento Dual Progress Rings
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.md)
-    ) {
-        val trafficValue = when {
-            sub == null -> "—"
-            sub.isUnlimitedTraffic -> "∞"
-            else -> Formatters.formatBytes(sub.remainingTrafficBytes ?: 0L, persianDigits)
-        }
-        val trafficSub = when {
-            sub == null -> "—"
-            sub.isUnlimitedTraffic -> stringResource(R.string.home_unlimited)
-            else -> "${Formatters.formatBytes(sub.usedTrafficBytes, persianDigits)} / ${
-                Formatters.formatBytes(sub.dataLimitBytes ?: 0L, persianDigits)
-            }"
-        }
-        val trafficFraction = sub?.remainingTrafficFraction ?: 1f
-
-        ProgressRingCard(
-            title = stringResource(R.string.home_traffic_remaining),
-            primaryValue = trafficValue,
-            subtitle = trafficSub,
-            progress = trafficFraction,
-            isWarning = sub != null && !sub.isUnlimitedTraffic && trafficFraction < 0.30f,
-            isDanger = sub != null && !sub.isUnlimitedTraffic && trafficFraction < 0.15f,
-            modifier = Modifier.weight(1f)
-        )
-
-        val remDays = sub?.remainingDays()
-        val daysPrimary = when {
-            sub == null -> "—"
-            sub.status == SubscriptionStatus.ON_HOLD -> stringResource(R.string.home_on_hold)
-            sub.status == SubscriptionStatus.EXPIRED -> stringResource(R.string.home_expired)
-            remDays == null -> "∞"
-            else -> Formatters.toPersianDigitsIfNeeded(
-                stringResource(R.string.home_days_unit, remDays),
-                persianDigits
-            )
-        }
-        val daysSub = sub?.expireEpochSeconds?.let {
-            Formatters.formatEpochDate(
-                epochSeconds = it,
-                locale = if (isPersian) Locale("fa") else Locale.US,
-                calendarSystem = calendarSystem,
-                persianDigits = persianDigits
-            )
+    if (sub != null) {
+        val traffic = if (sub.isUnlimitedTraffic) stringResource(R.string.home_unlimited)
+            else Formatters.formatBytes(sub.remainingTrafficBytes ?: 0L, persianDigits)
+        val expiry = sub.expireEpochSeconds?.let {
+            Formatters.formatEpochDate(it, if (isPersian) Locale("fa") else Locale.US, calendarSystem, persianDigits)
         } ?: stringResource(R.string.home_unlimited)
-        val timeFraction = sub?.remainingTimeFraction() ?: 1f
-
-        ProgressRingCard(
-            title = stringResource(R.string.home_days_remaining),
-            primaryValue = daysPrimary,
-            subtitle = daysSub,
-            progress = timeFraction,
-            isWarning = remDays != null && remDays in 2..5,
-            isDanger = sub?.status == SubscriptionStatus.EXPIRED || (remDays != null && remDays <= 1),
-            modifier = Modifier.weight(1f)
-        )
-    }
-    Spacer(Modifier.height(Spacing.md))
-
-    // Live Telemetry Strip
-    GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 22.dp) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            TelemetryCell(
-                icon = Icons.Rounded.ArrowDownward,
-                tint = colors.statusConnected,
-                label = stringResource(R.string.home_download),
-                value = Formatters.formatSpeed(state.session.downloadBytesPerSec, persianDigits),
-                modifier = Modifier.weight(1f)
-            )
-            TelemetryCell(
-                icon = Icons.Rounded.ArrowUpward,
-                tint = colors.heroEnd,
-                label = stringResource(R.string.home_upload),
-                value = Formatters.formatSpeed(state.session.uploadBytesPerSec, persianDigits),
-                modifier = Modifier.weight(1f)
-            )
-            TelemetryCell(
-                icon = Icons.Rounded.Timer,
-                tint = colors.accentViolet,
-                label = stringResource(R.string.home_session),
-                value = Formatters.formatDuration(elapsedMs, persianDigits),
-                modifier = Modifier.weight(1f)
-            )
+        GlassCard(Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.home_traffic_remaining), style = MaterialTheme.typography.labelMedium,
+                color = colors.textSecondary)
+            Text(traffic, style = MaterialTheme.typography.titleMedium)
+            Text(expiry, style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
+            TextButton(onClick = onOpenRenewal) { Text(stringResource(R.string.sub_renew_cta)) }
         }
+        Spacer(Modifier.height(Spacing.md))
     }
-
-    Spacer(Modifier.height(Spacing.md))
 
     // Pro Quick Tools Bento Row (Diagnostics, Profiles, Statistics)
     Row(
@@ -654,6 +599,38 @@ private fun HomeDashboardBody(
     }
 
     Spacer(Modifier.height(Spacing.md))
+}
+@Composable
+private fun ConnectionTelemetry(state: HomeUiState, elapsedMs: Long, persianDigits: Boolean) {
+    val colors = PasarGuardTheme.colors
+    GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 22.dp) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            TelemetryCell(
+                icon = Icons.Rounded.ArrowDownward,
+                tint = colors.statusConnected,
+                label = stringResource(R.string.home_download),
+                value = Formatters.formatSpeed(state.session.downloadBytesPerSec, persianDigits),
+                modifier = Modifier.weight(1f)
+            )
+            TelemetryCell(
+                icon = Icons.Rounded.ArrowUpward,
+                tint = colors.heroEnd,
+                label = stringResource(R.string.home_upload),
+                value = Formatters.formatSpeed(state.session.uploadBytesPerSec, persianDigits),
+                modifier = Modifier.weight(1f)
+            )
+            TelemetryCell(
+                icon = Icons.Rounded.Timer,
+                tint = colors.textSecondary,
+                label = stringResource(R.string.home_session),
+                value = Formatters.formatDuration(elapsedMs, persianDigits),
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
 }
 
 @Composable

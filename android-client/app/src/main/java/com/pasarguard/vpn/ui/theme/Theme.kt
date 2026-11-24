@@ -231,10 +231,10 @@ fun PasarGuardVpnTheme(
         useDynamic -> dynamicLightColorScheme(context)
         else -> null
     }
-    val contrastText = Color(if (useDark) 0xFFF1F0EC else 0xFF222326)
-    val supportingText = Color(if (useDark) 0xFFC1C0BD else 0xFF595A5D)
-    val neutralContainer = Color(if (useDark) 0xFF2B2C2E else 0xFFEDEBE7)
-    val outline = Color(if (useDark) 0xFF55565A else 0xFFCAC8C3)
+    val contrastText = Color(if (useDark) 0xFFEFF3F7 else 0xFF19232E)
+    val supportingText = Color(if (useDark) 0xFFB1BCC8 else 0xFF506071)
+    val neutralContainer = Color(if (useDark) 0xFF27313B else 0xFFE6EBF1)
+    val outline = Color(if (useDark) 0xFF495866 else 0xFFC6D0DC)
     val baseExtended = if (useDark) DarkExtendedColors else LightExtendedColors
     val colorScheme = baseScheme.copy(
         primary = dynamic?.primary ?: palette.accent,

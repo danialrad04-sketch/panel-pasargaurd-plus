@@ -115,9 +115,9 @@
     <string name="settings_lang_en">English</string>
     <string name="settings_theme">پوسته (تم)</string>
     <string name="settings_palette">پالت رنگ</string>
-    <string name="settings_palette_ocean">آمتیست</string>
-    <string name="settings_palette_jade">تالاب</string>
-    <string name="settings_palette_dusk">یاقوت</string>
+    <string name="settings_palette_ocean">آبی سنگی</string>
+    <string name="settings_palette_jade">سبز کاجی</string>
+    <string name="settings_palette_dusk">بنفش ملایم</string>
     <string name="settings_theme_dark">تیره</string>
     <string name="settings_theme_light">روشن</string>
     <string name="settings_theme_system">سیستم</string>

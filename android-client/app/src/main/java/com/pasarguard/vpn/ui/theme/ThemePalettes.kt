@@ -17,31 +17,31 @@ internal data class PaletteTokens(
 internal fun ThemePalette.tokens(dark: Boolean): PaletteTokens {
     val shades = when (this) {
         ThemePalette.OCEAN -> PaletteShades(
-            containerDark = 0xFF392858,
-            containerLight = 0xFFEEE4FF,
-            accentDark = 0xFFD0B4FF, accentLight = 0xFF6534AE,
-            gradientStart = 0xFF5025A3, gradientEnd = 0xFF42398B
+            containerDark = 0xFF253447,
+            containerLight = 0xFFDEE8F5,
+            accentDark = 0xFFAEC7E8, accentLight = 0xFF34577C,
+            gradientStart = 0xFF2C4056, gradientEnd = 0xFF344A63
         )
         ThemePalette.JADE -> PaletteShades(
-            containerDark = 0xFF153E44,
-            containerLight = 0xFFD0F4F2,
-            accentDark = 0xFF76DBD6, accentLight = 0xFF00696E,
-            gradientStart = 0xFF125B69, gradientEnd = 0xFF00676B
+            containerDark = 0xFF203936,
+            containerLight = 0xFFD9EBE6,
+            accentDark = 0xFF99CEC1, accentLight = 0xFF2F6259,
+            gradientStart = 0xFF25443F, gradientEnd = 0xFF35564E
         )
         ThemePalette.DUSK -> PaletteShades(
-            containerDark = 0xFF542B40,
-            containerLight = 0xFFFFE1EB,
-            accentDark = 0xFFFFAECC, accentLight = 0xFF92344F,
-            gradientStart = 0xFF783351, gradientEnd = 0xFF9B3D52
+            containerDark = 0xFF352F48,
+            containerLight = 0xFFEAE5F2,
+            accentDark = 0xFFC5B8DE, accentLight = 0xFF605379,
+            gradientStart = 0xFF40354D, gradientEnd = 0xFF514464
         )
     }
     return PaletteTokens(
         accent = Color(if (dark) shades.accentDark else shades.accentLight),
-        onAccent = if (dark) Color(0xFF191722) else Color.White,
-        canvas = Color(if (dark) 0xFF191722 else 0xFFF8F6FC),
-        surface = Color(if (dark) 0xFF24212E else 0xFFFFFDFF),
+        onAccent = if (dark) Color(0xFF12171D) else Color.White,
+        canvas = Color(if (dark) 0xFF12171D else 0xFFF3F5F7),
+        surface = Color(if (dark) 0xFF1B222A else 0xFFFFFFFF),
         container = Color(if (dark) shades.containerDark else shades.containerLight),
-        onContainer = Color(if (dark) 0xFFF8F6FC else 0xFF202124),
+        onContainer = Color(if (dark) 0xFFF3F5F7 else 0xFF202124),
         gradientStart = Color(shades.gradientStart),
         gradientEnd = Color(shades.gradientEnd)
     )

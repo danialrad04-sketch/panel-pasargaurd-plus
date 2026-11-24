@@ -465,20 +465,16 @@ private fun CardToCardStep(
         }
 
         // Destination Card & Exact Amount Card
-        Column(
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
-                .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(colors.heroStart, colors.heroFillEnd)))
-                .padding(Spacing.md)
-        ) {
+        GlassCard(Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
             Text(
                 text = if (isPersian) order.destinationBankFa else order.destinationBankEn,
                 style = MaterialTheme.typography.labelMedium,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = if (isPersian) order.destinationCardHolderFa else order.destinationCardHolderEn,
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                color = Color.White
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.height(Spacing.sm))
 
@@ -487,7 +483,7 @@ private fun CardToCardStep(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White.copy(alpha = 0.10f))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -500,13 +496,13 @@ private fun CardToCardStep(
                         textDirection = TextDirection.Ltr,
                         fontFamily = FontFamily.Monospace
                     ),
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 IconButton(onClick = onCopyCard) {
                     Icon(
                         imageVector = Icons.Rounded.ContentCopy,
                         contentDescription = stringResource(R.string.action_copy),
-                        tint = Color.White
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -518,7 +514,7 @@ private fun CardToCardStep(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
-                    .background(Color.Black.copy(alpha = 0.18f))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -527,19 +523,19 @@ private fun CardToCardStep(
                     Text(
                         text = stringResource(R.string.checkout_exact_amount),
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "${Formatters.formatNumber(order.finalPriceToman, persianDigits)} $currency",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 IconButton(onClick = onCopyAmount) {
                     Icon(
                         imageVector = Icons.Rounded.ContentCopy,
                         contentDescription = stringResource(R.string.action_copy),
-                        tint = Color.White
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -548,7 +544,7 @@ private fun CardToCardStep(
             Text(
                 text = stringResource(R.string.checkout_do_not_round_note),
                 style = MaterialTheme.typography.labelSmall,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
 
