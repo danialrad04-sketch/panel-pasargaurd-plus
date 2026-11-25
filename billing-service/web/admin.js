@@ -79,6 +79,8 @@ async function request(path, options = {}) {
     }
     const detail = (await response.json().catch(() => null))?.detail;
     const messages = {
+      APK_METADATA_MISMATCH: "نام بسته، نسخه، شمارهٔ ساخت یا معماری با اطلاعات فایل APK هماهنگ نیست.",
+      INVALID_APK: "اطلاعات فایل APK معتبر یا قابل خواندن نیست.",
       MATCH_UNAVAILABLE: "این واریز یا سفارش دیگر برای تطبیق در دسترس نیست.",
       DEPOSIT_BELOW_PLAN_PRICE: "مبلغ واریزی کمتر از قیمت پلن است.",
       DEPOSIT_ALREADY_ACCOUNTED: "سفارشی با مبلغ این واریز قبلاً تأیید شده است.",
@@ -417,13 +419,26 @@ function fillApkLibrary() {
   const picker = get("apk-library");
   picker.replaceChildren(new Option("انتخاب فایل", ""));
   for (const file of uploadedAPKs) {
-    const label = date(file.timestamp) + " · " + fa.format(Math.ceil(file.size / 1048576)) + " مگابایت · " + file.sha256.slice(0, 8);
+    const label = (file.latest_version ? file.latest_version + " · " + file.abi + " · " : "") + date(file.timestamp) + " · " + fa.format(Math.ceil(file.size / 1048576)) + " مگابایت · " + file.sha256.slice(0, 8);
     picker.append(new Option(label, file.sha256));
   }
 }
 
 function selectApk(file, abi) {
-  const field = get("release-form").elements.namedItem("assets");
+  const form = get("release-form").elements;
+  const field = form.namedItem("assets");
+  if (file.latest_version) {
+    if (field.value.trim() && (
+      form.namedItem("package_name").value !== file.package_name ||
+      Number(form.namedItem("latest_version_code").value) !== file.latest_version_code ||
+      form.namedItem("latest_version").value !== file.latest_version
+    )) field.value = "";
+    abi = file.abi;
+    form.namedItem("latest_version").value = file.latest_version;
+    form.namedItem("latest_version_code").value = file.latest_version_code;
+    form.namedItem("package_name").value = file.package_name;
+    get("apk-abi").value = abi;
+  }
   const rows = field.value.split("\n").filter(line => line.trim() && line.trim().split(/\s+/)[0] !== abi);
   field.value = [...rows, [abi, file.download_url, file.sha256].join(" ")].join("\n");
   const link = get("apk-link");
@@ -478,7 +493,7 @@ get("apk-upload").addEventListener("click", async (event) => {
     fillApkLibrary();
     get("apk-library").value = stored.sha256;
     selectApk(stored, abi);
-    setNotice("فایل بارگذاری شد. برای انتشار، شمارهٔ ساخت و نمایش نسخه را تنظیم و ذخیره کنید.");
+    setNotice("فایل بارگذاری شد و اطلاعات نسخه از خود APK خوانده شد. برای انتشار، وضعیت نمایش نسخه را ذخیره کنید.");
   } catch (error) {
     setNotice(error.message, true);
   } finally {

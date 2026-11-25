@@ -95,6 +95,51 @@ class OperationsTest(unittest.TestCase):
         item = self.client.get("/v1/service/incidents").json()[0]
         self.assertEqual((item["status"], item["revision"], item["server_ids"]), ("resolved", 2, [endpoint_key("example-server:443")]))
 
+    def test_customer_close_reopen_and_private_staff_triage(self):
+        thread = self.create().json()["id"]
+        customer_path = "/v1/customer/support/" + thread
+        staff_path = "/admin/api/operations/support/" + thread
+        initial = self.client.get(staff_path, headers=self.admin).json()["triage"]
+        self.assertEqual(initial, {"team":"unassigned", "priority":"normal", "revision":0})
+        change = {"team":"technical", "priority":"urgent", "expected_revision":0}
+        self.assertEqual(self.client.put(staff_path + "/triage", json=change, headers=self.admin).json(), {"revision":1})
+        self.assertEqual(self.client.put(staff_path + "/triage", json=change, headers=self.admin).status_code, 409)
+        note = {"request_id":str(uuid4()), "body":"Internal routing memo"}
+        for _ in range(2):
+            self.assertEqual(self.client.post(staff_path + "/notes", json=note, headers=self.admin).status_code, 200)
+        listing = self.client.get("/admin/api/operations/support", headers=self.admin,
+                                  params={"paginated":True, "q":"customer-one", "team":"technical"}).json()
+        self.assertEqual(listing["total"], 1)
+        self.assertEqual(listing["items"][0]["priority"], "urgent")
+        staff = self.client.get(staff_path, headers=self.admin).json()
+        self.assertEqual(len(staff["notes"]), 1)
+        customer = self.client.get(customer_path, headers=self.customer).json()
+        self.assertNotIn("notes", customer)
+        self.assertNotIn("triage", customer)
+        self.assertNotIn(note["body"], str(customer))
+        self.assertEqual(self.client.put(customer_path + "/status", json={"status":"resolved"}, headers=self.other).status_code, 404)
+        self.assertEqual(self.client.put(customer_path + "/status", json={"status":"resolved"}, headers=self.customer).status_code, 200)
+        self.assertEqual(self.client.get("/v1/customer/support", params={"status":"resolved", "q":"connection"},
+                                         headers=self.customer).json()[0]["id"], thread)
+        self.assertEqual(self.client.get("/admin/api/operations", headers=self.admin).json()["counts"].get("support", 0), 0)
+        self.assertEqual(self.client.put(customer_path + "/status", json={"status":"waiting"}, headers=self.customer).status_code, 200)
+        self.assertEqual(self.client.get("/admin/api/operations", headers=self.admin).json()["items"][0]["id"], thread)
+
+    def test_staff_history_paginates_without_duplicates(self):
+        thread = self.create().json()["id"]
+        path = "/admin/api/operations/support/" + thread
+        with main.transaction() as db:
+            db.executemany("""INSERT INTO support_messages(thread_id,request_id,sender,body,created)
+                          VALUES (?,?,'customer',?,?)""",
+                           [(thread, str(uuid4()), f"Message {i}", main.now()) for i in range(55)])
+        newest = self.client.get(path, headers=self.admin).json()
+        oldest = self.client.get(path, params={"before":newest["messages"][0]["sequence"]}, headers=self.admin).json()
+        self.assertTrue(newest["has_more"])
+        self.assertFalse(oldest["has_more"])
+        sequence = [item["sequence"] for item in oldest["messages"] + newest["messages"]]
+        self.assertEqual(len(sequence), 56)
+        self.assertEqual(sequence, sorted(set(sequence)))
+
 
 if __name__ == "__main__":
     unittest.main()

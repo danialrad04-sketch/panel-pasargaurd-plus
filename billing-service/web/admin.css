@@ -570,3 +570,26 @@ dialog::backdrop { background:#091e29aa; backdrop-filter:blur(4px); }
 .store-preview > label { max-width: 18rem; margin-block: 1rem; }
 .preview-phone { max-width: 390px; margin-inline: auto; padding: 1rem; border-radius: 20px; background: var(--surface-alt); }
 .preview-plan { display: grid; gap: .35rem; padding: .85rem; margin-block-start: .65rem; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+
+
+#support-dialog textarea,
+#incident-dialog textarea {
+  width: 100%;
+  min-height: 6rem;
+  resize: vertical;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: .65rem;
+}
+#support-content article p,
+#support-content details p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#support-content details summary {
+  cursor: pointer;
+  padding-block: .75rem;
+}

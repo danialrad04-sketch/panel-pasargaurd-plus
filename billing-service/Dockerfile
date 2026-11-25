@@ -4,7 +4,7 @@ COPY billing-service/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt \
     && useradd --system --uid 10001 billing \
     && install -d -o billing -g billing /data
-COPY --chown=billing:billing billing-service/main.py billing-service/customer_accounts.py billing-service/provisioning.py billing-service/operations.py .
+COPY --chown=billing:billing billing-service/main.py billing-service/customer_accounts.py billing-service/provisioning.py billing-service/operations.py billing-service/apk_metadata.py .
 COPY --chown=billing:billing billing-service/web ./web
 COPY --chown=billing:billing android-client/app/src/main/assets/plans_config.json .
 ENV BILLING_DB=/data/billing.sqlite3 BILLING_PLANS=/srv/billing/plans_config.json

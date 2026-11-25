@@ -1,6 +1,5 @@
 """Independent PasarGuard billing service."""
 import asyncio
-import operations
 import base64
 import csv
 import fcntl
@@ -26,10 +25,11 @@ from urllib.error import HTTPError as UpstreamHTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from uuid import UUID, uuid4
-from zipfile import BadZipFile, ZipFile
 from zoneinfo import ZoneInfo
 
+import apk_metadata
 import customer_accounts
+import operations
 import provisioning
 from cryptography.fernet import Fernet, InvalidToken
 from fastapi import (
@@ -1473,7 +1473,13 @@ def uploaded_apks():
             "size": info.st_size,
             "timestamp": int(info.st_mtime * 1000),
         })
-    return {"files": sorted(files, key=lambda item: item["timestamp"], reverse=True)[:30]}
+    latest = sorted(files, key=lambda item: item["timestamp"], reverse=True)[:30]
+    for item in latest:
+        try:
+            item.update(apk_metadata.inspect_apk(apk_directory() / (item["sha256"] + ".apk")))
+        except (OSError, ValueError):
+            continue
+    return {"files": latest}
 
 
 @admin.put("/api/apk/{upload_id}")
@@ -1521,17 +1527,15 @@ def finish_apk_upload(upload_id: str, request: IncomingRequest, size: int = Quer
         if os.fstat(payload.fileno()).st_size != size:
             raise HTTPException(409)
         try:
-            with ZipFile(payload) as archive:
-                manifest = archive.getinfo("AndroidManifest.xml")
-                if not 1 <= manifest.file_size <= 2 * 1024 * 1024:
-                    raise ValueError
-        except (BadZipFile, KeyError, ValueError):
+            metadata = apk_metadata.inspect_apk(payload)
+        except ValueError:
             path.unlink(missing_ok=True)
             raise HTTPException(422, "INVALID_APK") from None
         payload.seek(0)
         sha256 = hashlib.file_digest(payload, "sha256").hexdigest()
         path.replace(path.with_name(sha256 + ".apk"))
-    return {"download_url": setting("BILLING_PUBLIC_URL") + "/downloads/" + sha256 + ".apk", "sha256": sha256}
+    return {"download_url": setting("BILLING_PUBLIC_URL") + "/downloads/" + sha256 + ".apk",
+            "sha256": sha256, **metadata}
 
 
 @app.get("/downloads/{filename}")
@@ -1586,6 +1590,19 @@ def admin_update_release(platform: Literal["android", "ios"], body: AppReleaseUp
         for asset in body.assets:
             if not checked_release_url(asset.download_url).path.lower().endswith(".apk"):
                 raise HTTPException(422, "ANDROID_APK_REQUIRED")
+            parts = urlsplit(asset.download_url)
+            own = urlsplit(setting("BILLING_PUBLIC_URL"))
+            if parts.netloc == own.netloc and parts.path.startswith("/downloads/"):
+                file_name = parts.path.removeprefix("/downloads/")
+                if file_name != asset.sha256 + ".apk":
+                    raise HTTPException(422, "APK_METADATA_MISMATCH")
+                try:
+                    metadata = apk_metadata.inspect_apk(apk_directory() / file_name)
+                except (OSError, ValueError):
+                    raise HTTPException(422, "INVALID_APK") from None
+                if (metadata["package_name"] != body.package_name or metadata["latest_version"] != body.latest_version
+                        or metadata["latest_version_code"] != body.latest_version_code or metadata["abi"] != asset.abi):
+                    raise HTTPException(422, "APK_METADATA_MISMATCH")
     else:
         if body.assets or (body.visible and not body.store_url):
             raise HTTPException(422, "APPLE_STORE_REQUIRED")
