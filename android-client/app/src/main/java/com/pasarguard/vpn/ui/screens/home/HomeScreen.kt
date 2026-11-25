@@ -5,9 +5,7 @@ import android.net.VpnService
 import androidx.activity.compose.rememberLauncherForActivityResult
 import com.pasarguard.vpn.ui.screens.support.ServiceIncidentBanner
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Box
@@ -39,6 +37,8 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -51,10 +51,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -78,11 +83,9 @@ import com.pasarguard.vpn.domain.repository.VpnController
 import com.pasarguard.vpn.domain.usecase.SelectBestServerUseCase
 import com.pasarguard.vpn.domain.usecase.SyncSubscriptionUseCase
 import com.pasarguard.vpn.ui.components.CoachTipBanner
-import com.pasarguard.vpn.ui.components.ConnectHeroButton
+import com.pasarguard.vpn.ui.components.ConnectionDial
 import com.pasarguard.vpn.ui.components.DeepSpaceBackground
 import com.pasarguard.vpn.ui.components.GlassCard
-import com.pasarguard.vpn.ui.components.ProgressRingCard
-import com.pasarguard.vpn.ui.components.PulsingDot
 import com.pasarguard.vpn.ui.theme.LocalCalendarSystem
 import com.pasarguard.vpn.ui.theme.LocalPersianDigits
 import com.pasarguard.vpn.ui.theme.PasarGuardTheme
@@ -243,6 +246,7 @@ fun HomeScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val colors = PasarGuardTheme.colors
     val context = LocalContext.current
+    val connectionStatus = if (state.choosingServer) ConnectionStatus.CONNECTING else state.session.status
     val persianDigits = LocalPersianDigits.current
     val calendarSystem = LocalCalendarSystem.current
     val isPersian = state.settings.language == AppLanguage.PERSIAN
@@ -292,7 +296,6 @@ fun HomeScreen(
     }
 
 
-
     val sub = state.subscription
     val daysLeft = sub?.remainingDays()
     val showRenewWarning = sub != null && (
@@ -323,56 +326,19 @@ fun HomeScreen(
             ) {
                 Spacer(Modifier.height(Spacing.sm))
 
-                // Top Dynamic Status Capsule
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(colors.glassSurface)
-                            .border(1.dp, colors.glassBorderTop, RoundedCornerShape(999.dp))
-                            .padding(horizontal = 14.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val statusColor = when (state.session.status) {
-                            ConnectionStatus.CONNECTED -> colors.statusConnected
-                            ConnectionStatus.CONNECTING, ConnectionStatus.DISCONNECTING -> colors.heroEnd
-                            ConnectionStatus.ERROR -> colors.statusDanger
-                            ConnectionStatus.DISCONNECTED -> colors.textMuted
-                        }
-                        PulsingDot(
-                            color = statusColor,
-                            isPulsing = state.session.status == ConnectionStatus.CONNECTED ||
-                                state.session.status == ConnectionStatus.CONNECTING
-                        )
-                        Spacer(Modifier.width(Spacing.sm))
-                        Text(
-                            text = buildString {
-                                append(
-                                    stringResource(
-                                        when (state.session.status) {
-                                            ConnectionStatus.CONNECTED -> R.string.status_connected
-                                            ConnectionStatus.CONNECTING -> R.string.status_connecting
-                                            ConnectionStatus.DISCONNECTING -> R.string.status_disconnecting
-                                            ConnectionStatus.ERROR -> R.string.status_error
-                                            ConnectionStatus.DISCONNECTED -> R.string.status_disconnected
-                                        }
-                                    )
-                                )
-                                if (state.session.status == ConnectionStatus.CONNECTED ||
-                                    state.session.status == ConnectionStatus.CONNECTING
-                                ) {
-                                    append(" • ")
-                                    append(state.session.activeEngine.label)
-                                }
-                            },
-                            style = MaterialTheme.typography.labelLarge,
-                            color = colors.textPrimary
-                        )
-                    }
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = colors.textPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
 
                     IconButton(onClick = { viewModel.refreshSubscription() }) {
                         Icon(
@@ -389,7 +355,7 @@ fun HomeScreen(
                     GlassCard(
                         modifier = Modifier.fillMaxWidth(),
                         cornerRadius = 18.dp,
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -398,7 +364,7 @@ fun HomeScreen(
                             Icon(
                                 imageVector = Icons.Rounded.Campaign,
                                 contentDescription = null,
-                                tint = colors.heroEnd,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(Modifier.width(Spacing.sm))
@@ -409,7 +375,7 @@ fun HomeScreen(
                                 modifier = Modifier.weight(1f)
                             )
                             IconButton(onClick = { viewModel.dismissAnnouncement(announceText) }) {
-                                Icon(Icons.Rounded.Close, contentDescription = null, tint = colors.textMuted)
+                                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.action_close), tint = colors.textSecondary)
                             }
                         }
                     }
@@ -430,7 +396,7 @@ fun HomeScreen(
                     GlassCard(
                         modifier = Modifier.fillMaxWidth(),
                         cornerRadius = 18.dp,
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -456,7 +422,7 @@ fun HomeScreen(
                             TextButton(onClick = onOpenRenewal) {
                                 Text(
                                     text = stringResource(R.string.home_renew_now),
-                                    color = colors.heroEnd,
+                                    color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -481,15 +447,14 @@ fun HomeScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             HeroConnectSection(
-                                status = if (state.choosingServer) ConnectionStatus.CONNECTING else state.session.status,
+                                status = connectionStatus,
                                 errorMessage = state.session.errorMessage,
                                 onOpenDiagnostics = onOpenDiagnostics,
                                 onConnectTap = handleConnectTap
                             )
                         }
                         Column(
-                            modifier = Modifier.weight(1.2f),
-                            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                            modifier = Modifier.weight(1.2f)
                         ) {
                             HomeDashboardBody(
                                 state = state,
@@ -506,7 +471,7 @@ fun HomeScreen(
                     }
                 } else {
                     HeroConnectSection(
-                        status = if (state.choosingServer) ConnectionStatus.CONNECTING else state.session.status,
+                        status = connectionStatus,
                         errorMessage = state.session.errorMessage,
                         onOpenDiagnostics = onOpenDiagnostics,
                         onConnectTap = handleConnectTap
@@ -536,35 +501,42 @@ private fun HeroConnectSection(
     onOpenDiagnostics: () -> Unit,
     onConnectTap: () -> Unit
 ) {
-    val colors = PasarGuardTheme.colors
-    ConnectHeroButton(status = status, onClick = onConnectTap)
-    Spacer(Modifier.height(Spacing.sm))
+    val statusLabel = when (status) {
+        ConnectionStatus.DISCONNECTED -> R.string.status_disconnected
+        ConnectionStatus.CONNECTING -> R.string.status_connecting
+        ConnectionStatus.CONNECTED -> R.string.status_connected
+        ConnectionStatus.DISCONNECTING -> R.string.status_disconnecting
+        ConnectionStatus.ERROR -> R.string.status_error
+    }
+    val actionLabel = when (status) {
+        ConnectionStatus.DISCONNECTED -> R.string.connection_connect
+        ConnectionStatus.CONNECTING -> R.string.connection_cancel
+        ConnectionStatus.CONNECTED -> R.string.connection_disconnect
+        ConnectionStatus.DISCONNECTING -> null
+        ConnectionStatus.ERROR -> R.string.connection_retry
+    }
     Text(
-        text = stringResource(
-            when (status) {
-                ConnectionStatus.CONNECTED -> R.string.tap_to_disconnect
-                ConnectionStatus.CONNECTING -> R.string.connection_cancel
-                ConnectionStatus.DISCONNECTING -> R.string.status_disconnecting
-                ConnectionStatus.ERROR -> R.string.connection_retry
-                ConnectionStatus.DISCONNECTED -> R.string.tap_to_connect
-            }
-        ),
-        style = MaterialTheme.typography.bodyMedium,
-        color = colors.textSecondary
+        text = stringResource(statusLabel),
+        style = MaterialTheme.typography.headlineSmall,
+        color = MaterialTheme.colorScheme.onBackground,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
     )
+    Spacer(Modifier.height(8.dp))
+    ConnectionDial(status = status, actionLabel = actionLabel?.let { stringResource(it) }, onClick = onConnectTap)
     if (status == ConnectionStatus.ERROR) {
-        androidx.compose.material3.TextButton(onClick = onOpenDiagnostics) {
+        if (!errorMessage.isNullOrBlank()) {
+            Text(
+                text = errorMessage,
+                style = MaterialTheme.typography.bodyMedium,
+                color = PasarGuardTheme.colors.statusDanger,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = Spacing.md)
+            )
+        }
+        TextButton(onClick = onOpenDiagnostics) {
             Text(stringResource(R.string.support_check_connection))
         }
-    }
-    if (errorMessage != null) {
-        Spacer(Modifier.height(Spacing.xs))
-        Text(
-            text = errorMessage,
-            style = MaterialTheme.typography.labelSmall,
-            color = colors.statusDanger,
-            modifier = Modifier.padding(horizontal = Spacing.md)
-        )
     }
 }
 
@@ -583,12 +555,11 @@ private fun HomeDashboardBody(
     val colors = PasarGuardTheme.colors
     val sub = state.subscription
 
-    // Active Server Selector Pill
     val activeServer = state.session.activeServer
         ?: state.servers.firstOrNull { it.id == state.settings.selectedServerId }
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
-        cornerRadius = 22.dp,
+        cornerRadius = 20.dp,
         onClick = onOpenServers
     ) {
         Row(
@@ -597,7 +568,7 @@ private fun HomeDashboardBody(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Box(Modifier.size(40.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(10.dp)),
+                Box(Modifier.size(40.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(8.dp)),
                     contentAlignment = Alignment.Center) {
                     Icon(Icons.Rounded.Dns, contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
@@ -614,22 +585,33 @@ private fun HomeDashboardBody(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = activeServer?.let {
-                            val pingLabel = if ((it.pingMs ?: -1) > 0) {
-                                " • ${Formatters.toPersianDigitsIfNeeded("${it.pingMs} ms", persianDigits)}"
-                            } else ""
-                            val jsonTag = if (!it.rawXrayConfigJson.isNullOrBlank()) " • Xray JSON" else ""
-                            "${it.protocol.label}$jsonTag$pingLabel"
-                        } ?: stringResource(R.string.home_no_servers),
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = when {
+                            activeServer != null -> listOfNotNull(
+                                activeServer.protocol.label,
+                                "Xray JSON".takeIf { !activeServer.rawXrayConfigJson.isNullOrBlank() },
+                                state.session.activeEngine.label.takeIf {
+                                    state.session.status == ConnectionStatus.CONNECTED &&
+                                        it != activeServer.protocol.label
+                                },
+                                activeServer.pingMs?.takeIf { it > 0 }?.let {
+                                    Formatters.toPersianDigitsIfNeeded("$it ms", persianDigits)
+                                }
+                            ).joinToString(" · ")
+                            state.servers.isEmpty() -> stringResource(R.string.home_no_servers)
+                            else -> stringResource(R.string.home_auto_server_hint)
+                        },
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            textDirection = if (activeServer != null) TextDirection.Ltr else TextDirection.Content
+                        ),
                         color = colors.textSecondary
                     )
                 }
             }
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                contentDescription = stringResource(R.string.home_select_server),
-                tint = colors.textSecondary
+                contentDescription = null,
+                tint = colors.textSecondary,
+                modifier = Modifier.padding(start = 8.dp).size(20.dp)
             )
         }
     }
@@ -637,28 +619,25 @@ private fun HomeDashboardBody(
     Spacer(Modifier.height(Spacing.md))
 
     if (state.session.status == ConnectionStatus.CONNECTED) {
-        GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 22.dp) {
+        GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 20.dp) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 TelemetryCell(
                     icon = Icons.Rounded.ArrowDownward,
-                    tint = colors.statusConnected,
                     label = stringResource(R.string.home_download),
                     value = Formatters.formatSpeed(state.session.downloadBytesPerSec, persianDigits),
                     modifier = Modifier.weight(1f)
                 )
                 TelemetryCell(
                     icon = Icons.Rounded.ArrowUpward,
-                    tint = colors.heroEnd,
                     label = stringResource(R.string.home_upload),
                     value = Formatters.formatSpeed(state.session.uploadBytesPerSec, persianDigits),
                     modifier = Modifier.weight(1f)
                 )
                 TelemetryCell(
                     icon = Icons.Rounded.Timer,
-                    tint = colors.accentViolet,
                     label = stringResource(R.string.home_session),
                     value = Formatters.formatDuration(elapsedMs, persianDigits),
                     modifier = Modifier.weight(1f)
@@ -669,121 +648,123 @@ private fun HomeDashboardBody(
         Spacer(Modifier.height(Spacing.md))
     }
 
-    // Pro Quick Tools Bento Row (Diagnostics, Profiles, Statistics)
-    Row(
+    GlassCard(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+        cornerRadius = 20.dp,
+        contentPadding = PaddingValues(4.dp)
     ) {
-        QuickToolChip(
-            icon = Icons.Rounded.NetworkCheck,
-            label = stringResource(R.string.diagnostics_short),
-            onClick = onOpenDiagnostics,
-            modifier = Modifier.weight(1f)
-        )
-        QuickToolChip(
-            icon = Icons.Rounded.AccountCircle,
-            label = stringResource(R.string.profiles_short),
-            onClick = onOpenProfiles,
-            modifier = Modifier.weight(1f)
-        )
-        QuickToolChip(
-            icon = Icons.Rounded.BarChart,
-            label = stringResource(R.string.stats_short),
-            onClick = onOpenStatistics,
-            modifier = Modifier.weight(1f)
-        )
-    }
-
-    Spacer(Modifier.height(Spacing.md))
-
-    // Bento Dual Progress Rings
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.md)
-    ) {
-        val trafficValue = when {
-            sub == null -> "—"
-            sub.isUnlimitedTraffic -> "∞"
-            else -> Formatters.formatBytes(sub.remainingTrafficBytes ?: 0L, persianDigits)
-        }
-        val trafficSub = when {
-            sub == null -> "—"
-            sub.isUnlimitedTraffic -> stringResource(R.string.home_unlimited)
-            else -> "${Formatters.formatBytes(sub.usedTrafficBytes, persianDigits)} / ${
-                Formatters.formatBytes(sub.dataLimitBytes ?: 0L, persianDigits)
-            }"
-        }
-        val trafficFraction = sub?.remainingTrafficFraction ?: 1f
-
-        ProgressRingCard(
-            title = stringResource(R.string.home_traffic_remaining),
-            primaryValue = trafficValue,
-            subtitle = trafficSub,
-            progress = trafficFraction,
-            isWarning = sub != null && !sub.isUnlimitedTraffic && trafficFraction < 0.30f,
-            isDanger = sub != null && !sub.isUnlimitedTraffic && trafficFraction < 0.15f,
-            modifier = Modifier.weight(1f)
-        )
-
-        val remDays = sub?.remainingDays()
-        val daysPrimary = when {
-            sub == null -> "—"
-            sub.status == SubscriptionStatus.ON_HOLD -> stringResource(R.string.home_on_hold)
-            sub.status == SubscriptionStatus.EXPIRED -> stringResource(R.string.home_expired)
-            remDays == null -> "∞"
-            else -> Formatters.toPersianDigitsIfNeeded(
-                stringResource(R.string.home_days_unit, remDays),
-                persianDigits
+        Row(Modifier.fillMaxWidth()) {
+            QuickTool(
+                icon = Icons.Rounded.NetworkCheck,
+                label = stringResource(R.string.diagnostics_short),
+                onClick = onOpenDiagnostics,
+                modifier = Modifier.weight(1f)
+            )
+            QuickTool(
+                icon = Icons.Rounded.AccountCircle,
+                label = stringResource(R.string.profiles_short),
+                onClick = onOpenProfiles,
+                modifier = Modifier.weight(1f)
+            )
+            QuickTool(
+                icon = Icons.Rounded.BarChart,
+                label = stringResource(R.string.stats_short),
+                onClick = onOpenStatistics,
+                modifier = Modifier.weight(1f)
             )
         }
-        val daysSub = sub?.expireEpochSeconds?.let {
+    }
+
+    if (sub != null) {
+        Spacer(Modifier.height(Spacing.md))
+        val remDays = sub.remainingDays()
+        val timeValue = when {
+            sub.status == SubscriptionStatus.ON_HOLD -> stringResource(R.string.home_on_hold)
+            sub.status == SubscriptionStatus.EXPIRED -> stringResource(R.string.home_expired)
+            remDays == null -> stringResource(R.string.home_unlimited)
+            else -> Formatters.toPersianDigitsIfNeeded(
+                stringResource(R.string.home_days_unit, remDays), persianDigits
+            )
+        }
+        val expiry = sub.expireEpochSeconds?.let {
             Formatters.formatEpochDate(
                 epochSeconds = it,
                 locale = if (isPersian) Locale("fa") else Locale.US,
                 calendarSystem = calendarSystem,
                 persianDigits = persianDigits
             )
-        } ?: stringResource(R.string.home_unlimited)
-        val timeFraction = sub?.remainingTimeFraction() ?: 1f
+        }
+        val trafficFraction = sub.remainingTrafficFraction
+        GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 20.dp) {
+            QuotaRow(
+                label = stringResource(R.string.home_traffic_remaining),
+                value = if (sub.isUnlimitedTraffic) stringResource(R.string.home_unlimited) else
+                    Formatters.formatBytes(sub.remainingTrafficBytes ?: 0L, persianDigits),
+                detail = if (sub.isUnlimitedTraffic) null else stringResource(
+                    R.string.home_usage_total,
+                    "\u2066${Formatters.formatBytes(sub.usedTrafficBytes, persianDigits)}\u2069",
+                    "\u2066${Formatters.formatBytes(sub.dataLimitBytes ?: 0L, persianDigits)}\u2069"
+                ),
+                fraction = trafficFraction.takeUnless { sub.isUnlimitedTraffic },
+                color = when {
+                    trafficFraction < 0.15f -> colors.statusDanger
+                    trafficFraction < 0.30f -> colors.statusWarning
+                    else -> MaterialTheme.colorScheme.primary
+                }
+            )
+            HorizontalDivider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
+            QuotaRow(
+                label = stringResource(R.string.home_days_remaining),
+                value = timeValue,
+                detail = expiry,
+                fraction = null,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
 
-        ProgressRingCard(
-            title = stringResource(R.string.home_days_remaining),
-            primaryValue = daysPrimary,
-            subtitle = daysSub,
-            progress = timeFraction,
-            isWarning = remDays != null && remDays in 2..5,
-            isDanger = sub?.status == SubscriptionStatus.EXPIRED || (remDays != null && remDays <= 1),
-            modifier = Modifier.weight(1f)
+@Composable
+private fun QuotaRow(label: String, value: String, detail: String?, fraction: Float?, color: Color) {
+    val scheme = MaterialTheme.colorScheme
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
+            color = scheme.onSurfaceVariant)
+        Text(value, modifier = Modifier.weight(1f), color = scheme.onSurface,
+            style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"),
+            textAlign = TextAlign.End)
+    }
+    if (detail != null) {
+        Text(detail, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
+            color = scheme.onSurfaceVariant)
+    }
+    if (fraction != null) {
+        LinearProgressIndicator(
+            progress = { fraction.coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(4.dp),
+            color = color,
+            trackColor = scheme.surfaceVariant
         )
     }
 }
 
 @Composable
-private fun QuickToolChip(
+private fun QuickTool(
     icon: ImageVector,
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors = PasarGuardTheme.colors
-    GlassCard(
-        modifier = modifier,
-        cornerRadius = 18.dp,
-        contentPadding = PaddingValues(vertical = 10.dp, horizontal = 8.dp),
-        onClick = onClick
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(imageVector = icon, contentDescription = null, tint = colors.heroEnd, modifier = Modifier.size(20.dp))
+    TextButton(onClick = onClick, modifier = modifier, contentPadding = PaddingValues(8.dp)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(imageVector = icon, contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
             Spacer(Modifier.height(4.dp))
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = colors.textPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
             )
         }
     }
@@ -792,7 +773,6 @@ private fun QuickToolChip(
 @Composable
 private fun TelemetryCell(
     icon: ImageVector,
-    tint: androidx.compose.ui.graphics.Color,
     label: String,
     value: String,
     modifier: Modifier = Modifier
@@ -802,20 +782,25 @@ private fun TelemetryCell(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
+        Icon(imageVector = icon, contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
         Spacer(Modifier.height(4.dp))
-        AnimatedContent(targetState = value, label = "telemetryVal") { text ->
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                color = colors.textPrimary,
-                maxLines = 1
-            )
-        }
+        Text(
+            text = value,
+            style = MaterialTheme.typography.labelLarge.copy(
+                fontFeatureSettings = "tnum",
+                textDirection = TextDirection.Ltr
+            ),
+            color = colors.textPrimary,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = colors.textSecondary
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.textSecondary,
+            textAlign = TextAlign.Center
         )
     }
 }

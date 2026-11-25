@@ -36,7 +36,7 @@
     <string name="grant_permission">اعطای دسترسی</string>
 
     <!-- Home -->
-    <string name="status_disconnected">قطع شده</string>
+    <string name="status_disconnected">اتصال قطع است</string>
     <string name="status_connecting">در حال اتصال…</string>
     <string name="status_connected">متصل</string>
     <string name="status_disconnecting">در حال قطع اتصال…</string>
@@ -55,7 +55,9 @@
     <string name="home_hours_unit">%1$d ساعت</string>
     <string name="home_auto_best">خودکار (بهترین پینگ)</string>
     <string name="home_select_server">انتخاب سرور</string>
-    <string name="home_no_servers">سروری دریافت نشده است. برای بروزرسانی بکشید.</string>
+    <string name="home_no_servers">هنوز سروری دریافت نشده. دوباره همگام‌سازی کنید.</string>
+    <string name="home_auto_server_hint">دونینو هنگام اتصال سرور را انتخاب می‌کند</string>
+    <string name="home_usage_total">%1$s مصرف‌شده از %2$s</string>
     <string name="home_renew_banner">اشتراک شما رو به پایان است</string>
     <string name="home_renew_now">تمدید</string>
     <string name="cd_connect_button">تغییر وضعیت اتصال وی‌پی‌ان</string>
@@ -516,7 +518,7 @@
     <string name="orders_copy_id">کپی شناسهٔ سفارش</string>
     <string name="checkout_card_amount_reservation">مبلغ دقیق کارت‌به‌کارت پس از ثبت سفارش نمایش داده می‌شود.</string>
     <string name="nav_connect">اتصال</string>
-    <string name="connection_connect">اتصال به VPN</string>
+    <string name="connection_connect">اتصال</string>
     <string name="connection_disconnect">قطع اتصال</string>
     <string name="connection_cancel">لغو اتصال</string>
     <string name="connection_retry">تلاش مجدد</string>

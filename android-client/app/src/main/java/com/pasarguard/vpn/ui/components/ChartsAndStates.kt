@@ -22,7 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material3.Icon
@@ -45,7 +45,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.pasarguard.vpn.domain.model.PingHistoryPoint
@@ -55,89 +54,6 @@ import com.pasarguard.vpn.ui.theme.PasarGuardTheme
 import com.pasarguard.vpn.ui.theme.Spacing
 import com.pasarguard.vpn.ui.theme.rememberReduceMotion
 import com.pasarguard.vpn.util.Formatters
-
-@Composable
-fun ProgressRingCard(
-    title: String,
-    primaryValue: String,
-    subtitle: String,
-    progress: Float,
-    modifier: Modifier = Modifier,
-    isWarning: Boolean = false,
-    isDanger: Boolean = false
-) {
-    val colors = PasarGuardTheme.colors
-    val reducedMotion = rememberReduceMotion()
-    val animatedSweep by animateFloatAsState(
-        targetValue = progress.coerceIn(0.03f, 1f) * 360f,
-        animationSpec = tween(durationMillis = if (reducedMotion) 1 else 850, easing = FastOutSlowInEasing),
-        label = "ringSweep"
-    )
-    val ringColor = when {
-        isDanger -> colors.statusDanger
-        isWarning -> colors.statusWarning
-        else -> colors.heroEnd
-    }
-
-    GlassCard(modifier = modifier, cornerRadius = 24.dp) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                modifier = Modifier.size(96.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Canvas(modifier = Modifier.size(96.dp)) {
-                    val stroke = 8.dp.toPx()
-                    val pad = stroke / 2f
-                    val arcSize = Size(size.width - stroke, size.height - stroke)
-
-                    drawArc(
-                        color = colors.textMuted.copy(alpha = 0.22f),
-                        startAngle = -90f,
-                        sweepAngle = 360f,
-                        useCenter = false,
-                        topLeft = Offset(pad, pad),
-                        size = arcSize,
-                        style = Stroke(width = stroke, cap = StrokeCap.Round)
-                    )
-                    drawArc(
-                        brush = Brush.sweepGradient(listOf(ringColor, colors.heroStart, ringColor)),
-                        startAngle = -90f,
-                        sweepAngle = animatedSweep,
-                        useCenter = false,
-                        topLeft = Offset(pad, pad),
-                        size = arcSize,
-                        style = Stroke(width = stroke, cap = StrokeCap.Round)
-                    )
-                }
-                Text(
-                    text = primaryValue,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = colors.textPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Spacer(Modifier.height(Spacing.sm))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelLarge,
-                color = colors.textPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = colors.textSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
 
 @Composable
 fun UsageHistoryChart(
@@ -454,7 +370,7 @@ fun CoachTipBanner(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Rounded.AutoAwesome,
+                imageVector = Icons.Rounded.Info,
                 contentDescription = null,
                 tint = colors.heroEnd,
                 modifier = Modifier.size(22.dp)

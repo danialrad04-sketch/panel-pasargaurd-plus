@@ -55,7 +55,9 @@
     <string name="home_hours_unit">%1$d hrs</string>
     <string name="home_auto_best">Auto (Best Ping)</string>
     <string name="home_select_server">Select Server</string>
-    <string name="home_no_servers">No servers synced yet. Pull to refresh.</string>
+    <string name="home_no_servers">No servers synced. Use Refresh to try again.</string>
+    <string name="home_auto_server_hint">Donino selects a server when you connect</string>
+    <string name="home_usage_total">%1$s used of %2$s</string>
     <string name="home_renew_banner">Your subscription is expiring soon</string>
     <string name="home_renew_now">Renew</string>
     <string name="cd_connect_button">Toggle VPN connection</string>

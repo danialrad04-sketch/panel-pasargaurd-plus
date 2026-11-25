@@ -8,11 +8,6 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -70,7 +65,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -704,13 +698,6 @@ private fun WaitingConfirmationStep(
     receiptContent: @Composable () -> Unit
 ) {
     val colors = PasarGuardTheme.colors
-    val infinite = rememberInfiniteTransition(label = "waiting_pulse")
-    val pulse by infinite.animateFloat(
-        initialValue = 0.92f,
-        targetValue = 1.08f,
-        animationSpec = infiniteRepeatable(tween(950), RepeatMode.Reverse),
-        label = "pulse_scale"
-    )
 
     Column(
         modifier = Modifier
@@ -724,17 +711,16 @@ private fun WaitingConfirmationStep(
             OrderStatus.PENDING_REVIEW -> {
                 Box(
                     modifier = Modifier
-                        .size(96.dp)
-                        .scale(pulse)
-                        .clip(CircleShape)
-                        .background(colors.statusWarning.copy(alpha = 0.16f)),
+                        .size(64.dp)
+                        .clip(MaterialTheme.shapes.large)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.HourglassTop,
                         contentDescription = null,
                         tint = colors.statusWarning,
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(32.dp)
                     )
                 }
                 Spacer(Modifier.height(Spacing.lg))
