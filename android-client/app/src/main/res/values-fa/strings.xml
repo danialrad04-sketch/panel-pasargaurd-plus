@@ -596,4 +596,9 @@
     <string name="support_close">بستن گفت‌وگو</string>
     <string name="support_close_body">اگر دوباره به کمک نیاز داشتید، می‌توانید همین گفت‌وگو را باز کنید.</string>
     <string name="support_draft_saved">پیش‌نویس شما بازیابی شد.</string>
+    <string name="settings_palette_obsidian">ابسیدین · بنفش و نقره‌ای</string>
+    <string name="settings_palette_aurora">شفق · بنفش و فیروزه‌ای</string>
+    <string name="settings_palette_plum">آلو · بنفش و رز</string>
+    <string name="settings_palette_classic">پالت‌های کلاسیک</string>
+    <string name="servers_filters_sheet">فیلتر و مرتب‌سازی</string>
 </resources>

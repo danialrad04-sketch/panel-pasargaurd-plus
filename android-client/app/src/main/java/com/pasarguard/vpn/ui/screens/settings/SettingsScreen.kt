@@ -76,6 +76,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.border
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -427,6 +430,39 @@ fun SettingsScreen(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm), color = colors.glassBorderTop)
                 Text(stringResource(R.string.settings_palette), style = MaterialTheme.typography.titleMedium)
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                    listOf(
+                        ThemePalette.OBSIDIAN to R.string.settings_palette_obsidian,
+                        ThemePalette.AURORA to R.string.settings_palette_aurora,
+                        ThemePalette.PLUM to R.string.settings_palette_plum
+                    ).forEach { (palette, label) ->
+                        val sample = palette.tokens(colors.isDark)
+                        val selected = !settings.dynamicColorEnabled && settings.themePalette == palette
+                        androidx.compose.material3.Surface(
+                            onClick = { viewModel.setThemePalette(palette) },
+                            modifier = Modifier.fillMaxWidth()
+                                .semantics { this.selected = selected },
+                            shape = MaterialTheme.shapes.small,
+                            color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                            border = androidx.compose.foundation.BorderStroke(1.dp,
+                                if (selected) colors.heroEnd else colors.glassBorder)
+                        ) {
+                            Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text(stringResource(label), modifier = Modifier.weight(1f),
+                                    style = MaterialTheme.typography.titleSmall)
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    listOf(sample.canvas, sample.accent, sample.companion).forEach { color ->
+                                        Box(Modifier.size(15.dp).background(color, CircleShape)
+                                            .border(1.dp, colors.glassBorder, CircleShape))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Text(stringResource(R.string.settings_palette_classic), style = MaterialTheme.typography.labelMedium)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     listOf(
                         ThemePalette.OCEAN to R.string.settings_palette_ocean,

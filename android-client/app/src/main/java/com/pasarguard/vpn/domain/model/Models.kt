@@ -448,7 +448,7 @@ enum class AppLanguage(val code: String) {
     }
 }
 
-enum class ThemePalette { OCEAN, JADE, DUSK }
+enum class ThemePalette { OCEAN, JADE, DUSK, OBSIDIAN, AURORA, PLUM }
 
 enum class ThemeMode {
     DARK,
@@ -469,7 +469,7 @@ data class AppSettings(
     val persianDigitsEnabled: Boolean = true,
     val calendarSystem: CalendarSystem = CalendarSystem.JALALI,
     val themeMode: ThemeMode = ThemeMode.DARK,
-    val themePalette: ThemePalette = ThemePalette.OCEAN,
+    val themePalette: ThemePalette = ThemePalette.OBSIDIAN,
     val dynamicColorEnabled: Boolean = false,
 
     // Core & Subscription

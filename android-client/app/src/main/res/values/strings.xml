@@ -596,4 +596,9 @@
     <string name="support_close">Mark as resolved</string>
     <string name="support_close_body">You can reopen the conversation if you still need help.</string>
     <string name="support_draft_saved">Your draft was restored.</string>
+    <string name="settings_palette_obsidian">Obsidian · Violet and silver</string>
+    <string name="settings_palette_aurora">Aurora · Violet and teal</string>
+    <string name="settings_palette_plum">Plum · Violet and rose</string>
+    <string name="settings_palette_classic">Classic palettes</string>
+    <string name="servers_filters_sheet">Filter and sort</string>
 </resources>

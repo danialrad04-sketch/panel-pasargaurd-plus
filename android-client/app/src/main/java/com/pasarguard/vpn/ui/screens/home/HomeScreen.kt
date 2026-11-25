@@ -30,7 +30,8 @@ import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Campaign
-import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.NetworkCheck
 import androidx.compose.material.icons.rounded.Refresh
@@ -289,11 +290,7 @@ fun HomeScreen(
         }
     }
 
-    val glowColor = when (state.session.status) {
-        ConnectionStatus.CONNECTED -> colors.statusConnected
-        ConnectionStatus.ERROR -> colors.statusDanger
-        else -> colors.heroEnd
-    }
+
 
     val sub = state.subscription
     val daysLeft = sub?.remainingDays()
@@ -307,7 +304,7 @@ fun HomeScreen(
         it.isNotBlank() && it.hashCode().toString() != state.settings.dismissedAnnouncementHash
     }
 
-    DeepSpaceBackground(accentGlowColor = glowColor) {
+    DeepSpaceBackground {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
@@ -543,8 +540,13 @@ private fun HeroConnectSection(
     Spacer(Modifier.height(Spacing.sm))
     Text(
         text = stringResource(
-            if (status == ConnectionStatus.CONNECTED) R.string.tap_to_disconnect
-            else R.string.tap_to_connect
+            when (status) {
+                ConnectionStatus.CONNECTED -> R.string.tap_to_disconnect
+                ConnectionStatus.CONNECTING -> R.string.connection_cancel
+                ConnectionStatus.DISCONNECTING -> R.string.status_disconnecting
+                ConnectionStatus.ERROR -> R.string.connection_retry
+                ConnectionStatus.DISCONNECTED -> R.string.tap_to_connect
+            }
         ),
         style = MaterialTheme.typography.bodyMedium,
         color = colors.textSecondary
@@ -594,18 +596,17 @@ private fun HomeDashboardBody(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Text(
-                    text = activeServer?.flagEmoji ?: "⚡",
-                    style = MaterialTheme.typography.headlineMedium
-                )
+                Box(Modifier.size(40.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.Dns, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                }
                 Spacer(Modifier.width(Spacing.md))
                 Column {
                     Text(
-                        text = if (state.settings.selectedServerId == null) {
-                            stringResource(R.string.home_auto_best)
-                        } else {
-                            activeServer?.name ?: stringResource(R.string.home_select_server)
-                        },
+                        text = activeServer?.name ?: stringResource(
+                            if (state.servers.isEmpty()) R.string.home_select_server else R.string.home_auto_best
+                        ),
                         style = MaterialTheme.typography.titleMedium,
                         color = colors.textPrimary,
                         maxLines = 1,
@@ -625,7 +626,7 @@ private fun HomeDashboardBody(
                 }
             }
             Icon(
-                imageVector = Icons.Rounded.ChevronRight,
+                imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
                 contentDescription = stringResource(R.string.home_select_server),
                 tint = colors.textSecondary
             )
@@ -634,37 +635,38 @@ private fun HomeDashboardBody(
 
     Spacer(Modifier.height(Spacing.md))
 
-    // Live Telemetry Strip
-    GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 22.dp) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            TelemetryCell(
-                icon = Icons.Rounded.ArrowDownward,
-                tint = colors.statusConnected,
-                label = stringResource(R.string.home_download),
-                value = Formatters.formatSpeed(state.session.downloadBytesPerSec, persianDigits),
-                modifier = Modifier.weight(1f)
-            )
-            TelemetryCell(
-                icon = Icons.Rounded.ArrowUpward,
-                tint = colors.heroEnd,
-                label = stringResource(R.string.home_upload),
-                value = Formatters.formatSpeed(state.session.uploadBytesPerSec, persianDigits),
-                modifier = Modifier.weight(1f)
-            )
-            TelemetryCell(
-                icon = Icons.Rounded.Timer,
-                tint = colors.accentViolet,
-                label = stringResource(R.string.home_session),
-                value = Formatters.formatDuration(elapsedMs, persianDigits),
-                modifier = Modifier.weight(1f)
-            )
+    if (state.session.status == ConnectionStatus.CONNECTED) {
+        GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 22.dp) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                TelemetryCell(
+                    icon = Icons.Rounded.ArrowDownward,
+                    tint = colors.statusConnected,
+                    label = stringResource(R.string.home_download),
+                    value = Formatters.formatSpeed(state.session.downloadBytesPerSec, persianDigits),
+                    modifier = Modifier.weight(1f)
+                )
+                TelemetryCell(
+                    icon = Icons.Rounded.ArrowUpward,
+                    tint = colors.heroEnd,
+                    label = stringResource(R.string.home_upload),
+                    value = Formatters.formatSpeed(state.session.uploadBytesPerSec, persianDigits),
+                    modifier = Modifier.weight(1f)
+                )
+                TelemetryCell(
+                    icon = Icons.Rounded.Timer,
+                    tint = colors.accentViolet,
+                    label = stringResource(R.string.home_session),
+                    value = Formatters.formatDuration(elapsedMs, persianDigits),
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
-    }
 
-    Spacer(Modifier.height(Spacing.md))
+        Spacer(Modifier.height(Spacing.md))
+    }
 
     // Pro Quick Tools Bento Row (Diagnostics, Profiles, Statistics)
     Row(

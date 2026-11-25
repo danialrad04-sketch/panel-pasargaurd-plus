@@ -3,6 +3,8 @@ package com.pasarguard.vpn.ui.theme
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -205,7 +207,7 @@ private fun buildTypography(fontFamily: FontFamily): Typography = Typography(
 @Composable
 fun PasarGuardVpnTheme(
     themeMode: ThemeMode = ThemeMode.DARK,
-    themePalette: ThemePalette = ThemePalette.OCEAN,
+    themePalette: ThemePalette = ThemePalette.OBSIDIAN,
     language: AppLanguage = AppLanguage.PERSIAN,
     dynamicColorEnabled: Boolean = false,
     persianDigitsEnabled: Boolean = true,
@@ -235,12 +237,19 @@ fun PasarGuardVpnTheme(
             onPrimaryContainer = palette.onContainer,
             secondary = palette.accent,
             onSecondary = palette.onAccent,
+            tertiary = palette.companion,
+            onTertiary = palette.onAccent,
+            onBackground = if (useDark) Color(0xFFF3F0F8) else Color(0xFF211B2A),
+            onSurface = if (useDark) Color(0xFFF3F0F8) else Color(0xFF211B2A),
+            onSurfaceVariant = if (useDark) Color(0xFFBFB7CB) else Color(0xFF51485E),
+            outline = if (useDark) Color(0xFF81778F) else Color(0xFF756981),
+            outlineVariant = if (useDark) Color(0xFF393141) else Color(0xFFDAD1E3),
             background = palette.canvas,
             surface = palette.surface,
             surfaceVariant = palette.container,
             surfaceContainer = palette.surface,
             surfaceContainerHigh = palette.container,
-            surfaceTint = palette.accent
+            surfaceTint = Color.Transparent
         )
     }
 
@@ -256,12 +265,15 @@ fun PasarGuardVpnTheme(
         baseExtended.copy(
             backgroundCanvas = palette.canvas,
             glassSurface = palette.surface,
-            glassBorderTop = palette.accent.copy(alpha = if (useDark) 0.26f else 0.22f),
-            glassBorderBottom = palette.accent.copy(alpha = if (useDark) 0.09f else 0.12f),
+            glassBorderTop = colorScheme.outlineVariant,
+            glassBorderBottom = colorScheme.outlineVariant,
             heroStart = palette.gradientStart,
             heroEnd = palette.accent,
             heroFillEnd = palette.gradientEnd,
-            textMuted = baseExtended.textSecondary
+            accentViolet = palette.companion,
+            textPrimary = colorScheme.onSurface,
+            textSecondary = colorScheme.onSurfaceVariant,
+            textMuted = colorScheme.onSurfaceVariant
         )
     }
 
@@ -277,6 +289,13 @@ fun PasarGuardVpnTheme(
         MaterialTheme(
             colorScheme = colorScheme,
             typography = typography,
+            shapes = Shapes(
+                extraSmall = RoundedCornerShape(8.dp),
+                small = RoundedCornerShape(12.dp),
+                medium = RoundedCornerShape(14.dp),
+                large = RoundedCornerShape(18.dp),
+                extraLarge = RoundedCornerShape(22.dp)
+            ),
             content = content
         )
     }

@@ -76,7 +76,7 @@ data class RootUiState(
     val isReady: Boolean = false,
     val startDestination: String = Routes.ONBOARDING,
     val themeMode: ThemeMode = ThemeMode.DARK,
-    val themePalette: ThemePalette = ThemePalette.OCEAN,
+    val themePalette: ThemePalette = ThemePalette.OBSIDIAN,
     val dynamicColorEnabled: Boolean = false,
     val language: AppLanguage = AppLanguage.PERSIAN,
     val persianDigitsEnabled: Boolean = true,

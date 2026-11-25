@@ -109,7 +109,8 @@ class SettingsDataStore @Inject constructor(
             persianDigitsEnabled = prefs[KEY_PERSIAN_DIGITS] ?: true,
             calendarSystem = enumOrDefault(prefs[KEY_CALENDAR_SYSTEM], CalendarSystem.JALALI),
             themeMode = enumOrDefault(prefs[KEY_THEME_MODE], ThemeMode.DARK),
-            themePalette = enumOrDefault(prefs[KEY_THEME_PALETTE], ThemePalette.OCEAN),
+            themePalette = enumOrDefault(prefs[KEY_THEME_PALETTE],
+                if (prefs[KEY_ONBOARDING_DONE] == true) ThemePalette.OCEAN else ThemePalette.OBSIDIAN),
             dynamicColorEnabled = prefs[KEY_DYNAMIC_COLOR] ?: false,
 
             corePreference = enumOrDefault(prefs[KEY_CORE_PREF], CorePreference.AUTO),
@@ -172,8 +173,9 @@ class SettingsDataStore @Inject constructor(
     override suspend fun getSnapshot(): AppSettings = settings.first()
 
     override suspend fun setOnboardingCompleted(completed: Boolean) = edit {
-        if (completed && it[KEY_ONBOARDING_DONE] != true && it[KEY_AUTO_SELECT_MODE] == null) {
-            it[KEY_AUTO_SELECT_MODE] = AutoSelectMode.SMART.name
+        if (completed && it[KEY_ONBOARDING_DONE] != true) {
+            if (it[KEY_AUTO_SELECT_MODE] == null) it[KEY_AUTO_SELECT_MODE] = AutoSelectMode.SMART.name
+            if (it[KEY_THEME_PALETTE] == null) it[KEY_THEME_PALETTE] = ThemePalette.OBSIDIAN.name
         }
         it[KEY_ONBOARDING_DONE] = completed
     }

@@ -11,7 +11,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -71,6 +70,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -361,6 +361,7 @@ fun ServersScreen(
     val persianDigits = LocalPersianDigits.current
     val context = LocalContext.current
 
+    var showFilters by rememberSaveable { mutableStateOf(false) }
     var showPingSettingsSheet by remember { mutableStateOf(false) }
     var showImportSheet by remember { mutableStateOf(false) }
     var inspectedServerId by remember { mutableStateOf<String?>(null) }
@@ -505,57 +506,21 @@ fun ServersScreen(
 
                 Spacer(Modifier.height(Spacing.xs))
 
-                // Protocol filter chips
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
-                ) {
-                    val chips = listOf(
-                        ServerFilter.ALL to stringResource(R.string.servers_filter_all),
-                        ServerFilter.FAVORITES to stringResource(R.string.servers_filter_favorites),
-                        ServerFilter.VLESS to "VLESS",
-                        ServerFilter.VMESS to "VMess",
-                        ServerFilter.TROJAN to "Trojan",
-                        ServerFilter.SHADOWSOCKS to "SS"
-                    )
-                    chips.forEach { (f, label) ->
-                        FilterChip(
-                            selected = state.filter == f,
-                            onClick = { viewModel.onFilterChange(f) },
-                            label = { Text(label) }
-                        )
-                    }
-                }
-
-                // Sort + Hide Dead chips
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
-                ) {
-                    listOf(
-                        ServerSortMode.PING to R.string.servers_sort_ping,
-                        ServerSortMode.STABILITY to R.string.servers_sort_stability,
-                        ServerSortMode.FAVORITES to R.string.servers_filter_favorites,
-                        ServerSortMode.COUNTRY to R.string.servers_sort_country,
-                        ServerSortMode.NAME to R.string.servers_sort_name
-                    ).forEach { (mode, resId) ->
-                        FilterChip(
-                            selected = state.settings.serverSortMode == mode,
-                            onClick = { viewModel.setSortMode(mode) },
-                            label = { Text(stringResource(resId)) }
-                        )
-                    }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     FilterChip(
-                        selected = state.settings.hideDeadServers,
-                        onClick = { viewModel.toggleHideDead(!state.settings.hideDeadServers) },
-                        label = { Text(stringResource(R.string.servers_hide_dead)) }
+                        selected = state.filter == ServerFilter.FAVORITES,
+                        onClick = { viewModel.onFilterChange(
+                            if (state.filter == ServerFilter.FAVORITES) ServerFilter.ALL else ServerFilter.FAVORITES
+                        ) },
+                        label = { Text(stringResource(R.string.servers_filter_favorites)) }
+                    )
+                    FilterChip(
+                        selected = state.filter !in setOf(ServerFilter.ALL, ServerFilter.FAVORITES) ||
+                            state.settings.hideDeadServers || state.settings.serverSortMode != ServerSortMode.PING,
+                        onClick = { showFilters = true },
+                        label = { Text(stringResource(R.string.servers_filters_sheet)) }
                     )
                 }
-
                 Spacer(Modifier.height(Spacing.xs))
 
                 LazyColumn(
@@ -678,6 +643,63 @@ fun ServersScreen(
                 }
             }
         )
+    }
+
+    if (showFilters) {
+        ModalBottomSheet(onDismissRequest = { showFilters = false }, dragHandle = { PasarSheetHandle() }) {
+            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
+                Text(stringResource(R.string.servers_filters_sheet), style = MaterialTheme.typography.titleLarge)
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
+                ) {
+                    val chips = listOf(
+                        ServerFilter.ALL to stringResource(R.string.servers_filter_all),
+                        ServerFilter.FAVORITES to stringResource(R.string.servers_filter_favorites),
+                        ServerFilter.VLESS to "VLESS",
+                        ServerFilter.VMESS to "VMess",
+                        ServerFilter.TROJAN to "Trojan",
+                        ServerFilter.SHADOWSOCKS to "SS"
+                    )
+                    chips.forEach { (f, label) ->
+                        FilterChip(
+                            selected = state.filter == f,
+                            onClick = { viewModel.onFilterChange(f) },
+                            label = { Text(label) }
+                        )
+                    }
+                }
+
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
+                ) {
+                    listOf(
+                        ServerSortMode.PING to R.string.servers_sort_ping,
+                        ServerSortMode.STABILITY to R.string.servers_sort_stability,
+                        ServerSortMode.FAVORITES to R.string.servers_filter_favorites,
+                        ServerSortMode.COUNTRY to R.string.servers_sort_country,
+                        ServerSortMode.NAME to R.string.servers_sort_name
+                    ).forEach { (mode, resId) ->
+                        FilterChip(
+                            selected = state.settings.serverSortMode == mode,
+                            onClick = { viewModel.setSortMode(mode) },
+                            label = { Text(stringResource(resId)) }
+                        )
+                    }
+                    FilterChip(
+                        selected = state.settings.hideDeadServers,
+                        onClick = { viewModel.toggleHideDead(!state.settings.hideDeadServers) },
+                        label = { Text(stringResource(R.string.servers_hide_dead)) }
+                    )
+                }
+
+                Spacer(Modifier.height(Spacing.xs))
+
+                TextButton(onClick = { showFilters = false }) { Text(stringResource(R.string.action_close)) }
+                Spacer(Modifier.height(Spacing.md))
+            }
+        }
     }
 
     // Server Detail Bottom Sheet (Sparkline + Quality Metrics + Actions)
