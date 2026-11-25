@@ -37,8 +37,8 @@ android {
         minSdk = 24
         targetSdk = 35
         resourceConfigurations += listOf("en", "fa")
-        versionCode = resolveConfig("PASARGUARD_VERSION_CODE", "15").toInt().also { require(it in 1..2_100_000_000) }
-        versionName = resolveConfig("PASARGUARD_VERSION_NAME", "2.0.0").also {
+        versionCode = resolveConfig("PASARGUARD_VERSION_CODE", "16").toInt().also { require(it in 1..2_100_000_000) }
+        versionName = resolveConfig("PASARGUARD_VERSION_NAME", "2.0.1").also {
             require(Regex("[0-9]+(?:[.][0-9]+){1,3}").matches(it))
         }
 
@@ -55,6 +55,15 @@ android {
             val value = resolveConfig("DONINO_$field", "")
             require(Regex("[A-Za-z0-9:_-]*").matches(value))
             buildConfigField("String", field, "\"$value\"")
+            if (value.isNotBlank()) {
+                val resource = when (field) {
+                    "FCM_APP_ID" -> "google_app_id"
+                    "FCM_API_KEY" -> "google_api_key"
+                    "FCM_PROJECT_ID" -> "project_id"
+                    else -> "gcm_defaultSenderId"
+                }
+                resValue("string", resource, value)
+            }
         }
         val appName = resolveConfig("PASARGUARD_APP_NAME", "Donino Vpn")
         val telegramUrl = resolveConfig("PASARGUARD_SUPPORT_TELEGRAM", "")

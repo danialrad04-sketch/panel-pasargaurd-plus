@@ -13,6 +13,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.pasarguard.vpn.R
 import com.pasarguard.vpn.data.repository.*
@@ -23,6 +24,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
+import java.text.DateFormat
+import java.util.Date
 import javax.inject.Inject
 
 @HiltViewModel
@@ -34,10 +37,12 @@ fun SupportScreen(
     onAccount: () -> Unit,
     diagnostic: SupportDiagnostic? = null,
     suggestionOrder: String? = null,
+    initialThread: String? = null,
     viewModel: SupportViewModel = hiltViewModel()
 ) {
     val repository = viewModel.repository
-    var thread by rememberSaveable { mutableStateOf<String?>(null) }
+    var thread by rememberSaveable { mutableStateOf(initialThread) }
+    var lastRead by remember(thread) { mutableLongStateOf(0) }
     var creating by rememberSaveable { mutableStateOf(diagnostic != null || suggestionOrder != null) }
     var subject by rememberSaveable { mutableStateOf("") }
     var body by rememberSaveable { mutableStateOf("") }
@@ -54,6 +59,13 @@ fun SupportScreen(
     var recent by remember { mutableStateOf<SupportDetail?>(null) }
     var hasMoreThreads by remember { mutableStateOf(false) }
     var hasMoreMessages by remember { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var statusFilter by rememberSaveable { mutableStateOf("") }
+    var orders by remember { mutableStateOf(emptyList<SupportOrder>()) }
+    var orderMenu by remember { mutableStateOf(false) }
+    var orderLoading by remember { mutableStateOf(false) }
+    var confirmClose by remember { mutableStateOf(false) }
+    var replyDraftAvailable by remember { mutableStateOf(false) }
     var refresh by remember { mutableIntStateOf(0) }
     val life = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
@@ -71,21 +83,74 @@ fun SupportScreen(
         }
     }
 
-    LaunchedEffect(thread, creating, refresh, life) {
+    val accountVersion by repository.accountChanges.collectAsStateWithLifecycle()
+    var observedAccountVersion by remember { mutableStateOf(accountVersion) }
+    LaunchedEffect(accountVersion) {
+        if (observedAccountVersion != accountVersion) {
+            observedAccountVersion = accountVersion
+            thread = null
+            creating = false
+            recent = null
+            summaries = emptyList()
+            older = emptyList()
+            body = ""
+            subject = ""
+            order = ""
+            denied = false
+            failed = false
+            loaded = false
+        }
+    }
+
+    val draftScope = if (creating) "new" else thread
+    LaunchedEffect(draftScope, accountVersion) {
+        val saved = draftScope?.let(repository::loadDraft)
+        replyDraftAvailable = saved?.body?.isNotBlank() == true
+        if (saved != null) {
+            body = saved.body
+            key = saved.requestId
+            if (creating) {
+                subject = saved.subject
+                order = suggestionOrder ?: saved.orderId
+                category = if (suggestionOrder != null) "payment" else saved.category
+                attach = diagnostic != null && saved.attach
+            }
+        }
+    }
+
+    fun storeDraft() {
+        val id = draftScope ?: return
+        val text = SupportDraft(body, key, if (creating) subject else "",
+            if (creating) order else "", category, attach)
+        repository.saveDraft(id, text.takeIf { it.body.isNotBlank() || it.subject.isNotBlank() })
+    }
+
+    LaunchedEffect(query, statusFilter) {
+        summaries = emptyList()
+        hasMoreThreads = false
+        loaded = false
+    }
+
+    LaunchedEffect(thread, creating, refresh, life, query, statusFilter, accountVersion) {
         if (!repository.configured || creating || !repository.signedIn()) return@LaunchedEffect
         life.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
                 if (!busy) attempt {
                     val selected = thread
                     if (selected == null) {
-                        val first = repository.threads()
+                        if (query.isNotEmpty() && !loaded) delay(250)
+                        val first = repository.threads(query = query, status = statusFilter)
                         summaries = (first + summaries.drop(50)).distinctBy { it.id }
                         if (summaries.size <= 50) hasMoreThreads = first.size == 50
                     } else {
                         val result = repository.detail(selected)
                         if (older.isEmpty()) hasMoreMessages = result.messages.size == 50
                         recent = result
-                        result.messages.lastOrNull()?.let { repository.read(selected, it.sequence) }
+                        val last = result.messages.lastOrNull()?.sequence
+                        if (last != null && last > lastRead) {
+                            repository.read(selected, last)
+                            lastRead = last
+                        }
                     }
                     loaded = true
                 }
@@ -130,7 +195,29 @@ fun SupportScreen(
                 }
                 if (!creating && thread == null) {
                     item {
-                        Button(onClick = { resetComposer(); creating = true }) { Text(stringResource(R.string.support_new)) }
+                        Button(onClick = {
+                            resetComposer()
+                            subject = ""
+                            order = ""
+                            category = "connection"
+                            attach = false
+                            creating = true
+                        }) { Text(stringResource(if (repository.loadDraft("new") != null) R.string.support_resume_draft else R.string.support_new)) }
+                        OutlinedTextField(query, { query = it.take(120) }, Modifier.fillMaxWidth(),
+                            label = { Text(stringResource(R.string.support_search)) }, singleLine = true)
+                        var filters by remember { mutableStateOf(false) }
+                        Box {
+                            TextButton(onClick = { filters = true }) {
+                                Text(stringResource(if (statusFilter.isEmpty()) R.string.support_all_statuses else statusLabel(statusFilter)))
+                            }
+                            DropdownMenu(filters, { filters = false }) {
+                                listOf("", "waiting", "investigating", "resolved").forEach { status ->
+                                    DropdownMenuItem(text = {
+                                        Text(stringResource(if (status.isEmpty()) R.string.support_all_statuses else statusLabel(status)))
+                                    }, onClick = { statusFilter = status; filters = false })
+                                }
+                            }
+                        }
                         if (!loaded && !failed) LinearProgressIndicator(Modifier.fillMaxWidth())
                         if (loaded && summaries.isEmpty()) Text(stringResource(R.string.support_empty))
                     }
@@ -146,7 +233,7 @@ fun SupportScreen(
                             busy = true
                             scope.launch {
                                 try { attempt {
-                                    val next = repository.threads(summaries.size)
+                                    val next = repository.threads(summaries.size, query, statusFilter)
                                     summaries = (summaries + next).distinctBy { it.id }
                                     hasMoreThreads = next.size == 50
                                 } } finally { busy = false }
@@ -155,7 +242,7 @@ fun SupportScreen(
                     }
                 } else {
                     if (creating) item {
-                        OutlinedTextField(subject, { subject = it.take(120) }, Modifier.fillMaxWidth(),
+                        OutlinedTextField(subject, { subject = it.take(120); storeDraft() }, Modifier.fillMaxWidth(),
                             label = { Text(stringResource(R.string.support_subject)) }, enabled = !busy)
                         var expanded by remember { mutableStateOf(false) }
                         val categories = mapOf("connection" to R.string.support_network, "payment" to R.string.support_payment,
@@ -165,16 +252,42 @@ fun SupportScreen(
                             DropdownMenu(expanded, { expanded = false }) {
                                 categories.forEach { (key, label) ->
                                     DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = {
-                                        category = key; expanded = false
+                                        category = key; expanded = false; storeDraft()
                                     })
                                 }
                             }
                         }
-                        OutlinedTextField(order, { order = it.trim().take(32) }, Modifier.fillMaxWidth(),
-                            label = { Text(stringResource(R.string.support_order)) }, singleLine = true, enabled = !busy)
+                        if (order.isNotBlank()) {
+                            Text(stringResource(R.string.support_linked_order, order.takeLast(8)))
+                            TextButton(onClick = { order = ""; storeDraft() }, enabled = !busy) {
+                                Text(stringResource(R.string.support_remove_order))
+                            }
+                        }
+                        Box {
+                            TextButton(enabled = !busy && !orderLoading, onClick = {
+                                orderLoading = true
+                                scope.launch {
+                                    try { attempt { orders = repository.orders(); orderMenu = true } }
+                                    finally { orderLoading = false }
+                                }
+                            }) { Text(stringResource(R.string.support_choose_order)) }
+                            DropdownMenu(orderMenu, { orderMenu = false }) {
+                                if (orders.isEmpty()) DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.support_no_orders)) }, onClick = { orderMenu = false })
+                                orders.forEach { placed ->
+                                    DropdownMenuItem(text = { Text(stringResource(R.string.support_order_choice,
+                                        placed.id.takeLast(8), placed.final_price_toman)) }, onClick = {
+                                        order = placed.id
+                                        category = "payment"
+                                        orderMenu = false
+                                        storeDraft()
+                                    })
+                                }
+                            }
+                        }
                         diagnostic?.let {
                             Row {
-                                Checkbox(checked = attach, onCheckedChange = { value -> attach = value }, enabled = !busy)
+                                Checkbox(checked = attach, onCheckedChange = { value -> attach = value; storeDraft() }, enabled = !busy)
                                 Text(stringResource(R.string.support_attach_preview))
                             }
                             if (attach) Text(stringResource(R.string.support_report, stringResource(networkLabel(it.network)),
@@ -183,7 +296,21 @@ fun SupportScreen(
                     }
                     val messages = (older + recent?.messages.orEmpty()).distinctBy { it.sequence }
                     if (!creating) item {
-                        recent?.let { Text(stringResource(statusLabel(it.status))) }
+                        recent?.let { current ->
+                            Text(stringResource(statusLabel(current.status)))
+                            current.order_id?.let { Text(stringResource(R.string.support_linked_order, it.takeLast(8))) }
+                            TextButton(enabled = !busy, onClick = {
+                                if (current.status != "resolved") confirmClose = true
+                                else {
+                                    busy = true
+                                    scope.launch {
+                                        try { attempt { repository.changeStatus(current.id, "waiting"); refresh++ } }
+                                        finally { busy = false }
+                                    }
+                                }
+                            }) { Text(stringResource(if (current.status == "resolved") R.string.support_reopen else R.string.support_close)) }
+                            if (replyDraftAvailable) Text(stringResource(R.string.support_draft_saved))
+                        }
                         if (hasMoreMessages) TextButton(enabled = !busy, onClick = {
                             val cursor = messages.firstOrNull()?.sequence ?: return@TextButton
                             val selected = thread ?: return@TextButton
@@ -202,10 +329,13 @@ fun SupportScreen(
                             Text(stringResource(if (message.sender == "staff") R.string.support_staff else R.string.support_you),
                                 style = MaterialTheme.typography.labelMedium)
                             Text(message.body)
+                            if (message.created > 0) Text(DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+                                .format(Date(message.created)), style = MaterialTheme.typography.labelSmall)
                         }
                     }
                     item {
-                        OutlinedTextField(body, { body = it.take(4000) }, Modifier.fillMaxWidth(),
+                        if (!creating && recent?.status == "resolved") return@item
+                        OutlinedTextField(body, { body = it.take(4000); storeDraft() }, Modifier.fillMaxWidth(),
                             label = { Text(stringResource(R.string.support_message)) }, enabled = !busy, minLines = 3)
                         val orderValid = order.isBlank() || order.matches(Regex("[a-f0-9]{32}"))
                         Button(enabled = !busy && body.isNotBlank() && if (creating) subject.isNotBlank() && orderValid else recent != null,
@@ -214,13 +344,18 @@ fun SupportScreen(
                                 scope.launch {
                                     try { attempt {
                                         if (creating) {
-                                            thread = repository.create(SupportRequest(key, subject.trim(), body.trim(), category,
+                                            val created = repository.create(SupportRequest(key, subject.trim(), body.trim(), category,
                                                 order.ifBlank { null }, diagnostic.takeIf { attach }))
+                                            repository.saveDraft("new", null)
+                                            thread = created
                                             creating = false
                                             recent = null
                                         } else {
-                                            repository.reply(checkNotNull(thread), key, body.trim())
+                                            val selected = checkNotNull(thread)
+                                            repository.reply(selected, key, body.trim())
+                                            repository.saveDraft(selected, null)
                                         }
+                                        replyDraftAvailable = false
                                         resetComposer()
                                         refresh++
                                     } } finally { busy = false }
@@ -231,6 +366,22 @@ fun SupportScreen(
             }
         }
     }
+    if (confirmClose) AlertDialog(
+        onDismissRequest = { confirmClose = false },
+        title = { Text(stringResource(R.string.support_close)) },
+        text = { Text(stringResource(R.string.support_close_body)) },
+        dismissButton = { TextButton(onClick = { confirmClose = false }) { Text(stringResource(R.string.action_cancel)) } },
+        confirmButton = { TextButton(onClick = {
+            confirmClose = false
+            val selected = thread ?: return@TextButton
+            busy = true
+            scope.launch {
+                try { attempt { repository.changeStatus(selected, "resolved"); refresh++ } }
+                finally { busy = false }
+            }
+        }) { Text(stringResource(R.string.support_close)) } }
+    )
+
 }
 
 private fun statusLabel(status: String) = when (status) {

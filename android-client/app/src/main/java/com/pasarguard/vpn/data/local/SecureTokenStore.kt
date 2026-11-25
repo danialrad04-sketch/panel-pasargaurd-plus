@@ -87,8 +87,19 @@ class SecureTokenStore @Inject constructor(
 
     fun customerToken(): String? = prefs.getString("customer_token", null)
 
+    fun supportDraft(id: String): String? = if (customerToken() != null)
+        prefs.getString("support_draft:$id", null) else null
+
+    fun saveSupportDraft(id: String, value: String?) {
+        if (customerToken() != null) prefs.edit().putString("support_draft:$id", value).apply()
+    }
+
     fun saveCustomerToken(token: String?) {
-        prefs.edit().putString("customer_token", token).apply()
+        val editor = prefs.edit().putString("customer_token", token)
+        if (token != customerToken()) {
+            prefs.all.keys.filter { it.startsWith("support_draft:") }.forEach { editor.remove(it) }
+        }
+        editor.apply()
         customerSessionVersion.update { it + 1 }
     }
 

@@ -32,6 +32,16 @@ def initialize(db):
         thread_id TEXT PRIMARY KEY REFERENCES support_threads(id), sequence INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS support_threads_customer ON support_threads(customer, updated);
+    CREATE TABLE IF NOT EXISTS support_triage (
+        thread_id TEXT PRIMARY KEY REFERENCES support_threads(id),
+        team TEXT NOT NULL, priority TEXT NOT NULL, revision INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS support_notes (
+        id INTEGER PRIMARY KEY, thread_id TEXT NOT NULL REFERENCES support_threads(id),
+        request_id TEXT NOT NULL, body TEXT NOT NULL, created INTEGER NOT NULL,
+        UNIQUE(thread_id, request_id)
+    );
+    CREATE INDEX IF NOT EXISTS support_messages_thread ON support_messages(thread_id,sequence);
     CREATE TABLE IF NOT EXISTS service_incidents (
         id TEXT PRIMARY KEY, title TEXT NOT NULL, body TEXT NOT NULL, guidance TEXT NOT NULL,
         scope TEXT NOT NULL, server_ids TEXT NOT NULL, status TEXT NOT NULL,
@@ -80,6 +90,16 @@ class NewThread(Message):
 
 class StatusChange(BaseModel):
     status: str = Field(pattern=r"^(waiting|investigating|resolved)$")
+
+
+class TriageChange(BaseModel):
+    team: str = Field(pattern=r"^(unassigned|technical|billing|general)$")
+    priority: str = Field(pattern=r"^(normal|urgent)$")
+    expected_revision: int = Field(ge=0)
+
+
+class CustomerStatus(BaseModel):
+    status: str = Field(pattern=r"^(waiting|resolved)$")
 
 
 class ReadThrough(BaseModel):
@@ -135,15 +155,31 @@ class Operations:
         return row
 
     @staticmethod
-    def list_threads(db, customer, limit, offset):
+    def list_threads(db, customer, limit, offset, query="", status="", team=""):
+        if status not in ("", "waiting", "investigating", "resolved"):
+            raise HTTPException(422, "INVALID_SUPPORT_STATUS")
+        if team not in ("", "unassigned", "technical", "billing", "general"):
+            raise HTTPException(422, "INVALID_SUPPORT_TEAM")
+        query = query.strip()
+        where = """
+            FROM support_threads t JOIN customer_accounts a ON a.id=t.customer
+            LEFT JOIN support_triage triage ON triage.thread_id=t.id
+            WHERE (? IS NULL OR t.customer=?) AND (?='' OR t.status=?)
+              AND (?='' OR COALESCE(triage.team,'unassigned')=?)
+              AND (?='' OR instr(lower(t.subject),lower(?))>0 OR instr(t.id,?)>0 OR instr(t.order_id,?)>0
+                   OR (? IS NULL AND instr(lower(a.email),lower(?))>0))
+        """
+        params = (customer, customer, status, status, team, team,
+                  query, query, query, query, customer, query)
+        staff_fields = (", COALESCE(triage.team,'unassigned') AS team, "
+                        "COALESCE(triage.priority,'normal') AS priority, a.email AS customer_email") if customer is None else ""
         rows = db.execute("""
             SELECT t.id, t.subject, t.category, t.status, t.order_id, t.updated,
                 (SELECT count(*) FROM support_messages m WHERE m.thread_id=t.id AND m.sender='staff'
-                    AND m.sequence>COALESCE(r.sequence, 0)) AS unread
-            FROM support_threads t LEFT JOIN support_reads r ON r.thread_id=t.id
-            WHERE (? IS NULL OR t.customer=?) ORDER BY t.updated DESC, t.id DESC LIMIT ? OFFSET ?
-        """, (customer, customer, limit, offset))
-        return [dict(row) for row in rows]
+                    AND m.sequence>COALESCE((SELECT sequence FROM support_reads WHERE thread_id=t.id),0)) AS unread
+            """ + staff_fields + where + " ORDER BY t.updated DESC, t.id DESC LIMIT ? OFFSET ?",
+            (*params, limit, offset))
+        return [dict(row) for row in rows], db.execute("SELECT count(*) " + where, params).fetchone()[0]
 
     @staticmethod
     def messages(db, thread_id, before, limit):
@@ -154,10 +190,11 @@ class Operations:
             row["diagnostic"] = json.loads(row["diagnostic"]) if row["diagnostic"] else None
         return result[::-1]
 
-    def customer_list(self, request: Request, limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0)):
+    def customer_list(self, request: Request, limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0),
+                      q: str = Query("", max_length=120), status: str = ""):
         customer = self.customers.require(request)
         with self.transaction(write=False) as db:
-            return self.list_threads(db, customer["id"], limit, offset)
+            return self.list_threads(db, customer["id"], limit, offset, q, status)[0]
 
     def create(self, request: Request, body: NewThread):
         self.customers.protect(request)
@@ -228,15 +265,61 @@ class Operations:
                     (thread_id, row["sequence"], current, thread["customer"], current, current - 30*86400000))
         return {"ok": True}
 
-    def staff_list(self, limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0)):
+    def customer_status(self, request: Request, thread_id: str, body: CustomerStatus):
+        self.customers.protect(request)
+        customer = self.customers.require(request)["id"]
+        with self.transaction() as db:
+            row = self.thread(db, thread_id, customer)
+            if row["status"] == body.status:
+                return {"ok": True}
+            if body.status == "waiting" and row["status"] != "resolved":
+                raise HTTPException(409, "SUPPORT_ALREADY_OPEN")
+            db.execute("UPDATE support_threads SET status=?, updated=? WHERE id=?", (body.status, self.now(), thread_id))
+        return {"ok": True}
+
+    def staff_list(self, limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0),
+                   q: str = Query("", max_length=120), status: str = "", team: str = "", paginated: bool = False):
         with self.transaction(write=False) as db:
-            return self.list_threads(db, None, limit, offset)
+            items, total = self.list_threads(db, None, limit, offset, q, status, team)
+        return {"items": items, "total": total} if paginated else items
 
     def staff_detail(self, thread_id: str, before: int = Query(2**63-1, ge=1, le=2**63-1)):
         with self.transaction(write=False) as db:
             row = self.thread(db, thread_id)
+            triage = db.execute("SELECT team,priority,revision FROM support_triage WHERE thread_id=?", (thread_id,)).fetchone()
+            notes = db.execute("SELECT id,body,created FROM support_notes WHERE thread_id=? ORDER BY id DESC LIMIT 50", (thread_id,))
+            author = db.execute("SELECT email FROM customer_accounts WHERE id=?", (row["customer"],)).fetchone()
+            messages = self.messages(db, thread_id, before, 51)
             return {"subject": row["subject"], "status": row["status"], "order_id": row["order_id"],
-                    "messages": self.messages(db, thread_id, before, 50)}
+                    "category": row["category"], "customer_email": author["email"],
+                    "triage": dict(triage) if triage else {"team": "unassigned", "priority": "normal", "revision": 0},
+                    "notes": [dict(note) for note in notes], "messages": messages[-50:], "has_more": len(messages)>50}
+
+    def staff_triage(self, request: Request, thread_id: str, body: TriageChange):
+        self.verify_origin(request)
+        with self.transaction() as db:
+            self.thread(db, thread_id)
+            prior = db.execute("SELECT revision FROM support_triage WHERE thread_id=?", (thread_id,)).fetchone()
+            revision = prior["revision"] if prior else 0
+            if revision != body.expected_revision:
+                raise HTTPException(409, "SUPPORT_TRIAGE_CHANGED")
+            db.execute("""INSERT INTO support_triage VALUES (?,?,?,?)
+                ON CONFLICT(thread_id) DO UPDATE SET team=excluded.team,
+                priority=excluded.priority, revision=excluded.revision""",
+                (thread_id, body.team, body.priority, revision + 1))
+            self.audit(db, "SUPPORT_TRIAGE", self.now())
+        return {"revision": revision + 1}
+
+    def staff_note(self, request: Request, thread_id: str, body: Message):
+        self.verify_origin(request)
+        with self.transaction() as db:
+            self.thread(db, thread_id)
+            current = self.now()
+            added = db.execute("""INSERT INTO support_notes(thread_id,request_id,body,created) VALUES (?,?,?,?)
+                ON CONFLICT(thread_id,request_id) DO NOTHING""", (thread_id, str(body.request_id), body.body, current))
+            if added.rowcount:
+                self.audit(db, "SUPPORT_NOTE", current)
+        return {"ok": True}
 
     def staff_status(self, request: Request, thread_id: str, body: StatusChange):
         self.verify_origin(request)
@@ -309,15 +392,18 @@ class Operations:
             raise HTTPException(422)
         with self.transaction(write=False) as db:
             query = """
-                 SELECT 'receipt' AS kind, id, created, status, amount, NULL AS subject FROM orders WHERE status='PENDING_REVIEW'
-                 UNION ALL SELECT 'deposit', digest, received, 'UNMATCHED', amount, NULL FROM deposits WHERE order_id IS NULL
-                 UNION ALL SELECT 'activation', o.id, o.created, 'PENDING', o.amount, NULL
+                 SELECT 'receipt' AS kind, id, created, status, amount, NULL AS subject, 0 AS urgent, NULL AS team FROM orders WHERE status='PENDING_REVIEW'
+                 UNION ALL SELECT 'deposit', digest, received, 'UNMATCHED', amount, NULL, 0, NULL FROM deposits WHERE order_id IS NULL
+                 UNION ALL SELECT 'activation', o.id, o.created, 'PENDING', o.amount, NULL, 0, NULL
                    FROM orders o JOIN provisioning_jobs j ON j.order_id=o.id
                    WHERE o.status='APPROVED' AND j.ready=0
-                 UNION ALL SELECT 'support', id, updated, status, NULL, subject FROM support_threads WHERE status='waiting'
+                 UNION ALL SELECT 'support', t.id, t.updated, t.status, NULL, t.subject,
+                    COALESCE(triage.priority='urgent',0), COALESCE(triage.team,'unassigned')
+                   FROM support_threads t LEFT JOIN support_triage triage ON triage.thread_id=t.id
+                   WHERE t.status='waiting'
             """
             counts = {row["kind"]: row["count"] for row in db.execute("SELECT kind, COUNT(*) AS count FROM (" + query + ") GROUP BY kind")}
-            items = db.execute("SELECT * FROM (" + query + ") WHERE (?='' OR kind=?) ORDER BY created,kind,id LIMIT ? OFFSET ?",
+            items = db.execute("SELECT * FROM (" + query + ") WHERE (?='' OR kind=?) ORDER BY urgent DESC,created,kind,id LIMIT ? OFFSET ?",
                                (kind, kind, limit, offset))
             return {"counts": counts, "items": [dict(row) for row in items]}
 
@@ -349,7 +435,7 @@ class Operations:
             self.credentials.refresh(GoogleRequest())
         payload = json.dumps({"message": {"token": item["token"], "data": {
             "kind": item["kind"], "id": item["resource"], "revision": str(item["revision"]),
-        }}}).encode()
+        }, "android": {"priority": "HIGH", "ttl": "86400s"}}}).encode()
         request = HttpRequest(f"https://fcm.googleapis.com/v1/projects/{self.credentials.project_id}/messages:send",
                               data=payload, headers={"Content-Type": "application/json",
                               "Authorization": "Bearer " + self.credentials.token})
@@ -370,11 +456,12 @@ def mount(app, admin, operations):
     for router, prefix, routes in (
         (app, customer, (("", "GET", operations.customer_list), ("", "POST", operations.create),
             ("/{thread_id}", "GET", operations.detail), ("/{thread_id}/messages", "POST", operations.customer_reply),
-            ("/{thread_id}/read", "POST", operations.read))),
+            ("/{thread_id}/read", "POST", operations.read), ("/{thread_id}/status", "PUT", operations.customer_status))),
         (app, "/v1/service", (("/incidents", "GET", operations.incidents), ("/devices", "PUT", operations.register))),
         (admin, "/api/operations", (("", "GET", operations.queue), ("/support", "GET", operations.staff_list),
             ("/support/{thread_id}", "GET", operations.staff_detail), ("/support/{thread_id}/messages", "POST", operations.staff_reply),
-            ("/support/{thread_id}/status", "PUT", operations.staff_status), ("/incidents", "GET", operations.staff_incidents),
+            ("/support/{thread_id}/status", "PUT", operations.staff_status),
+            ("/support/{thread_id}/triage", "PUT", operations.staff_triage), ("/support/{thread_id}/notes", "POST", operations.staff_note), ("/incidents", "GET", operations.staff_incidents),
             ("/incidents/{incident_id}", "PUT", operations.save_incident))),
     ):
         for suffix, method, endpoint in routes:

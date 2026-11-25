@@ -584,4 +584,16 @@
     <string name="service_notifications">Support and service updates</string>
     <string name="service_notification">A service status update is available.</string>
     <string name="support_notification">You have a new support reply.</string>
+    <string name="support_resume_draft">Continue saved draft</string>
+    <string name="support_search">Search subject or order ID</string>
+    <string name="support_all_statuses">All statuses</string>
+    <string name="support_linked_order">Linked order · %1$s</string>
+    <string name="support_remove_order">Remove order attachment</string>
+    <string name="support_choose_order">Choose an order to attach</string>
+    <string name="support_no_orders">You have no orders</string>
+    <string name="support_order_choice">Order %1$s · %2$d toman</string>
+    <string name="support_reopen">Reopen conversation</string>
+    <string name="support_close">Mark as resolved</string>
+    <string name="support_close_body">You can reopen the conversation if you still need help.</string>
+    <string name="support_draft_saved">Your draft was restored.</string>
 </resources>

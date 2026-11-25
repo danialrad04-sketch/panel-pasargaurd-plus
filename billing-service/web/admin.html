@@ -136,7 +136,17 @@
             <div id="operations-list" class="table-area"></div>
             <div id="operations-pages" class="pagination"></div>
           </div>
-          <div class="panel"><h2>گفت‌وگوهای مشتریان</h2><div id="support-threads"></div></div>
+          <div class="panel">
+            <h2>گفت‌وگوهای مشتریان</h2>
+            <form id="support-filters" class="filters">
+              <label class="field">جست‌وجو<input id="support-query" maxlength="120" placeholder="موضوع، ایمیل یا شناسهٔ سفارش"></label>
+              <label class="field">وضعیت<select id="support-status"><option value="">همه</option><option value="waiting">منتظر پاسخ</option><option value="investigating">در حال بررسی</option><option value="resolved">حل‌شده</option></select></label>
+              <label class="field">تیم<select id="support-team"><option value="">همه</option><option value="unassigned">بدون مسئول</option><option value="technical">فنی</option><option value="billing">مالی</option><option value="general">پشتیبانی</option></select></label>
+              <button type="submit" class="button subtle">جست‌وجو</button>
+            </form>
+            <div id="support-threads" class="table-area"></div>
+            <div id="support-pages" class="pagination"></div>
+          </div>
           <div class="panel">
             <h2>اطلاعیه‌های سرویس</h2>
             <button id="new-incident" type="button" class="button primary">ثبت اطلاعیه</button>

@@ -46,6 +46,8 @@ import com.pasarguard.vpn.ui.screens.support.SupportScreen
 
 object Routes {
     const val SUPPORT = "support"
+    const val SUPPORT_THREAD = "support_thread/{threadId}"
+    fun supportThread(id: String) = "support_thread/$id"
     const val SUPPORT_CONTEXT = "support_context/{network}/{failure}"
     const val SUPPORT_ORDER = "support_order/{orderId}"
     const val SERVICE_STATUS = "service_status"
@@ -182,6 +184,12 @@ fun AppNavHost(
                 composable(Routes.SUPPORT) {
                     SupportScreen(onBack = { navController.popBackStack() },
                         onAccount = { navController.navigate(Routes.ACCOUNT) { launchSingleTop = true } })
+                }
+                composable(Routes.SUPPORT_THREAD) { entry ->
+                    val id = entry.arguments?.getString("threadId")?.takeIf { it.matches(Regex("[a-f0-9]{32}")) }
+                    SupportScreen(onBack = { navController.popBackStack() },
+                        onAccount = { navController.navigate(Routes.ACCOUNT) { launchSingleTop = true } },
+                        initialThread = id)
                 }
                 composable(Routes.SUPPORT_CONTEXT) { entry ->
                     val network = entry.arguments?.getString("network")?.takeIf {

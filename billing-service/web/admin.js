@@ -14,7 +14,7 @@ const statusLabels = {
 };
 const decisionLabels = { ADMIN_MATCHED: "تطبیق دستی واریز و تأیید پرداخت", ADMIN_EXPEDITED: "تسریع فعال‌سازی توسط مدیر", ADMIN_CANCEL: "لغو سفارش پرداخت‌نشده توسط مدیر", SMS_APPROVED: "تأیید خودکار با پیامک بانک", ADMIN_APPROVED: "تأیید دستی مدیر", ADMIN_REJECTED: "رد دستی مدیر" };
 const activityLabels = {
-  ...decisionLabels, SUPPORT_REPLY: "پاسخ پشتیبان", SUPPORT_STATUS: "تغییر وضعیت گفت‌وگو", SERVICE_INCIDENT: "انتشار اطلاعیه", LOGIN: "ورود به پنل", LOGOUT: "خروج از پنل",
+  ...decisionLabels, SUPPORT_REPLY: "پاسخ پشتیبان", SUPPORT_TRIAGE: "ارجاع و اولویت گفت‌وگو", SUPPORT_NOTE: "یادداشت داخلی", SUPPORT_STATUS: "تغییر وضعیت گفت‌وگو", SERVICE_INCIDENT: "انتشار اطلاعیه", LOGIN: "ورود به پنل", LOGOUT: "خروج از پنل",
   RELEASE_UPDATED: "تغییر نسخهٔ برنامه", WALLET_PAID: "پرداخت از کیف پول", CUSTOMER_CANCELLED: "لغو اشتراک و ثبت اعتبار کیف پول", CATALOG_UPDATED: "تغییر پلن فروش", CARD_UPDATED: "تغییر کارت مقصد", PROVISIONING_UPDATED: "تغییر تنظیمات ساخت اشتراک",
 };
 const date = (value) => value ? fullDate.format(value) : "—";
@@ -552,6 +552,11 @@ async function saveProvisionRequest(path, data) {
 
 const operationKinds = {receipt: "رسید بررسی‌نشده", deposit: "واریز بدون تطبیق", activation: "فعال‌سازی معطل", support: "منتظر پاسخ"};
 const supportStatuses = {waiting: "منتظر پاسخ", investigating: "در حال بررسی", resolved: "حل‌شده"};
+const supportTeams = {unassigned: "بدون مسئول", technical: "فنی", billing: "مالی", general: "پشتیبانی"};
+const supportPriorities = {normal: "عادی", urgent: "فوری"};
+const supportCategories = {connection: "اتصال", payment: "پرداخت", subscription: "اشتراک", other: "سایر"};
+const supportDrafts = new Map();
+let supportPage = 1;
 const incidentScopes = {connection: "اتصال", payment: "پرداخت", update: "به‌روزرسانی"};
 let operationPage = 1;
 let incidentEditing;
@@ -560,9 +565,11 @@ let supportVersion = 0;
 async function operationsPage(signal) {
   const kind = get("operations-kind").value;
   const offset = (operationPage - 1) * 50;
+  const threadQuery = new URLSearchParams({paginated: true, limit: 25, offset: (supportPage - 1) * 25,
+    q: get("support-query").value, status: get("support-status").value, team: get("support-team").value});
   const [queue, threads, incidents] = await Promise.all([
     request("/api/operations?" + new URLSearchParams({kind, offset}), {signal}),
-    request("/api/operations/support", {signal}),
+    request("/api/operations/support?" + threadQuery, {signal}),
     request("/api/operations/incidents", {signal}),
   ]);
   if (signal.aborted) return;
@@ -571,7 +578,7 @@ async function operationsPage(signal) {
   const total = kind ? queue.counts[kind] || 0 : Object.values(queue.counts).reduce((sum, count) => sum + count, 0);
   table(get("operations-list"), [["نوع"], ["شناسه یا موضوع"], ["زمان انتظار"], ["اقدام"]], queue.items.map(item => [
     operationKinds[item.kind],
-    item.subject || item.id,
+    item.subject ? [item.urgent ? "فوری" : "", supportTeams[item.team], item.subject].filter(Boolean).join(" · ") : item.id,
     fa.format(Math.max(0, Math.floor((Date.now() - item.created) / 60000))) + " دقیقه",
     button("بررسی", () => {
       if (item.kind === "support") showSupport(item.id);
@@ -580,9 +587,15 @@ async function operationsPage(signal) {
     }),
   ]), "موردی در این صف نیست.");
   pages(get("operations-pages"), total, 50, operationPage, page => { operationPage = page; load(); });
-  get("support-threads").replaceChildren(...threads.map(thread =>
-    button(thread.subject + " · " + supportStatuses[thread.status], () => showSupport(thread.id))
-  ));
+  table(get("support-threads"), [["موضوع و کاربر"], ["وضعیت"], ["تیم و اولویت"], ["آخرین تغییر"], ["اقدام"]],
+    threads.items.map(thread => [
+      thread.subject + " · " + thread.customer_email,
+      supportStatuses[thread.status],
+      supportTeams[thread.team] + " · " + supportPriorities[thread.priority],
+      date(thread.updated),
+      button("باز کردن گفت‌وگو", () => showSupport(thread.id)),
+    ]), "گفت‌وگویی با این فیلتر پیدا نشد.");
+  pages(get("support-pages"), threads.total, 25, supportPage, page => { supportPage = page; load(); });
   get("incidents-list").replaceChildren(...incidents.map(incident =>
     button(incident.title + " · " + incidentScopes[incident.scope] + " · " +
       (incident.status === "resolved" ? "رفع‌شده" : "در حال بررسی"), () => editIncident(incident))
@@ -608,38 +621,98 @@ async function showSupport(id) {
       status.append(option);
     }
     status.value = thread.status;
+    let savedStatus = thread.status;
     const notice = node("p", "", "notice");
     notice.hidden = true;
     const report = error => setNotice(error.message, true, notice);
     status.onchange = async () => {
       status.disabled = true;
-      try { await operationWrite(path + "/status", "PUT", {status:status.value}); load(); }
-      catch (error) { status.value = thread.status; report(error); }
+      try { await operationWrite(path + "/status", "PUT", {status:status.value}); savedStatus = status.value; load(); }
+      catch (error) { status.value = savedStatus; report(error); }
       finally { status.disabled = false; }
     };
-    const threadMessages = thread.messages.map(message => {
-      const messageRow = node("article", null, "panel");
-      messageRow.append(node("strong", (message.sender === "staff" ? "پشتیبان" : "کاربر") + " · " + date(message.created)),
-        node("p", message.body));
-      if (message.diagnostic) messageRow.append(node("p", Object.values(message.diagnostic).join(" · ")));
-      return messageRow;
-    });
-    const reply = node("textarea");
-    reply.maxLength = 4000;
-    reply.placeholder = "متن پاسخ پشتیبان";
-    reply.setAttribute("aria-label", "پاسخ پشتیبان");
-    const requestId = crypto.randomUUID();
-    const send = button("ارسال پاسخ", async () => {
-      if (!reply.value.trim() || send.disabled) return;
-      reply.disabled = send.disabled = true;
+    const triage = node("div", null, "filters");
+    const select = (label, options, value) => {
+      const field = node("label", label, "field");
+      const input = node("select");
+      for (const [key, text] of Object.entries(options)) {
+        const option = node("option", text);
+        option.value = key;
+        input.append(option);
+      }
+      input.value = value;
+      field.append(input);
+      return [field, input];
+    };
+    const [teamField, team] = select("تیم رسیدگی", supportTeams, thread.triage.team);
+    const [priorityField, priority] = select("اولویت", supportPriorities, thread.triage.priority);
+    const saveTriage = button("ذخیرهٔ ارجاع و اولویت", async () => {
+      saveTriage.disabled = team.disabled = priority.disabled = true;
       try {
-        await operationWrite(path + "/messages", "POST", {request_id: requestId, body: reply.value.trim()});
-        if (version === supportVersion && dialog.open) await showSupport(id);
-        if (active === "operations") load();
+        const result = await operationWrite(path + "/triage", "PUT", {
+          team: team.value, priority: priority.value, expected_revision: thread.triage.revision,
+        });
+        thread.triage.revision = result.revision;
+        setNotice("ارجاع و اولویت ذخیره شد.", false, notice);
+        load();
       } catch (error) { report(error); }
-      finally { reply.disabled = send.disabled = false; }
-    }, "primary");
-    const contentRows = [status, ...threadMessages, reply, send, notice];
+      finally { saveTriage.disabled = team.disabled = priority.disabled = false; }
+    });
+    triage.append(teamField, priorityField, saveTriage);
+    const transcript = node("div", null, "switcher");
+    const renderMessage = message => {
+      const row = node("article", null, "panel");
+      row.append(node("strong", (message.sender === "staff" ? "پشتیبان" : "کاربر") + " · " + date(message.created)),
+        node("p", message.body));
+      if (message.diagnostic) row.append(node("p", Object.values(message.diagnostic).join(" · ")));
+      return row;
+    };
+    transcript.append(...thread.messages.map(renderMessage));
+    let cursor = thread.messages[0]?.sequence;
+    const older = button("پیام‌های قدیمی‌تر", async () => {
+      older.disabled = true;
+      try {
+        const page = await request(path + "?" + new URLSearchParams({before:cursor}));
+        transcript.prepend(...page.messages.map(renderMessage));
+        cursor = page.messages[0]?.sequence ?? cursor;
+        older.hidden = !page.has_more;
+      } catch (error) { report(error); }
+      finally { older.disabled = false; }
+    });
+    older.hidden = !thread.has_more;
+    const makeComposer = (kind, label, action) => {
+      const input = node("textarea");
+      input.maxLength = 4000;
+      input.placeholder = label;
+      input.setAttribute("aria-label", label);
+      const draftKey = id + ":" + kind;
+      let draft = supportDrafts.get(draftKey) ?? {request_id: crypto.randomUUID(), body: ""};
+      input.value = draft.body;
+      input.oninput = () => {
+        draft = {...draft, body: input.value};
+        supportDrafts.set(draftKey, draft);
+      };
+      const send = button(action, async () => {
+        if (!input.value.trim() || send.disabled) return;
+        input.disabled = send.disabled = true;
+        try {
+          await operationWrite(path + "/" + kind, "POST", {...draft, body: input.value.trim()});
+          supportDrafts.delete(draftKey);
+          if (version === supportVersion && dialog.open) await showSupport(id);
+          if (active === "operations") load();
+        } catch (error) { report(error); }
+        finally { input.disabled = send.disabled = false; }
+      }, kind === "messages" ? "primary" : "subtle");
+      return [input, send];
+    };
+    const notes = node("details");
+    notes.append(node("summary", "یادداشت‌های داخلی تیم"));
+    for (const note of thread.notes) notes.append(node("p", date(note.created) + " · " + note.body));
+    notes.append(...makeComposer("notes", "متن یادداشت داخلی", "ثبت یادداشت داخلی"));
+    const statusField = node("label", "وضعیت گفت‌وگو", "field");
+    statusField.append(status);
+    const contentRows = [node("p", thread.customer_email + " · " + supportCategories[thread.category]),
+      statusField, triage, older, transcript, ...makeComposer("messages", "پاسخ پشتیبان", "ارسال پاسخ"), notes, notice];
     if (thread.order_id) contentRows.unshift(button("باز کردن سفارش", () => { dialog.close(); showOrder(thread.order_id); }));
     content.replaceChildren(...contentRows);
   } catch (error) {
@@ -663,6 +736,8 @@ function editIncident(incident = null) {
   get("incident-dialog").showModal();
 }
 
+get("support-filters").addEventListener("submit", event => { event.preventDefault(); supportPage = 1; load(); });
+for (const id of ["support-status", "support-team"]) get(id).addEventListener("change", () => { supportPage = 1; load(); });
 get("operations-kind").addEventListener("change", () => { operationPage = 1; load(); });
 get("new-incident").addEventListener("click", () => editIncident());
 get("incident-form").addEventListener("submit", async event => {

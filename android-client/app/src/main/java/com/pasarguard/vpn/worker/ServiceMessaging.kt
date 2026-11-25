@@ -48,7 +48,7 @@ class ServiceMessaging : FirebaseMessagingService() {
         val id = message.data["id"]?.takeIf { it.matches(Regex("[a-f0-9]{32}")) } ?: return
         val revision = message.data["revision"]?.toLongOrNull()?.takeIf { it > 0 } ?: return
         val route = when (kind) {
-            "support" -> if (repository.signedIn()) Routes.SUPPORT else return
+            "support" -> if (repository.signedIn()) Routes.supportThread(id) else return
             "incident" -> Routes.SERVICE_STATUS
             else -> return
         }

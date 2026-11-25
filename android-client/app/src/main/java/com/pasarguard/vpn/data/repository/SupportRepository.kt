@@ -1,6 +1,7 @@
 package com.pasarguard.vpn.data.repository
 
 import android.content.Context
+import android.net.Uri
 import com.pasarguard.vpn.BuildConfig
 import com.pasarguard.vpn.data.local.SecureTokenStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -19,9 +20,20 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-@Serializable data class SupportSummary(val id: String, val subject: String, val status: String, val unread: Int)
-@Serializable data class SupportDetail(val id: String, val subject: String, val status: String, val messages: List<SupportMessage>)
-@Serializable data class SupportMessage(val sequence: Long, val sender: String, val body: String)
+@Serializable data class SupportSummary(val id: String, val subject: String, val status: String, val unread: Int, val updated: Long = 0)
+@Serializable data class SupportDetail(val id: String, val subject: String, val status: String, val messages: List<SupportMessage>, val order_id: String? = null)
+@Serializable data class SupportMessage(val sequence: Long, val sender: String, val body: String, val created: Long = 0)
+@Serializable data class SupportDraft(
+    val body: String = "",
+    val requestId: String = UUID.randomUUID().toString(),
+    val subject: String = "",
+    val orderId: String = "",
+    val category: String = "connection",
+    val attach: Boolean = false
+)
+@Serializable data class SupportOrder(val id: String, val final_price_toman: Long, val status: String)
+@Serializable private data class SupportOrders(val orders: List<SupportOrder>)
+@Serializable private data class SupportStateChange(val status: String)
 @Serializable data class SupportDiagnostic(val network: String, val failure: String, val version: String = BuildConfig.VERSION_NAME)
 @Serializable data class SupportRequest(
     val request_id: String,
@@ -60,7 +72,22 @@ class SupportRepository @Inject constructor(
     val accountChanges get() = tokens.customerSessionChanges
     fun signedIn() = tokens.customerToken() != null
 
-    suspend fun threads(offset: Int = 0): List<SupportSummary> = json.decodeFromString(call("/v1/customer/support?offset=$offset", authenticated = true))
+    suspend fun threads(offset: Int = 0, query: String = "", status: String = ""): List<SupportSummary> =
+        json.decodeFromString(call("/v1/customer/support?offset=$offset&q=${Uri.encode(query)}&status=$status", authenticated = true))
+
+    suspend fun orders(): List<SupportOrder> =
+        json.decodeFromString<SupportOrders>(call("/v1/billing/orders?limit=50", authenticated = true)).orders
+
+    suspend fun changeStatus(id: String, status: String) {
+        call("/v1/customer/support/$id/status", json.encodeToString(SupportStateChange(status)), authenticated = true, method = "PUT")
+    }
+
+    fun loadDraft(id: String): SupportDraft? = tokens.supportDraft(id)?.let {
+        runCatching { json.decodeFromString<SupportDraft>(it) }.getOrNull()
+    }
+
+    fun saveDraft(id: String, value: SupportDraft?) =
+        tokens.saveSupportDraft(id, value?.let { json.encodeToString(it) })
     suspend fun detail(id: String, before: Long = Long.MAX_VALUE): SupportDetail =
         json.decodeFromString(call("/v1/customer/support/$id?before=$before", authenticated = true))
     suspend fun create(body: SupportRequest): String =

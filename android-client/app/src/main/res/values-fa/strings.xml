@@ -584,4 +584,16 @@
     <string name="service_notifications">پشتیبانی و اطلاعیه‌های سرویس</string>
     <string name="service_notification">وضعیت سرویس به‌روز شد.</string>
     <string name="support_notification">پاسخ تازه‌ای از پشتیبانی دارید.</string>
+    <string name="support_resume_draft">ادامهٔ پیش‌نویس</string>
+    <string name="support_search">جست‌وجوی موضوع یا سفارش</string>
+    <string name="support_all_statuses">همهٔ وضعیت‌ها</string>
+    <string name="support_linked_order">سفارش پیوست‌شده · %1$s</string>
+    <string name="support_remove_order">برداشتن سفارش</string>
+    <string name="support_choose_order">انتخاب سفارش برای پیوست</string>
+    <string name="support_no_orders">هنوز سفارشی ندارید</string>
+    <string name="support_order_choice">سفارش %1$s · %2$d تومان</string>
+    <string name="support_reopen">بازگشایی گفت‌وگو</string>
+    <string name="support_close">بستن گفت‌وگو</string>
+    <string name="support_close_body">اگر دوباره به کمک نیاز داشتید، می‌توانید همین گفت‌وگو را باز کنید.</string>
+    <string name="support_draft_saved">پیش‌نویس شما بازیابی شد.</string>
 </resources>
