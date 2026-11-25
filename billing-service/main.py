@@ -208,6 +208,7 @@ def initialize():
             id TEXT PRIMARY KEY, config TEXT NOT NULL
         )""")
         operations.initialize(db)
+        repair_uploaded_release_version(db)
 
 
 def key_cipher():
@@ -1575,6 +1576,43 @@ def checked_release_url(value):
     raise HTTPException(422, "HTTPS_RELEASE_URL_REQUIRED")
 
 
+def stored_apk_metadata(url, sha256):
+    parts = urlsplit(url)
+    own = urlsplit(setting("BILLING_PUBLIC_URL"))
+    if parts.netloc != own.netloc or not parts.path.startswith("/downloads/"):
+        return None
+    file_name = parts.path.removeprefix("/downloads/")
+    if file_name != sha256 + ".apk" or not re.fullmatch(r"[a-f0-9]{64}[.]apk", file_name):
+        raise ValueError("APK URL and checksum differ")
+    return apk_metadata.inspect_apk(apk_directory() / file_name)
+
+
+def repair_uploaded_release_version(db):
+    """Correct pre-validation metadata without switching packages or changing visibility."""
+    row = db.execute("SELECT config FROM app_releases WHERE platform='android'").fetchone()
+    if not row:
+        return
+    try:
+        release = AppReleaseUpdate.model_validate_json(row["config"])
+        metadata = [stored_apk_metadata(asset.download_url, asset.sha256) for asset in release.assets]
+    except (ValueError, OSError):
+        return
+    if not metadata or any(
+        info is None or info["package_name"] != release.package_name or info["abi"] != asset.abi
+        for asset, info in zip(release.assets, metadata, strict=True)
+    ):
+        return
+    versions = {(info["latest_version"], info["latest_version_code"]) for info in metadata}
+    if len(versions) != 1:
+        return
+    version, build = versions.pop()
+    if (release.latest_version, release.latest_version_code) == (version, build):
+        return
+    corrected = release.model_copy(update={"latest_version": version, "latest_version_code": build})
+    db.execute("UPDATE app_releases SET config=? WHERE platform='android'", (corrected.model_dump_json(),))
+    log_admin_activity(db, "RELEASE_UPDATED", now())
+
+
 @admin.get("/api/releases")
 def admin_app_releases():
     with transaction(write=False) as db:
@@ -1590,19 +1628,14 @@ def admin_update_release(platform: Literal["android", "ios"], body: AppReleaseUp
         for asset in body.assets:
             if not checked_release_url(asset.download_url).path.lower().endswith(".apk"):
                 raise HTTPException(422, "ANDROID_APK_REQUIRED")
-            parts = urlsplit(asset.download_url)
-            own = urlsplit(setting("BILLING_PUBLIC_URL"))
-            if parts.netloc == own.netloc and parts.path.startswith("/downloads/"):
-                file_name = parts.path.removeprefix("/downloads/")
-                if file_name != asset.sha256 + ".apk":
-                    raise HTTPException(422, "APK_METADATA_MISMATCH")
-                try:
-                    metadata = apk_metadata.inspect_apk(apk_directory() / file_name)
-                except (OSError, ValueError):
-                    raise HTTPException(422, "INVALID_APK") from None
-                if (metadata["package_name"] != body.package_name or metadata["latest_version"] != body.latest_version
-                        or metadata["latest_version_code"] != body.latest_version_code or metadata["abi"] != asset.abi):
-                    raise HTTPException(422, "APK_METADATA_MISMATCH")
+            try:
+                metadata = stored_apk_metadata(asset.download_url, asset.sha256)
+            except (OSError, ValueError):
+                raise HTTPException(422, "INVALID_APK") from None
+            if metadata and (metadata["package_name"] != body.package_name
+                    or metadata["latest_version"] != body.latest_version
+                    or metadata["latest_version_code"] != body.latest_version_code or metadata["abi"] != asset.abi):
+                raise HTTPException(422, "APK_METADATA_MISMATCH")
     else:
         if body.assets or (body.visible and not body.store_url):
             raise HTTPException(422, "APPLE_STORE_REQUIRED")
